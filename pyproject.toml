@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "decman"
+version = "0.0.1"
+description = "Declarative package/configuration manager for Arch Linux"
+authors = [
+    {name = "Kivi Kaitaniemi"}
+]
+dependencies = [
+    "requests"
+]
+
+[project.scripts]
+decman = "decman.app:main"
