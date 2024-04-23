@@ -236,6 +236,64 @@ class ExtendedPackageSearch:
         """
         self._user_packages.append(user_pkg)
 
+    def ensure_packages_are_cached(self, packages: list[str]):
+        """
+        Ensures that the following packages are cached
+        and available with the get_package_info method.
+        """
+
+        l.print_debug(f"Ensuring that {packages} are cached.")
+
+        max_pkgs_per_request = 200
+
+        while packages:
+            to_request = map(lambda p: f"arg[]={p}",
+                             packages[:max_pkgs_per_request])
+            packages = packages[max_pkgs_per_request:]
+
+            url = f"https://aur.archlinux.org/rpc/v5/info?{'&'.join(to_request)}"
+            l.print_debug(f"Request URL = {url}")
+
+            try:
+                request = requests.get(url, timeout=conf.aur_rpc_timeout)
+                d = request.json()
+
+                if d["type"] == "error":
+                    raise l.UserFacingError(
+                        f"AUR RPC returned error: {d['error']}")
+
+                for result in d["results"]:
+                    pkgname = result["Name"]
+
+                    if pkgname in self._package_info_cache:
+                        continue
+
+                    for user_package in self._user_packages:
+                        if user_package.pkgname == pkgname:
+                            l.print_debug(
+                                f"'{pkgname}' found in user packages.")
+                            self._package_info_cache[pkgname] = user_package
+                            break
+                    else:  # if not in user_packages then:
+                        info = PackageInfo(
+                            pkgname=result["Name"],
+                            pkgbase=result["PackageBase"],
+                            version=result["Version"],
+                            dependencies=result.get("Depends", []),
+                            make_and_check_dependencies=result.get(
+                                "MakeDepends", []) +
+                            result.get("CheckDepends", []),
+                            provides=result.get("Provides", []),
+                            git_url=
+                            f"https://aur.archlinux.org/{result['PackageBase']}.git"
+                        )
+                        self._package_info_cache[pkgname] = info
+
+                l.print_debug("Request completed.")
+            except (requests.RequestException, KeyError) as e:
+                raise l.UserFacingError(
+                    "Failed to fetch package information from AUR RPC.") from e
+
     def get_package_info(self, package: str) -> typing.Optional[PackageInfo]:
         """
         Returns information about a package.
@@ -305,6 +363,7 @@ class ExtendedPackageSearch:
         exact_name_match = self.get_package_info(stripped_dependency)
 
         if exact_name_match is not None:
+            l.print_debug("Exact name match found.")
             self._dep_provider_cache[stripped_dependency] = exact_name_match
             return exact_name_match
 
@@ -495,6 +554,27 @@ class ForeignPackageManager:
         l.print_summary("Resolving AUR / user package dependencies.")
         l.print_debug(f"Packages: {foreign_packages}")
 
+        # Do batch info requests to ensure most foreign packages are cached.
+        # Note that some virtual dependencies may not be cached but they can be handled later.
+        ensure_in_cache = foreign_packages
+        already_seen = set()
+        while ensure_in_cache:
+            self._search.ensure_packages_are_cached(ensure_in_cache)
+            already_seen.update(ensure_in_cache)
+            new_ensure_in_cache = []
+            for cached_pkg in ensure_in_cache:
+                info = self._search.get_package_info(cached_pkg)
+                if info is None:
+                    raise l.UserFacingError(
+                        f"Failed to find '{cached_pkg}' from AUR or user provided packages."
+                    )
+                for foreign_dep in info.all_foreign_dependencies_stripped(
+                        self._pacman):
+                    if foreign_dep not in already_seen:
+                        new_ensure_in_cache.append(foreign_dep)
+
+            ensure_in_cache = new_ensure_in_cache
+
         # AUR packages are stored in this 2D list in the following format.
         #
         # Assume that aur_packages contains package A that should be explicitly installed.
@@ -530,10 +610,7 @@ class ForeignPackageManager:
             dep_tree_root.add_dependency_package(package, parents)
 
             info = self._search.get_package_info(package)
-            if info is None:
-                raise l.UserFacingError(
-                    f"Failed to find '{package}' from AUR or user provided packages."
-                )
+            assert info is not None
 
             pacman_deps.update(info.pacman_dependencies(self._pacman))
 

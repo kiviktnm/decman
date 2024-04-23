@@ -174,7 +174,7 @@ class Store:
     @staticmethod
     def restore() -> "Store":
         """
-        Reads a saved Store from a file.
+        Reads a saved Store from a file if it exists.
         """
         path = os.path.join(_STORE_SAVE_DIR, _STORE_SAVE_FILENAME)
 
@@ -182,6 +182,9 @@ class Store:
 
         try:
             store = Store()
+
+            if not os.path.exists(path):
+                return store
 
             with open(path, "rt", encoding="utf-8") as file:
                 d = json.load(file)
