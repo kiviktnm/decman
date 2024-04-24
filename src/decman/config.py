@@ -141,22 +141,39 @@ class Commands:
         """
         return ["less", file]
 
-    def make_chroot(self, chroot_root_dir: str,
-                    with_pkgs: list[str]) -> list[str]:
+    def make_chroot(self, chroot_dir: str, with_pkgs: list[str]) -> list[str]:
         """
         Running this command creates a new arch chroot to the chroot directory and installs the
         given packages there.
         """
-        return ["mkarchroot", chroot_root_dir] + with_pkgs
+        return ["mkarchroot", chroot_dir] + with_pkgs
 
-    def make_chroot_pkg(self, chroot_dir: str, user: str,
+    def install_chroot_packages(self, chroot_dir: str, packages: list[str]):
+        """
+        Running this command installs the given packages to the given chroot.
+        """
+        return [
+            "arch-nspawn", chroot_dir, "pacman", "-S", "--needed",
+            "--noconfirm"
+        ] + packages
+
+    def remove_chroot_packages(self, chroot_dir: str, packages: list[str]):
+        """
+        Running this command removes the given packages from the given chroot.
+        """
+        return ["arch-nspawn", chroot_dir, "pacman", "-Rsu", "--noconfirm"
+                ] + packages
+
+    def make_chroot_pkg(self, chroot_wd_dir: str, user: str,
                         pkgfiles_to_install: list[str]) -> list[str]:
         """
         Running this command creates a package file using the given chroot.
         The package is created as the user and the pkg_files_to_install are installed
         in the chroot before the package is created.
         """
-        makechrootpkg_cmd = ["makechrootpkg", "-r", chroot_dir, "-U", user]
+        makechrootpkg_cmd = [
+            "makechrootpkg", "-c", "-r", chroot_wd_dir, "-U", user
+        ]
 
         for pkgfile in pkgfiles_to_install:
             makechrootpkg_cmd += ["-I", pkgfile]

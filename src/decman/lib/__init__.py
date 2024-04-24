@@ -18,6 +18,13 @@ _GRAY_PREFIX = "\033[90m"
 _RESET_SUFFIX = "\033[m"
 
 
+def print_continuation(msg: str):
+    """
+    Prints a message without a prefix.
+    """
+    print(f"{_DECMAN_MSG_TAG}\t {msg}")
+
+
 def print_error(error_msg: str):
     """
     Prints an error message to the user.
@@ -218,6 +225,9 @@ class Pacman:
     Interface for interacting with pacman.
     """
 
+    def __init__(self):
+        self._installable = {}
+
     def get_installed(self) -> list[str]:
         """
         Returns a list of installed packages.
@@ -239,9 +249,14 @@ class Pacman:
         """
         Returns True if a dependency can be installed using pacman.
         """
-        return subprocess.run(conf.commands.is_installable(dep),
-                              check=False,
-                              capture_output=True).returncode == 0
+        if dep in self._installable:
+            return self._installable[dep]
+
+        result = subprocess.run(conf.commands.is_installable(dep),
+                                check=False,
+                                capture_output=True).returncode == 0
+        self._installable[dep] = result
+        return result
 
     def get_versioned_foreign_packages(self) -> list[tuple[str, str]]:
         """
@@ -295,7 +310,7 @@ class Pacman:
             subprocess.run(
                 conf.commands.set_as_explicitly_installed(as_explicit),
                 check=True,
-                capture_output=True)
+                capture_output=conf.quiet_output)
         except subprocess.CalledProcessError as error:
             raise UserFacingError(
                 "Failed to install foreign packages.") from error

@@ -8,8 +8,9 @@ from decman.lib.aur import ForeignPackageManager, DepGraph, ForeignPackage, Exte
 class TestAUR(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.aur = ForeignPackageManager(Store(), Pacman(),
-                                         ExtendedPackageSearch())
+        pacman = Pacman()
+        self.aur = ForeignPackageManager(Store(), pacman,
+                                         ExtendedPackageSearch(pacman))
 
     def test_should_upgrade_package_returns_true_on_newer_version(self):
         self.assertTrue(
@@ -59,6 +60,8 @@ class TestDepGraph(unittest.TestCase):
         graph = DepGraph()
 
         graph.add_requirement("A", None)
+        graph.add_requirement("V", None)
+
         graph.add_requirement("B1", "A")
         graph.add_requirement("B2", "A")
         graph.add_requirement("B3", "A")
@@ -70,6 +73,8 @@ class TestDepGraph(unittest.TestCase):
         graph.add_requirement("D", "C1")
 
         graph.add_requirement("C2", "D")
+
+        v = ForeignPackage("V")
 
         a = ForeignPackage("A")
         a.add_foreign_dependency_packages(["B1", "B2", "B3", "C1", "C2", "D"])
@@ -90,7 +95,8 @@ class TestDepGraph(unittest.TestCase):
         d = ForeignPackage("D")
         d.add_foreign_dependency_packages(["C2"])
 
-        self.assertCountEqual(graph.get_and_remove_outer_dep_pkgs(), [c2, b3])
+        self.assertCountEqual(graph.get_and_remove_outer_dep_pkgs(),
+                              [c2, b3, v])
         self.assertCountEqual(graph.get_and_remove_outer_dep_pkgs(), [d])
         self.assertCountEqual(graph.get_and_remove_outer_dep_pkgs(), [c1])
         self.assertCountEqual(graph.get_and_remove_outer_dep_pkgs(), [b1])
