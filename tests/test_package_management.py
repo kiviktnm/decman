@@ -2,7 +2,7 @@
 
 import unittest
 from decman.lib import UserFacingError, Pacman, Store
-from decman.lib.aur import ForeignPackageManager, DepTreeNode, ForeignPackage, ExtendedPackageSearch
+from decman.lib.aur import ForeignPackageManager, DepGraph, ForeignPackage, ExtendedPackageSearch
 
 
 class TestAUR(unittest.TestCase):
@@ -31,50 +31,69 @@ class TestAUR(unittest.TestCase):
                                             upgrade_devel=True))
 
 
-class TestDepTree(unittest.TestCase):
+class TestDepGraph(unittest.TestCase):
 
     def test_add_dependency(self):
-        root = DepTreeNode("", None)
+        graph = DepGraph()
 
-        root.add_dependency_package("A", [])
-        root.add_dependency_package("B", ["A"])
-        root.add_dependency_package("B1", ["A"])
-        root.add_dependency_package("C", ["B", "A"])
+        graph.add_requirement("A", None)
+        graph.add_requirement("B1", "A")
+        graph.add_requirement("B2", "A")
+        graph.add_requirement("C", "B1")
 
-        self.assertIn("A", root.children)
-        self.assertIn("B", root.children["A"].children)
-        self.assertIn("B1", root.children["A"].children)
-        self.assertIn("C", root.children["A"].children["B"].children)
+        self.assertIn("B1", graph.package_nodes["A"].children)
+        self.assertIn("B2", graph.package_nodes["A"].children)
+        self.assertIn("C", graph.package_nodes["B1"].children)
 
     def test_cyclic_dep_fails(self):
-        root = DepTreeNode("", None)
+        graph = DepGraph()
 
-        root.add_dependency_package("A", [])
-        root.add_dependency_package("B", ["A"])
+        graph.add_requirement("A", None)
+        graph.add_requirement("B", "A")
+        graph.add_requirement("C", "B")
 
         with self.assertRaises(UserFacingError):
-            root.add_dependency_package("A", ["B", "A"])
+            graph.add_requirement("A", "C")
 
     def test_get_and_remove_outer_deps(self):
-        root = DepTreeNode("", None)
+        graph = DepGraph()
 
-        root.add_dependency_package("A", [])
-        root.add_dependency_package("B", ["A"])
-        root.add_dependency_package("B1", ["A"])
-        root.add_dependency_package("C", ["B", "A"])
+        graph.add_requirement("A", None)
+        graph.add_requirement("B1", "A")
+        graph.add_requirement("B2", "A")
+        graph.add_requirement("B3", "A")
+
+        graph.add_requirement("B1", "B2")
+        graph.add_requirement("C1", "B1")
+        graph.add_requirement("C2", "B1")
+
+        graph.add_requirement("D", "C1")
+
+        graph.add_requirement("C2", "D")
 
         a = ForeignPackage("A")
-        a.add_foreign_dependency_packages(["B", "B1", "C"])
-        b = ForeignPackage("B")
-        b.add_foreign_dependency_packages(["C"])
+        a.add_foreign_dependency_packages(["B1", "B2", "B3", "C1", "C2", "D"])
+
         b1 = ForeignPackage("B1")
-        c = ForeignPackage("C")
+        b1.add_foreign_dependency_packages(["C1", "C2", "D"])
 
-        self.assertCountEqual(root.get_and_remove_outer_dep_pkgs(), [c, b1])
-        self.assertCountEqual(root.get_and_remove_outer_dep_pkgs(), [b])
-        self.assertCountEqual(root.get_and_remove_outer_dep_pkgs(), [a])
+        b2 = ForeignPackage("B2")
+        b2.add_foreign_dependency_packages(["B1", "C1", "C2", "D"])
 
-        last = root.get_and_remove_outer_dep_pkgs()
+        b3 = ForeignPackage("B3")
 
-        self.assertEqual(len(last), 1)
-        self.assertEqual(last.pop().name, "")
+        c1 = ForeignPackage("C1")
+        c1.add_foreign_dependency_packages(["D", "C2"])
+
+        c2 = ForeignPackage("C2")
+
+        d = ForeignPackage("D")
+        d.add_foreign_dependency_packages(["C2"])
+
+        self.assertCountEqual(graph.get_and_remove_outer_dep_pkgs(), [c2, b3])
+        self.assertCountEqual(graph.get_and_remove_outer_dep_pkgs(), [d])
+        self.assertCountEqual(graph.get_and_remove_outer_dep_pkgs(), [c1])
+        self.assertCountEqual(graph.get_and_remove_outer_dep_pkgs(), [b1])
+        self.assertCountEqual(graph.get_and_remove_outer_dep_pkgs(), [b2])
+        self.assertCountEqual(graph.get_and_remove_outer_dep_pkgs(), [a])
+        self.assertCountEqual(graph.get_and_remove_outer_dep_pkgs(), [])

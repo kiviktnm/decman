@@ -142,7 +142,10 @@ class ForeignPackage:
         return self.name.__hash__()
 
     def __repr__(self) -> str:
-        return f"{self.name}: [{' '.join(self._all_recursive_foreign_deps)}]"
+        return f"{self.name}: {{{' '.join(self._all_recursive_foreign_deps)}}}"
+
+    def __str__(self) -> str:
+        return f"{self.name}"
 
     def add_foreign_dependency_packages(self,
                                         package_names: typing.Iterable[str]):
@@ -155,66 +158,90 @@ class ForeignPackage:
         """
         Returns all dependencies and sub-dependencies of the package.
         """
-        return self._all_recursive_foreign_deps
+        return set(self._all_recursive_foreign_deps)
 
 
-class DepTreeNode:
+class DepNode:
     """
-    Foreign package and it's dependency packages.
+    A Node of the DepGraph
     """
 
-    def __init__(self, package: str, parent: typing.Optional[typing.Self]):
-        if parent is not None and package in parent.get_parent_package_names():
-            raise l.UserFacingError(
-                f"Foreign package dependency cycle detected involving '{package}'. \
-                foreign package dependencies are also required during package building \
-                and therefore dependency cycles cannot be handled.")
+    def __init__(self, package: ForeignPackage) -> None:
+        self.parents: dict[str, DepNode] = {}
+        self.children: dict[str, DepNode] = {}
+        self.pkg = package
 
-        self._package = ForeignPackage(package)
-        self.parent = parent
-        self.children: dict[str, DepTreeNode] = {}
-
-    def get_parent_package_names(self) -> list[str]:
+    def is_pkgname_in_parents_recursive(self, pkgname: str) -> bool:
         """
-        Returns package names of all parent nodes and self.
+        Returns True if the given package name is in the parents of this DepNode.
         """
-        if self.parent is not None:
-            return [self._package.name
-                    ] + self.parent.get_parent_package_names()
-        return [self._package.name]
+        for name, parent in self.parents.items():
+            if name == pkgname or parent.is_pkgname_in_parents_recursive(
+                    pkgname):
+                return True
+        return False
 
-    def add_dependency_package(self, pkg: str, parents: list[str]):
+
+class DepGraph:
+    """
+    Represents a graph between foreign packages
+    """
+
+    def __init__(self):
+        self.package_nodes: dict[str, DepNode] = {}
+        self._childless_node_names = set()
+
+    def add_requirement(self, child_pkgname: str,
+                        parent_pkgname: typing.Optional[str]):
         """
-        Adds a dependency package to this tree.
+        Adds a connection between two packages, creating the child package if it doesn't exist.
 
-        parents is a list of names where the first element is the parent of the dependency,
-        the second element is the grandparent of the dependency and so on.
-
-        Do not include this node in the parents list.
+        The parent is the package that requires the child package.
         """
-        if len(parents) == 0:
-            dep = DepTreeNode(pkg, self)
-            self.children[pkg] = dep
+        child_node = self.package_nodes.get(
+            child_pkgname, DepNode(ForeignPackage(child_pkgname)))
+        self.package_nodes[child_pkgname] = child_node
+
+        if parent_pkgname is None:
             return
 
-        last = parents.pop()
-        self.children[last].add_dependency_package(pkg, parents)
+        parent_node = self.package_nodes[parent_pkgname]
+
+        if parent_node.is_pkgname_in_parents_recursive(child_pkgname):
+            raise l.UserFacingError(
+                f"Foreign package dependency cycle detected involving '{child_pkgname}' \
+                and '{parent_pkgname}'. Foreign package dependencies are also required \
+                during package building and therefore dependency cycles cannot be handled."
+            )
+
+        parent_node.children[child_pkgname] = child_node
+        child_node.parents[parent_pkgname] = parent_node
+
+        if parent_pkgname in self._childless_node_names:
+            self._childless_node_names.remove(parent_pkgname)
+
+        if len(child_node.children) == 0:
+            self._childless_node_names.add(child_pkgname)
 
     def get_and_remove_outer_dep_pkgs(self) -> list[ForeignPackage]:
         """
-        Returns all leaf nodes of the dependency package tree and removes them.
+        Returns all childless nodes of the dependency package graph and removes them.
         """
-        if len(self.children) == 0:
-            if self.parent is not None:
-                self.parent._package.add_foreign_dependency_packages(
-                    [self._package.name])
-                self.parent._package.add_foreign_dependency_packages(
-                    self._package.get_all_recursive_foreign_deps())
-                del self.parent.children[self._package.name]
-            return [self._package]
+        new_childless_node_names = set()
         result = []
-        for d in list(self.children.values()):
-            result.extend(d.get_and_remove_outer_dep_pkgs())
+        for childless_node_name in self._childless_node_names:
+            childless_node = self.package_nodes[childless_node_name]
+
+            for parent in childless_node.parents.values():
+                new_deps = childless_node.pkg.get_all_recursive_foreign_deps()
+                new_deps.add(childless_node.pkg.name)
+                parent.pkg.add_foreign_dependency_packages(new_deps)
+                del parent.children[childless_node_name]
+                if len(parent.children) == 0:
+                    new_childless_node_names.add(parent.pkg.name)
+
+            result.append(childless_node.pkg)
+        self._childless_node_names = new_childless_node_names
         return result
 
 
@@ -236,13 +263,12 @@ class ExtendedPackageSearch:
         """
         self._user_packages.append(user_pkg)
 
-    def ensure_packages_are_cached(self, packages: list[str]):
+    def try_caching_packages(self, packages: list[str]):
         """
-        Ensures that the following packages are cached
-        and available with the get_package_info method.
+        Tried caching the given packages. Virtual packages may not be cached
         """
 
-        l.print_debug(f"Ensuring that {packages} are cached.")
+        l.print_debug(f"Trying to cache {packages}.")
 
         max_pkgs_per_request = 200
 
@@ -301,10 +327,11 @@ class ExtendedPackageSearch:
         If the package is not user defined, fetches information from the AUR.
         Returns None if no such AUR package exists.
         """
-        if package in self._package_info_cache:
-            return self._package_info_cache[package]
+        l.print_debug(f"Getting new info for package '{package}'.")
 
-        l.print_debug(f"Getting info for package '{package}'.")
+        if package in self._package_info_cache:
+            l.print_debug(f"'{package}' found in cache.")
+            return self._package_info_cache[package]
 
         for user_package in self._user_packages:
             if user_package.pkgname == package:
@@ -354,10 +381,12 @@ class ExtendedPackageSearch:
 
         May prompt the user to select if multiple are available.
         """
+        l.print_debug(f"Finding provider for '{stripped_dependency}'.")
+
         if stripped_dependency in self._dep_provider_cache:
+            l.print_debug(f"'{stripped_dependency}' found in cache.")
             return self._dep_provider_cache[stripped_dependency]
 
-        l.print_debug(f"Finding provider for '{stripped_dependency}'.")
         l.print_debug("Are there exact name matches?")
 
         exact_name_match = self.get_package_info(stripped_dependency)
@@ -554,96 +583,67 @@ class ForeignPackageManager:
         l.print_summary("Resolving AUR / user package dependencies.")
         l.print_debug(f"Packages: {foreign_packages}")
 
-        # Do batch info requests to ensure most foreign packages are cached.
-        # Note that some virtual dependencies may not be cached but they can be handled later.
-        ensure_in_cache = foreign_packages
-        already_seen = set()
-        while ensure_in_cache:
-            self._search.ensure_packages_are_cached(ensure_in_cache)
-            already_seen.update(ensure_in_cache)
-            new_ensure_in_cache = []
-            for cached_pkg in ensure_in_cache:
-                info = self._search.get_package_info(cached_pkg)
-                if info is None:
-                    raise l.UserFacingError(
-                        f"Failed to find '{cached_pkg}' from AUR or user provided packages."
-                    )
-                for foreign_dep in info.all_foreign_dependencies_stripped(
-                        self._pacman):
-                    if foreign_dep not in already_seen:
-                        new_ensure_in_cache.append(foreign_dep)
-
-            ensure_in_cache = new_ensure_in_cache
-
-        # AUR packages are stored in this 2D list in the following format.
-        #
-        # Assume that aur_packages contains package A that should be explicitly installed.
-        # A depends on B1 and B2
-        # B1 depends on C
-        #
-        # Then the list will contain the following elements:
-        # - [A]
-        # - [B1,A]
-        # - [B2,A]
-        # - [C,B1,A]
-        #
-        # The list will be processed at the same time it's appended to so an actuality
-        # all the elements wont be in the list at the same time
-        packages_with_dependants = [[pkg] for pkg in foreign_packages]
-
-        # Used to solve the build order of packages.
-        dep_tree_root = DepTreeNode("*", None)
         pacman_deps = set()
+        graph = DepGraph()
 
-        while packages_with_dependants:
-            l.print_info(
-                f"Packages remaining: {len(packages_with_dependants)}.")
+        for name in foreign_packages:
+            graph.add_requirement(name, None)
 
-            package_and_parents = packages_with_dependants.pop()
+        seen_packages = set(foreign_packages)
+        to_process = list(foreign_packages)
+        total_processed = 0
 
-            package = package_and_parents[0]
-            parents = package_and_parents[1:]
+        while to_process:
+            pkgname = to_process.pop()
 
-            l.print_debug(
-                f"Adding package '{package}' with parents {parents} to the dependency tree."
-            )
-            dep_tree_root.add_dependency_package(package, parents)
-
-            info = self._search.get_package_info(package)
-            assert info is not None
+            info = self._search.get_package_info(pkgname)
+            if info is None:
+                raise l.UserFacingError(
+                    f"Failed to find '{pkgname}' from AUR or user provided packages."
+                )
 
             pacman_deps.update(info.pacman_dependencies(self._pacman))
+            depnames = info.all_foreign_dependencies_stripped(self._pacman)
+            self._search.try_caching_packages(depnames)
 
-            for foreign_dep in info.all_foreign_dependencies_stripped(
-                    self._pacman):
-                pkg = self._search.find_provider(foreign_dep)
-                if pkg is None:
+            for depname in depnames:
+                dep_info = self._search.find_provider(depname)
+
+                if dep_info is None:
                     raise l.UserFacingError(
-                        f"Failed to find '{pkg}' from AUR or user provided packages."
+                        f"Failed to find '{depname}' from AUR or user provided packages."
                     )
 
-                l.print_info("Found new package to process.")
-                packages_with_dependants.append([pkg.pkgname] +
-                                                package_and_parents)
+                l.print_debug(
+                    f"Adding dependency {dep_info.pkgname} to package {pkgname}."
+                )
+                graph.add_requirement(dep_info.pkgname, pkgname)
+                if dep_info.pkgname not in seen_packages:
+                    to_process.append(dep_info.pkgname)
+                    seen_packages.add(dep_info.pkgname)
+
+            total_processed += 1
+            l.print_info(f"{total_processed}/{len(seen_packages)}.")
 
         l.print_summary("Determining build order.")
+        build_order = self._determine_build_order(graph)
 
+        return (build_order, pacman_deps)
+
+    def _determine_build_order(self, graph: DepGraph) -> list[ForeignPackage]:
         build_order = []
         while True:
-            to_add = dep_tree_root.get_and_remove_outer_dep_pkgs()
+            to_add = graph.get_and_remove_outer_dep_pkgs()
 
-            if len(to_add) == 1 and to_add[0].name == "*":
+            if len(to_add) == 0:
                 break
-
-            l.print_debug(f"Adding {to_add} to build_order.")
 
             for pkg in to_add:
                 if pkg not in build_order:
+                    l.print_debug(f"Adding {pkg} to build_order.")
                     build_order.append(pkg)
 
-        l.print_debug(f"Build order is {build_order}")
-
-        return (build_order, pacman_deps)
+        return build_order
 
     def _build_pkg(self, package_base: str, packages: list[ForeignPackage],
                    force: bool) -> list[str]:
