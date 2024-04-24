@@ -132,7 +132,7 @@ class ForeignPackage:
         """
         self._all_recursive_foreign_deps.update(package_names)
 
-    def get_all_recursive_foreign_deps(self) -> set[str]:
+    def get_all_recursive_foreign_dep_pkgs(self) -> set[str]:
         """
         Returns all dependencies and sub-dependencies of the package.
         """
@@ -210,7 +210,8 @@ during package building and therefore dependency cycles cannot be handled.")
             childless_node = self.package_nodes[childless_node_name]
 
             for parent in childless_node.parents.values():
-                new_deps = childless_node.pkg.get_all_recursive_foreign_deps()
+                new_deps = childless_node.pkg.get_all_recursive_foreign_dep_pkgs(
+                )
                 new_deps.add(childless_node.pkg.name)
                 parent.pkg.add_foreign_dependency_packages(new_deps)
                 del parent.children[childless_node_name]
@@ -243,7 +244,10 @@ class ExtendedPackageSearch:
 
     def try_caching_packages(self, packages: list[str]):
         """
-        Tried caching the given packages. Virtual packages may not be cached
+        Tried caching the given packages. Virtual packages may not be cached.
+
+        This can be used before calling get_package_info or find_provider multiple individual
+        times, because then those methods don't have to make new AUR RPC requests.
         """
 
         packages = list(
@@ -310,7 +314,7 @@ class ExtendedPackageSearch:
         If the package is not user defined, fetches information from the AUR.
         Returns None if no such AUR package exists.
         """
-        l.print_debug(f"Getting new info for package '{package}'.")
+        l.print_debug(f"Getting info for package '{package}'.")
 
         if package in self._package_info_cache:
             l.print_debug(f"'{package}' found in cache.")
@@ -521,13 +525,18 @@ class ForeignPackageManager:
         """
         Upgrades all AUR/user packages.
         """
+        l.print_summary("Determining packages to upgrade.")
+
         all_foreign_pkgs = self._pacman.get_versioned_foreign_packages()
         all_explicit_pkgs = set(self._pacman.get_installed())
         l.print_debug(
             f"Foreign packages to check for upgrades: {all_foreign_pkgs}")
 
-        to_upgrade = []
+        self._search.try_caching_packages(
+            list(map(lambda p: p[0], all_foreign_pkgs)))
+
         as_explicit = []
+        as_deps = []
         for pkg, ver in all_foreign_pkgs:
             info = self._search.get_package_info(pkg)
             if info is None:
@@ -535,19 +544,20 @@ class ForeignPackageManager:
 
             if self.should_upgrade_package(pkg, ver, info.version,
                                            upgrade_devel):
-                to_upgrade.append(pkg)
-            if pkg in all_explicit_pkgs:
-                as_explicit.append(pkg)
+                if pkg in all_explicit_pkgs:
+                    as_explicit.append(pkg)
+                else:
+                    as_deps.append(pkg)
 
         l.print_debug(
-            f"The following foreign packages will be upgraded: {' '.join(to_upgrade)}"
+            f"The following foreign packages will be upgraded: {' '.join(as_explicit)}"
         )
 
-        self.install(to_upgrade, as_explicit, True)
+        self.install(as_explicit, as_deps, True)
 
     def install(self,
                 foreign_pkgs: list[str],
-                as_explicit: typing.Optional[list[str]] = None,
+                foreign_dep_pkgs: typing.Optional[list[str]] = None,
                 force: bool = False):
         """
         Installs the given AUR/user packages and their dependencies (both pacman/AUR).
@@ -556,7 +566,8 @@ class ForeignPackageManager:
         if len(foreign_pkgs) == 0:
             return
 
-        resolved_dependencies = self.resolve_dependencies(foreign_pkgs)
+        resolved_dependencies = self.resolve_dependencies(
+            foreign_pkgs, foreign_dep_pkgs)
 
         l.print_summary(
             "The following foreign packages will be installed explicitly:")
@@ -610,9 +621,6 @@ class ForeignPackageManager:
         except (subprocess.CalledProcessError, OSError) as e:
             raise l.UserFacingError("Failed to build packages.") from e
 
-        if as_explicit is None:
-            as_explicit = list(resolved_dependencies.foreign_pkgs)
-
         packages_to_install = list(resolved_dependencies.foreign_pkgs)
         packages_to_install += list(resolved_dependencies.foreign_dep_pkgs)
 
@@ -625,12 +633,17 @@ class ForeignPackageManager:
 
         if package_files_to_install or force:
             l.print_summary("Installing AUR/user packages.")
-            self._pacman.install_files(package_files_to_install, as_explicit)
+            self._pacman.install_files(package_files_to_install,
+                                       as_explicit=list(
+                                           resolved_dependencies.foreign_pkgs))
         else:
             l.print_summary("No packages to install.")
 
     def resolve_dependencies(
-            self, foreign_packages: list[str]) -> ResolvedDependencies:
+        self,
+        foreign_pkgs: list[str],
+        foreign_dep_pkgs: typing.Optional[list[str]] = None
+    ) -> ResolvedDependencies:
         """
         Resolves AUR/user dependencies of AUR/user packages.
 
@@ -643,19 +656,25 @@ class ForeignPackageManager:
         """
 
         l.print_summary("Resolving AUR / user package dependencies.")
-        l.print_debug(f"Packages: {foreign_packages}")
+        l.print_debug(f"Packages: {foreign_pkgs}")
+
+        if foreign_dep_pkgs is None:
+            foreign_dep_pkgs = []
 
         result = ResolvedDependencies()
-        result.foreign_pkgs = set(foreign_packages)
+        result.foreign_pkgs = set(foreign_pkgs)
+        result.foreign_dep_pkgs = set(foreign_dep_pkgs)
 
         graph = DepGraph()
 
-        for name in foreign_packages:
+        for name in (foreign_pkgs + foreign_dep_pkgs):
             graph.add_requirement(name, None)
 
-        seen_packages = set(foreign_packages)
-        to_process = list(foreign_packages)
+        seen_packages = set(foreign_pkgs + foreign_dep_pkgs)
+        to_process = foreign_pkgs + foreign_dep_pkgs
         total_processed = 0
+
+        self._search.try_caching_packages(to_process)
 
         def process_dep(pkgname: str, depname: str, add_to: set[str]):
             dep_info = self._search.find_provider(depname)
@@ -726,6 +745,8 @@ class ForeignPackageManager:
         """
 
         if upgrade_devel and is_devel(package):
+            l.print_debug(
+                f"Package {package} is devel package. It should be upgraded.")
             return True
 
         try:
@@ -734,7 +755,11 @@ class ForeignPackageManager:
                     installed_version, fetched_version),
                                check=True,
                                stdout=subprocess.PIPE).stdout.decode())
-            return result < 0
+            should_upgrade = result < 0
+            l.print_debug(
+                f"Installed version is: {installed_version}. Available version is {fetched_version}. Should upgrade: {should_upgrade}"
+            )
+            return should_upgrade
         except (ValueError, subprocess.CalledProcessError) as error:
             raise l.UserFacingError("Failed to compare versions.") from error
 
@@ -937,7 +962,7 @@ class PackageBuilder:
             add_to_pacman_build_deps(info.pacman_make_dependencies)
             add_to_pacman_build_deps(info.pacman_check_dependencies)
 
-            foreign_deps = pkg.get_all_recursive_foreign_deps()
+            foreign_deps = pkg.get_all_recursive_foreign_dep_pkgs()
             chroot_foreign_pkgs.update(foreign_deps)
 
             # Add pacman deps of foreign packages

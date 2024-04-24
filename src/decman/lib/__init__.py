@@ -310,7 +310,7 @@ class Pacman:
             subprocess.run(
                 conf.commands.set_as_explicitly_installed(as_explicit),
                 check=True,
-                capture_output=conf.quiet_output)
+                capture_output=not conf.debug_output)
         except subprocess.CalledProcessError as error:
             raise UserFacingError(
                 "Failed to install foreign packages.") from error
