@@ -619,33 +619,31 @@ class Systemd:
         """
         Enables the given units.
         """
-        self.state.enabled_systemd_units += units
         try:
             subprocess.run(conf.commands.enable_units(units), check=True)
         except subprocess.CalledProcessError as error:
             raise UserFacingError("Failed to enable systemd units.") from error
+        self.state.enabled_systemd_units += units
 
     def disable_units(self, units: list[str]):
         """
         Disables the given units.
         """
-        for unit in units:
-            try:
-                self.state.enabled_systemd_units.remove(unit)
-            except ValueError:
-                pass
         try:
             subprocess.run(conf.commands.disable_units(units), check=True)
         except subprocess.CalledProcessError as error:
             raise UserFacingError(
                 "Failed to disable systemd units.") from error
+        for unit in units:
+            try:
+                self.state.enabled_systemd_units.remove(unit)
+            except ValueError:
+                pass
 
     def enable_user_units(self, units: list[str], user: str):
         """
         Enables the given units for the given user.
         """
-        for unit in units:
-            self.state.enabled_user_systemd_units.append((user, unit))
         try:
             uid = pwd.getpwnam(user).pw_uid
             gid = pwd.getpwnam(user).pw_gid
@@ -661,16 +659,13 @@ class Systemd:
             raise UserFacingError(
                 f"Failed to enable systemd units because user '{user}' doesn't exist."
             ) from error
+        for unit in units:
+            self.state.enabled_user_systemd_units.append((user, unit))
 
     def disable_user_units(self, units: list[str], user: str):
         """
         Disables the given units for the given user.
         """
-        for unit in units:
-            try:
-                self.state.enabled_user_systemd_units.remove((user, unit))
-            except ValueError:
-                pass
         try:
             uid = pwd.getpwnam(user).pw_uid
             gid = pwd.getpwnam(user).pw_gid
@@ -686,3 +681,9 @@ class Systemd:
             raise UserFacingError(
                 f"Failed to disable systemd units because user '{user}' doesn't exist."
             ) from error
+
+        for unit in units:
+            try:
+                self.state.enabled_user_systemd_units.remove((user, unit))
+            except ValueError:
+                pass
