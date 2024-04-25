@@ -22,6 +22,7 @@ import requests
 import decman
 import decman.config as conf
 import decman.lib as l
+import decman.error as err
 
 
 def strip_dependency(dep: str) -> str:
@@ -208,7 +209,7 @@ class DepGraph:
         parent_node = self.package_nodes[parent_pkgname]
 
         if parent_node.is_pkgname_in_parents_recursive(child_pkgname):
-            raise l.UserFacingError(
+            raise err.UserFacingError(
                 f"Foreign package dependency cycle detected involving '{child_pkgname}' \
 and '{parent_pkgname}'. Foreign package dependencies are also required \
 during package building and therefore dependency cycles cannot be handled.")
@@ -292,7 +293,7 @@ class ExtendedPackageSearch:
                 d = request.json()
 
                 if d["type"] == "error":
-                    raise l.UserFacingError(
+                    raise err.UserFacingError(
                         f"AUR RPC returned error: {d['error']}")
 
                 for result in d["results"]:
@@ -323,7 +324,7 @@ class ExtendedPackageSearch:
 
                 l.print_debug("Request completed.")
             except (requests.RequestException, KeyError) as e:
-                raise l.UserFacingError(
+                raise err.UserFacingError(
                     "Failed to fetch package information from AUR RPC.") from e
 
     def get_package_info(self, package: str) -> typing.Optional[PackageInfo]:
@@ -352,7 +353,7 @@ class ExtendedPackageSearch:
             d = request.json()
 
             if d["type"] == "error":
-                raise l.UserFacingError(
+                raise err.UserFacingError(
                     f"AUR RPC returned error: {d['error']}")
 
             if d["resultcount"] == 0:
@@ -378,7 +379,7 @@ class ExtendedPackageSearch:
 
             return info
         except (requests.RequestException, KeyError) as e:
-            raise l.UserFacingError(
+            raise err.UserFacingError(
                 "Failed to fetch package information from AUR RPC.") from e
 
     def find_provider(
@@ -432,7 +433,7 @@ class ExtendedPackageSearch:
             d = request.json()
 
             if d["type"] == "error":
-                raise l.UserFacingError(
+                raise err.UserFacingError(
                     f"AUR RPC returned error: {d['error']}")
 
             if d["resultcount"] == 0:
@@ -451,7 +452,7 @@ class ExtendedPackageSearch:
 
             return self._choose_provider(stripped_dependency, results, "AUR")
         except (requests.RequestException, KeyError) as e:
-            raise l.UserFacingError(
+            raise err.UserFacingError(
                 "Failed to fetch package information from AUR RPC.") from e
 
     def _choose_provider(self, dep: str, possible_providers: list[str],
@@ -568,7 +569,7 @@ class ForeignPackageManager:
 
             info = self._search.get_package_info(pkg)
             if info is None:
-                raise l.UserFacingError(f"Failed to find package: {pkg}.")
+                raise err.UserFacingError(f"Failed to find package: {pkg}.")
 
             if self.should_upgrade_package(pkg, ver, info.version,
                                            upgrade_devel):
@@ -626,7 +627,7 @@ class ForeignPackageManager:
             l.print_continuation("")
 
         if not l.prompt_confirm("Proceed?", default=True):
-            raise l.UserFacingError("Installing aborted.")
+            raise err.UserFacingError("Installing aborted.")
 
         l.print_summary("Installing foreign package dependencies from pacman.")
         self._pacman.install_dependencies(
@@ -649,7 +650,7 @@ class ForeignPackageManager:
 
                     builder.build_packages(pkgbase, packages, force)
         except (subprocess.CalledProcessError, OSError) as e:
-            raise l.UserFacingError("Failed to build packages.") from e
+            raise err.UserFacingError("Failed to build packages.") from e
 
         packages_to_install = list(resolved_dependencies.foreign_pkgs)
         packages_to_install += list(resolved_dependencies.foreign_dep_pkgs)
@@ -710,7 +711,7 @@ class ForeignPackageManager:
             dep_info = self._search.find_provider(depname)
 
             if dep_info is None:
-                raise l.UserFacingError(
+                raise err.UserFacingError(
                     f"Failed to find '{depname}' from AUR or user provided packages."
                 )
 
@@ -728,7 +729,7 @@ class ForeignPackageManager:
 
             info = self._search.get_package_info(pkgname)
             if info is None:
-                raise l.UserFacingError(
+                raise err.UserFacingError(
                     f"Failed to find '{pkgname}' from AUR or user provided packages."
                 )
 
@@ -791,7 +792,7 @@ class ForeignPackageManager:
             )
             return should_upgrade
         except (ValueError, subprocess.CalledProcessError) as error:
-            raise l.UserFacingError("Failed to compare versions.") from error
+            raise err.UserFacingError("Failed to compare versions.") from error
 
 
 class PackageBuilder:
@@ -1056,7 +1057,7 @@ class PackageBuilder:
                         continue
 
         if len(matches) != 1:
-            raise l.UserFacingError(
+            raise err.UserFacingError(
                 f"Failed to build package '{pkgname}', because the pkg file cannot be determined."
             )
 
@@ -1096,9 +1097,9 @@ class PackageBuilder:
                 self._store.pkgbuild_latest_reviewed_commits[
                     pkgbase] = commit_id
             else:
-                raise l.UserFacingError("Building aborted.")
+                raise err.UserFacingError("Building aborted.")
 
         except subprocess.CalledProcessError as error:
-            raise l.UserFacingError(
+            raise err.UserFacingError(
                 f"Failed to clone and review PKGBUILD from {git_url}"
             ) from error

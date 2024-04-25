@@ -7,6 +7,72 @@ import pwd
 import grp
 import shutil
 import os
+import subprocess
+import decman.error
+
+
+def sh(sh_cmd: str,
+       user: typing.Optional[str] = None,
+       env_overrides: typing.Optional[dict[str, str]] = None):
+    """
+    Shortcut for running a shell command.
+    """
+    if env_overrides is None:
+        env_overrides = {}
+
+    env = os.environ.copy()
+    for var, val in env_overrides.items():
+        env[var] = val
+    try:
+
+        if user is None:
+            subprocess.run(sh_cmd, shell=True, check=True, env=env)
+        else:
+            uid = pwd.getpwnam(user).pw_uid
+            gid = pwd.getpwnam(user).pw_gid
+
+            with subprocess.Popen(sh_cmd,
+                                  shell=True,
+                                  group=gid,
+                                  user=uid,
+                                  env=env) as process:
+                if process.wait() != 0:
+                    raise decman.error.UserFacingError(
+                        f"Running user shell command '{sh_cmd}' as {user} failed."
+                    )
+    except (subprocess.CalledProcessError, KeyError) as e:
+        raise decman.error.UserFacingError(
+            f"Running user shell command '{sh_cmd}' failed.") from e
+
+
+def cmd(command: list[str],
+        user: typing.Optional[str] = None,
+        env_overrides: typing.Optional[dict[str, str]] = None):
+    """
+    Shortcut for running a command.
+    """
+    if env_overrides is None:
+        env_overrides = {}
+
+    env = os.environ.copy()
+    for var, val in env_overrides.items():
+        env[var] = val
+
+    try:
+        if user is None:
+            subprocess.run(command, check=True, env=env)
+        else:
+            uid = pwd.getpwnam(user).pw_uid
+            gid = pwd.getpwnam(user).pw_gid
+
+            with subprocess.Popen(command, group=gid, user=uid,
+                                  env=env) as process:
+                if process.wait() != 0:
+                    raise decman.error.UserFacingError(
+                        f"Running user command '{command}' as {user} failed.")
+    except (subprocess.CalledProcessError, KeyError) as e:
+        raise decman.error.UserFacingError(
+            f"Running user command '{command}' failed.") from e
 
 
 class File:

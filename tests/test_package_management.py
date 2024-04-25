@@ -1,7 +1,8 @@
 # pylint: disable=missing-module-docstring,missing-class-docstring,missing-function-docstring
 
 import unittest
-from decman.lib import UserFacingError, Pacman, Store
+from decman.error import UserFacingError
+from decman.lib import Pacman, Store
 from decman.lib.aur import ForeignPackageManager, DepGraph, ForeignPackage, ExtendedPackageSearch
 
 
