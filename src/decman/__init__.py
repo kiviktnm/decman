@@ -38,3 +38,75 @@ class UserPackage:
         self.make_dependencies = make_dependencies
         self.check_dependencies = check_dependencies
         self.git_url = git_url
+
+
+class Module:
+    """
+    Collection of connected packages, services and files.
+
+    Inherit this class to create your own modules.
+    """
+
+    def __init__(self, name: str, enabled: bool, version: str):
+        self.name = name
+        self.enabled = enabled
+        self.version = version
+
+    def on_enable(self):
+        """
+        Override this method to run python code when this module gets enabled.
+        """
+
+    def on_disable(self):
+        """
+        Override this method to run python code when this module gets disabled.
+
+        Note! If this module is simply removed, the code will not exacute. Instead set enabled to
+        False.
+        """
+
+    def after_update(self):
+        """
+        Override this method to run python code after updating the system. If this module is
+        disabled, this will not run.
+        """
+
+    def after_version_change(self):
+        """
+        Override this method to run python code after the version of this module has changed.
+        """
+
+    def pacman_packages(self) -> list[str]:
+        """
+        Override this method to return pacman packages that should be installed as a part of this
+        Module.
+        """
+        return []
+
+    def user_packages(self) -> list[UserPackage]:
+        """
+        Override this method to return user packages that should be installed as a part of this
+        Module.
+        """
+        return []
+
+    def aur_packages(self) -> list[str]:
+        """
+        Override this method to return AUR packages that should be installed as a part of this
+        Module.
+        """
+        return []
+
+    def systemd_units(self) -> list[str]:
+        """
+        Override this method to return systemd units that should be enabled as a part of this
+        Module.
+        """
+        return []
+
+    def systemd_user_units(self) -> dict[str, list[str]]:
+        """
+        Override this method to return systemd user units that should be enabled as a part of this
+        Module.
+        """
+        return {}

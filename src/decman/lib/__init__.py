@@ -132,7 +132,8 @@ class Store:
 
     def __init__(self):
         self.enabled_systemd_units: list[str] = []
-        self.enabled_user_systemd_units: list[str] = []
+        self.enabled_user_systemd_units: list[tuple[str, str]] = []
+        self.enabled_modules: dict[str, str] = {}
         self.pkgbuild_latest_reviewed_commits: dict[str, str] = {}
         self._package_file_cache: dict[str, tuple[str, str]] = {}
 
@@ -168,6 +169,7 @@ class Store:
         d = {
             "enabled_systemd_units": self.enabled_systemd_units,
             "enabled_user_systemd_units": self.enabled_user_systemd_units,
+            "enabled_modules": self.enabled_modules,
             "package_file_cache": self._package_file_cache,
             "pkgbuild_git_commits": self.pkgbuild_latest_reviewed_commits
         }
@@ -197,13 +199,20 @@ class Store:
             with open(path, "rt", encoding="utf-8") as file:
                 d = json.load(file)
 
-                store.enabled_systemd_units = d.get("enabled_systemd_units",
-                                                    [])
+                store.enabled_systemd_units = d.get(
+                    "enabled_systemd_units",
+                    [],
+                )
                 store.enabled_user_systemd_units = d.get(
-                    "enabled_user_systemd_units", [])
+                    "enabled_user_systemd_units",
+                    [],
+                )
+                store.enabled_modules = d.get("enabled_modules", {})
                 store._package_file_cache = d.get("package_file_cache", {})
                 store.pkgbuild_latest_reviewed_commits = d.get(
-                    "pkgbuild_git_commits", {})
+                    "pkgbuild_git_commits",
+                    {},
+                )
 
             return store
         except json.JSONDecodeError as e:
@@ -226,23 +235,65 @@ class Source:
     Configuration that describes a system.
     """
 
-    def __init__(self, pacman_packages: list[str], aur_packages: list[str],
-                 user_packages: list[decman.UserPackage],
-                 ignored_packages: list[str], systemd_units: list[str],
-                 systemd_user_units: dict[str, list[str]]):
+    def __init__(
+        self,
+        pacman_packages: list[str],
+        aur_packages: list[str],
+        user_packages: list[decman.UserPackage],
+        ignored_packages: list[str],
+        systemd_units: list[str],
+        systemd_user_units: dict[str, list[str]],
+        modules: list[decman.Module],
+    ):
         self.pacman_packages = pacman_packages
         self.aur_packages = aur_packages
         self.user_packages = user_packages
         self.ignored_packages = ignored_packages
         self.systemd_units = systemd_units
         self.systemd_user_units = systemd_user_units
+        self.modules = modules
+
+    def run_on_enable(self, store: Store):
+        """
+        Runs on_enable of every module that was now enabled.
+        """
+        for module in self.modules:
+            if module.enabled and module.name not in store.enabled_modules:
+                module.on_enable()
+
+    def run_on_disable(self, store: Store):
+        """
+        Runs on_disable of every module that was now disabled.
+        """
+        for module in self.modules:
+            if not module.enabled and module.name in store.enabled_modules:
+                module.on_disable()
+
+    def run_after_update(self):
+        """
+        Runs after_update of every enabled module.
+        """
+        for module in self.modules:
+            if module.enabled:
+                module.after_update()
+
+    def run_after_version_change(self, store: Store):
+        """
+        Runs after_version_change of every enabled module that has it's version changed.
+        """
+        for module in self.modules:
+            if module.enabled and module.version != store.enabled_modules.get(
+                    module.name, module.version):
+                module.after_version_change()
+            elif module.enabled and module.name not in store.enabled_modules:
+                module.after_version_change()
 
     def units_to_enable(self, store: Store) -> list[str]:
         """
         Returns all systemd units that should be enabled.
         """
         result = []
-        for unit in self.systemd_units:
+        for unit in self._all_units():
             if unit not in store.enabled_systemd_units:
                 result.append(unit)
         return result
@@ -253,7 +304,7 @@ class Source:
         """
         result = []
         for unit in store.enabled_systemd_units:
-            if unit not in self.systemd_units:
+            if unit not in self._all_units():
                 result.append(unit)
         return result
 
@@ -262,9 +313,9 @@ class Source:
         Returns all user systemd units that should be enabled.
         """
         result = {}
-        for user, units in self.systemd_user_units.items():
+        for user, units in self._all_user_units().items():
             for unit in units:
-                stored = f"{user}: {unit}"
+                stored = (user, unit)
                 if stored not in store.enabled_user_systemd_units:
                     entry = result.get(user, [])
                     entry.append(unit)
@@ -277,11 +328,9 @@ class Source:
         """
         result = {}
         for stored in store.enabled_user_systemd_units:
-            s = stored.split(": ")
-            user = s[0]
-            unit = s[1]
+            user, unit = stored
 
-            if unit not in self.systemd_user_units.get(user, []):
+            if unit not in self._all_user_units().get(user, []):
                 entry = result.get(user, [])
                 entry.append(unit)
                 result[user] = entry
@@ -293,10 +342,10 @@ class Source:
         Returns all packages that should be removed. This includes pacman, aur and user packages.
         """
         result = []
-        all_pkgs = self.pacman_packages + self.aur_packages + list(
-            map(lambda p: p.pkgname, self.user_packages))
         for pkg in currently_installed_packages:
-            if pkg not in all_pkgs and pkg not in self.ignored_packages:
+            if pkg in self.ignored_packages:
+                continue
+            if pkg not in self._all_pkgs():
                 result.append(pkg)
         return result
 
@@ -306,8 +355,10 @@ class Source:
         Returns all pacman packages that should be installed.
         """
         result = []
-        for pkg in self.pacman_packages:
-            if pkg not in currently_installed_packages and pkg not in self.ignored_packages:
+        for pkg in self._all_pacman_pkgs():
+            if pkg in self.ignored_packages:
+                continue
+            if pkg not in currently_installed_packages:
                 result.append(pkg)
         return result
 
@@ -317,13 +368,72 @@ class Source:
         Returns all aur and user packages that should be installed.
         """
         result = []
-        for pkg in self.aur_packages:
-            if pkg not in currently_installed_packages and pkg not in self.ignored_packages:
+        for pkg in self._all_foreign_pkgs():
+            if pkg in self.ignored_packages:
+                continue
+            if pkg not in currently_installed_packages:
                 result.append(pkg)
+        return result
 
-        for pkg in self.user_packages:
-            if pkg.pkgname not in currently_installed_packages and pkg.pkgname not in self.ignored_packages:
-                result.append(pkg.pkgname)
+    def all_enabled_modules(self) -> list[tuple[str, str]]:
+        """
+        Returns all enabled modules and their versions.
+        """
+        result = []
+        for module in self.modules:
+            if module.enabled:
+                result.append((module.name, module.version))
+        return result
+
+    def all_user_pkgs(self) -> list[decman.UserPackage]:
+        """
+        Returns all active UserPackages.
+        """
+        result = []
+        result.extend(self.user_packages)
+        for module in self.modules:
+            if module.enabled:
+                result.extend(module.user_packages())
+        return result
+
+    def _all_pacman_pkgs(self) -> list[str]:
+        result = []
+        result.extend(self.pacman_packages)
+        for module in self.modules:
+            if module.enabled:
+                result.extend(module.pacman_packages())
+        return result
+
+    def _all_foreign_pkgs(self) -> list[str]:
+        result = []
+        result.extend(self.aur_packages)
+        result.extend(map(lambda p: p.pkgname, self.user_packages))
+        for module in self.modules:
+            if module.enabled:
+                result.extend(module.aur_packages())
+                result.extend(map(lambda p: p.pkgname, module.user_packages()))
+        return result
+
+    def _all_pkgs(self) -> list[str]:
+        result = []
+        result.extend(self._all_pacman_pkgs())
+        result.extend(self._all_foreign_pkgs())
+        return result
+
+    def _all_units(self) -> list[str]:
+        result = []
+        result.extend(self.systemd_units)
+        for module in self.modules:
+            if module.enabled:
+                result.extend(module.systemd_units())
+        return result
+
+    def _all_user_units(self) -> dict[str, list[str]]:
+        result = {}
+        result.update(self.systemd_user_units)
+        for module in self.modules:
+            if module.enabled:
+                result.update(module.systemd_user_units())
         return result
 
 
@@ -479,7 +589,7 @@ class Systemd:
         Enables the given units for the given user.
         """
         for unit in units:
-            self.state.enabled_user_systemd_units.append(f"{user}: {unit}")
+            self.state.enabled_user_systemd_units.append((user, unit))
         try:
             uid = pwd.getpwnam(user).pw_uid
             gid = pwd.getpwnam(user).pw_gid
@@ -502,7 +612,7 @@ class Systemd:
         """
         for unit in units:
             try:
-                self.state.enabled_user_systemd_units.remove(f"{user}: {unit}")
+                self.state.enabled_user_systemd_units.remove((user, unit))
             except ValueError:
                 pass
         try:
