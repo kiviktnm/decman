@@ -103,7 +103,7 @@ class PackageInfo:
 
 class ForeignPackage:
     """
-    Class used to keep track of AUR/user recursive dependency packages of an AUR/user package.
+    Class used to keep track of foreign recursive dependency packages of an foreign package.
     """
 
     def __init__(self, name: str):
@@ -512,7 +512,7 @@ class ResolvedDependencies:
 
 class ForeignPackageManager:
     """
-    Class for dealing with AUR/user packages.
+    Class for dealing with foreign packages.
     """
 
     def __init__(self, store: l.Store, pacman: l.Pacman,
@@ -521,9 +521,9 @@ class ForeignPackageManager:
         self._pacman = pacman
         self._search = search
 
-    def upgrade(self, upgrade_devel: bool = False):
+    def upgrade(self, upgrade_devel: bool = False, force: bool = False):
         """
-        Upgrades all AUR/user packages.
+        Upgrades all foreign packages.
         """
         l.print_summary("Determining packages to upgrade.")
 
@@ -553,17 +553,20 @@ class ForeignPackageManager:
             f"The following foreign packages will be upgraded: {' '.join(as_explicit)}"
         )
 
-        self.install(as_explicit, as_deps, True)
+        self.install(as_explicit, as_deps, force)
 
     def install(self,
                 foreign_pkgs: list[str],
                 foreign_dep_pkgs: typing.Optional[list[str]] = None,
                 force: bool = False):
         """
-        Installs the given AUR/user packages and their dependencies (both pacman/AUR).
+        Installs the given foreign packages and their dependencies (both pacman/AUR).
         """
 
-        if len(foreign_pkgs) == 0:
+        if foreign_dep_pkgs is None:
+            foreign_dep_pkgs = []
+
+        if len(foreign_pkgs) == 0 and len(foreign_dep_pkgs) == 0:
             return
 
         resolved_dependencies = self.resolve_dependencies(
@@ -597,8 +600,7 @@ class ForeignPackageManager:
         if not l.prompt_confirm("Proceed?", default=True):
             raise l.UserFacingError("Installing aborted.")
 
-        l.print_summary(
-            "Installing AUR/user package dependencies from pacman.")
+        l.print_summary("Installing foreign package dependencies from pacman.")
         self._pacman.install_dependencies(
             list(resolved_dependencies.pacman_deps))
 
@@ -632,7 +634,7 @@ class ForeignPackageManager:
             package_files_to_install.append(path)
 
         if package_files_to_install or force:
-            l.print_summary("Installing AUR/user packages.")
+            l.print_summary("Installing foreign packages.")
             self._pacman.install_files(package_files_to_install,
                                        as_explicit=list(
                                            resolved_dependencies.foreign_pkgs))
@@ -645,17 +647,17 @@ class ForeignPackageManager:
         foreign_dep_pkgs: typing.Optional[list[str]] = None
     ) -> ResolvedDependencies:
         """
-        Resolves AUR/user dependencies of AUR/user packages.
+        Resolves foreign dependencies of foreign packages.
 
         Returns a tuple of (foreign_packages, pacman_deps)
 
         foreign_packages are in the order they should be built
         (the 1st element should be built 1st)
 
-        pacman_deps are dependencies that are required by the AUR/user packages.
+        pacman_deps are dependencies that are required by the foreign packages.
         """
 
-        l.print_summary("Resolving AUR / user package dependencies.")
+        l.print_summary("Resolving foreign package dependencies.")
         l.print_debug(f"Packages: {foreign_pkgs}")
 
         if foreign_dep_pkgs is None:
@@ -717,7 +719,7 @@ class ForeignPackageManager:
                 process_dep(pkgname, depname, result.foreign_build_dep_pkgs)
 
             total_processed += 1
-            l.print_info(f"{total_processed}/{len(seen_packages)}.")
+            l.print_info(f"Progress: {total_processed}/{len(seen_packages)}.")
 
         l.print_summary("Determining build order.")
 
@@ -822,9 +824,13 @@ class PackageBuilder:
             os.makedirs(pkgbuild_dir)
             os.chdir(pkgbuild_dir)
 
-            git_url = self._search.get_package_info(
-                self._resolved_deps.get_some_pkgname(pkgbase)
-            ).git_url  # pyright: ignore[reportOptionalMemberAccess]
+            git_url_info = self._search.get_package_info(
+                self._resolved_deps.get_some_pkgname(pkgbase))
+
+            # Because all dependencies and packages should be resolved during the creation
+            # of ResolvedDependencies. git_url should not be None.
+            assert git_url_info is not None
+            git_url = git_url_info.git_url
 
             l.print_debug(f"Git URL for '{pkgbase}' is '{git_url}'")
             self._git_clone_and_review_pkgbuild(pkgbase, git_url)
@@ -848,7 +854,7 @@ class PackageBuilder:
             list(self._resolved_deps.pacman_deps)),
                        env=mkarchroot_env_vars,
                        check=True,
-                       capture_output=conf.quiet_output)
+                       capture_output=conf.suppress_command_output)
 
     def remove_build_environment(self):
         """
@@ -874,7 +880,7 @@ class PackageBuilder:
             )
             return
 
-        l.print_summary(f"To build '{' '.join(package_names)}'.")
+        l.print_summary(f"Building '{' '.join(package_names)}'.")
 
         chroot_new_pacman_pkgs, chroot_pkg_files = self._get_chroot_packages(
             packages)
@@ -892,7 +898,7 @@ class PackageBuilder:
             self.chroot_dir,
             chroot_new_pacman_pkgs + PackageBuilder.always_included_packages),
                        check=True,
-                       capture_output=conf.quiet_output)
+                       capture_output=conf.suppress_command_output)
 
         l.print_info("Making package.")
 
@@ -907,8 +913,12 @@ class PackageBuilder:
 
             dest = shutil.copy(file, conf.pkg_cache_dir)
 
-            version = self._search.get_package_info(
-                pkgname).version  # pyright: ignore[reportOptionalMemberAccess]
+            pkg_info = self._search.get_package_info(pkgname)
+
+            # Because all dependencies and packages should be resolved during the creation
+            # of ResolvedDependencies. git_url should not be None.
+            assert pkg_info is not None
+            version = pkg_info.version
 
             l.print_debug(
                 f"Adding '{pkgname}', version: '{version}' to cache as file '{dest}'."
@@ -918,10 +928,11 @@ class PackageBuilder:
 
         l.print_info("Removing build dependencies from chroot.")
 
-        subprocess.run(conf.commands.remove_chroot_packages(
-            self.chroot_dir, chroot_new_pacman_pkgs),
-                       check=True,
-                       capture_output=conf.quiet_output)
+        if len(chroot_new_pacman_pkgs) != 0:
+            subprocess.run(conf.commands.remove_chroot_packages(
+                self.chroot_dir, chroot_new_pacman_pkgs),
+                           check=True,
+                           capture_output=conf.suppress_command_output)
 
         l.print_summary(f"Finished building: '{' '.join(package_names)}'.")
 
@@ -931,10 +942,13 @@ class PackageBuilder:
             if cache_entry is None:
                 return False
             cached_version, _ = cache_entry
-            # resolve_dependencies gets info for every package so info cannot be None
-            fetched_version = self._search.get_package_info(
-                pkg.name
-            ).version  # pyright: ignore[reportOptionalMemberAccess]
+
+            pkg_info = self._search.get_package_info(pkg.name)
+
+            # Because all dependencies and packages should be resolved during the creation
+            # of ResolvedDependencies. git_url should not be None.
+            assert pkg_info is not None
+            fetched_version = pkg_info.version
 
             if cached_version != fetched_version or is_devel(pkg.name):
                 return False
@@ -957,6 +971,8 @@ class PackageBuilder:
 
         for pkg in pkgs_to_build:
             info = self._search.get_package_info(pkg.name)
+            # Because all dependencies and packages should be resolved during the creation
+            # of ResolvedDependencies. git_url should not be None.
             assert info is not None
 
             add_to_pacman_build_deps(info.pacman_make_dependencies)
@@ -968,6 +984,8 @@ class PackageBuilder:
             # Add pacman deps of foreign packages
             for dep in foreign_deps:
                 dep_info = self._search.get_package_info(dep)
+                # Because all dependencies and packages should be resolved during the creation
+                # of ResolvedDependencies. git_url should not be None.
                 assert dep_info is not None
 
                 add_to_pacman_build_deps(dep_info.pacman_make_dependencies)
@@ -1025,7 +1043,7 @@ class PackageBuilder:
         try:
             subprocess.run(conf.commands.git_clone(git_url, "."),
                            check=True,
-                           capture_output=conf.quiet_output)
+                           capture_output=conf.suppress_command_output)
 
             if l.prompt_confirm(f"Review PKGBUILD for {pkgbase}?",
                                 default=True):

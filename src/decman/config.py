@@ -184,6 +184,7 @@ class Commands:
 commands: Commands = Commands()
 debug_output: bool = False
 quiet_output: bool = False
+suppress_command_output: bool = True
 
 valid_pkgexts: list[str] = [
     ".pkg.tar",
