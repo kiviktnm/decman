@@ -19,6 +19,7 @@ import typing
 
 import requests
 
+import decman
 import decman.config as conf
 import decman.lib as l
 
@@ -99,6 +100,24 @@ class PackageInfo:
         Returns the beginning of the file created from building this package.
         """
         return f"{self.pkgname}-{self.version}"
+
+    @staticmethod
+    def from_user_package(user_package: decman.UserPackage,
+                          pacman: l.Pacman) -> "PackageInfo":
+        """
+        Converts a UserPackage to PackageInfo
+        """
+        return PackageInfo(
+            pkgname=user_package.pkgname,
+            pkgbase=user_package.pkgbase,
+            version=user_package.version,
+            provides=user_package.provides,
+            dependencies=user_package.dependencies,
+            make_dependencies=user_package.make_dependencies,
+            check_dependencies=user_package.check_dependencies,
+            git_url=user_package.git_url,
+            pacman=pacman,
+        )
 
 
 class ForeignPackage:
@@ -521,10 +540,16 @@ class ForeignPackageManager:
         self._pacman = pacman
         self._search = search
 
-    def upgrade(self, upgrade_devel: bool = False, force: bool = False):
+    def upgrade(self,
+                upgrade_devel: bool = False,
+                force: bool = False,
+                ignored_pkgs: typing.Optional[list[str]] = None):
         """
         Upgrades all foreign packages.
         """
+        if ignored_pkgs is None:
+            ignored_pkgs = []
+
         l.print_summary("Determining packages to upgrade.")
 
         all_foreign_pkgs = self._pacman.get_versioned_foreign_packages()
@@ -538,6 +563,9 @@ class ForeignPackageManager:
         as_explicit = []
         as_deps = []
         for pkg, ver in all_foreign_pkgs:
+            if pkg in ignored_pkgs:
+                continue
+
             info = self._search.get_package_info(pkg)
             if info is None:
                 raise l.UserFacingError(f"Failed to find package: {pkg}.")

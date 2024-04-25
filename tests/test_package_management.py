@@ -5,9 +5,9 @@ from decman.lib import UserFacingError, Pacman, Store
 from decman.lib.aur import ForeignPackageManager, DepGraph, ForeignPackage, ExtendedPackageSearch
 
 
-class TestAUR(unittest.TestCase):
+class TestVersionComparisons(unittest.TestCase):
 
-    def setUp(self) -> None:
+    def setUp(self):
         pacman = Pacman()
         self.aur = ForeignPackageManager(Store(), pacman,
                                          ExtendedPackageSearch(pacman))

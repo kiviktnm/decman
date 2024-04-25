@@ -8,6 +8,7 @@ import json
 import os
 import typing
 import decman.config as conf
+import decman
 
 _DECMAN_MSG_TAG = "[\033[1;35mDECMAN\033[m]"
 _RED_PREFIX = "\033[91m"
@@ -218,6 +219,112 @@ class UserFacingError(Exception):
 
     def __init__(self, user_facing_msg: str):
         self.user_facing_msg = user_facing_msg
+
+
+class Source:
+    """
+    Configuration that describes a system.
+    """
+
+    def __init__(self, pacman_packages: list[str], aur_packages: list[str],
+                 user_packages: list[decman.UserPackage],
+                 ignored_packages: list[str], systemd_units: list[str],
+                 systemd_user_units: dict[str, list[str]]):
+        self.pacman_packages = pacman_packages
+        self.aur_packages = aur_packages
+        self.user_packages = user_packages
+        self.ignored_packages = ignored_packages
+        self.systemd_units = systemd_units
+        self.systemd_user_units = systemd_user_units
+
+    def units_to_enable(self, store: Store) -> list[str]:
+        """
+        Returns all systemd units that should be enabled.
+        """
+        result = []
+        for unit in self.systemd_units:
+            if unit not in store.enabled_systemd_units:
+                result.append(unit)
+        return result
+
+    def units_to_disable(self, store: Store) -> list[str]:
+        """
+        Returns all systemd units that should be disabled.
+        """
+        result = []
+        for unit in store.enabled_systemd_units:
+            if unit not in self.systemd_units:
+                result.append(unit)
+        return result
+
+    def user_units_to_enable(self, store: Store) -> dict[str, list[str]]:
+        """
+        Returns all user systemd units that should be enabled.
+        """
+        result = {}
+        for user, units in self.systemd_user_units.items():
+            for unit in units:
+                stored = f"{user}: {unit}"
+                if stored not in store.enabled_user_systemd_units:
+                    entry = result.get(user, [])
+                    entry.append(unit)
+                    result[user] = entry
+        return result
+
+    def user_units_to_disable(self, store: Store) -> dict[str, list[str]]:
+        """
+        Returns all user systemd units that should be disabled.
+        """
+        result = {}
+        for stored in store.enabled_user_systemd_units:
+            s = stored.split(": ")
+            user = s[0]
+            unit = s[1]
+
+            if unit not in self.systemd_user_units.get(user, []):
+                entry = result.get(user, [])
+                entry.append(unit)
+                result[user] = entry
+        return result
+
+    def packages_to_remove(
+            self, currently_installed_packages: list[str]) -> list[str]:
+        """
+        Returns all packages that should be removed. This includes pacman, aur and user packages.
+        """
+        result = []
+        all_pkgs = self.pacman_packages + self.aur_packages + list(
+            map(lambda p: p.pkgname, self.user_packages))
+        for pkg in currently_installed_packages:
+            if pkg not in all_pkgs and pkg not in self.ignored_packages:
+                result.append(pkg)
+        return result
+
+    def pacman_packages_to_install(
+            self, currently_installed_packages: list[str]) -> list[str]:
+        """
+        Returns all pacman packages that should be installed.
+        """
+        result = []
+        for pkg in self.pacman_packages:
+            if pkg not in currently_installed_packages and pkg not in self.ignored_packages:
+                result.append(pkg)
+        return result
+
+    def foreign_packages_to_install(
+            self, currently_installed_packages: list[str]) -> list[str]:
+        """
+        Returns all aur and user packages that should be installed.
+        """
+        result = []
+        for pkg in self.aur_packages:
+            if pkg not in currently_installed_packages and pkg not in self.ignored_packages:
+                result.append(pkg)
+
+        for pkg in self.user_packages:
+            if pkg.pkgname not in currently_installed_packages and pkg.pkgname not in self.ignored_packages:
+                result.append(pkg.pkgname)
+        return result
 
 
 class Pacman:
