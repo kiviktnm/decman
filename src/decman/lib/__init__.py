@@ -134,6 +134,7 @@ class Store:
         self.enabled_systemd_units: list[str] = []
         self.enabled_user_systemd_units: list[tuple[str, str]] = []
         self.enabled_modules: dict[str, str] = {}
+        self.created_files: list[str] = []
         self.pkgbuild_latest_reviewed_commits: dict[str, str] = {}
         self._package_file_cache: dict[str, tuple[str, str]] = {}
 
@@ -170,6 +171,7 @@ class Store:
             "enabled_systemd_units": self.enabled_systemd_units,
             "enabled_user_systemd_units": self.enabled_user_systemd_units,
             "enabled_modules": self.enabled_modules,
+            "created_files": self.created_files,
             "package_file_cache": self._package_file_cache,
             "pkgbuild_git_commits": self.pkgbuild_latest_reviewed_commits
         }
@@ -208,6 +210,7 @@ class Store:
                     [],
                 )
                 store.enabled_modules = d.get("enabled_modules", {})
+                store.created_files = d.get("created_files", [])
                 store._package_file_cache = d.get("package_file_cache", {})
                 store.pkgbuild_latest_reviewed_commits = d.get(
                     "pkgbuild_git_commits",
@@ -243,6 +246,8 @@ class Source:
         ignored_packages: list[str],
         systemd_units: list[str],
         systemd_user_units: dict[str, list[str]],
+        files: dict[str, decman.File],
+        directories: dict[str, decman.Directory],
         modules: list[decman.Module],
     ):
         self.pacman_packages = pacman_packages
@@ -251,6 +256,8 @@ class Source:
         self.ignored_packages = ignored_packages
         self.systemd_units = systemd_units
         self.systemd_user_units = systemd_user_units
+        self.files = files
+        self.directories = directories
         self.modules = modules
 
     def run_on_enable(self, store: Store):
@@ -287,6 +294,55 @@ class Source:
                 module.after_version_change()
             elif module.enabled and module.name not in store.enabled_modules:
                 module.after_version_change()
+
+    def create_all_files(self) -> list[str]:
+        """
+        Creates all files and returns them. The files created are based on the specified files,
+        directories and modules.
+        """
+        created_files = []
+
+        def install_files(files: dict[str, decman.File],
+                          variables: typing.Optional[dict[str, str]] = None):
+            for target, file in files.items():
+                created_files.append(target)
+                try:
+                    file.copy_to(target, variables)
+                    print_debug(f"Installing file to {target}.")
+                except OSError as e:
+                    raise UserFacingError(
+                        f"Failed to install file to {target}.") from e
+
+        def install_dirs(dirs: dict[str, decman.Directory],
+                         variables: typing.Optional[dict[str, str]] = None):
+            for target, directory in dirs.items():
+                try:
+                    print_debug(f"Installing directory to {target}.")
+                    directory.copy_to(target, variables)
+                except OSError as e:
+                    raise UserFacingError(
+                        f"Failed to install directory to {target}.") from e
+
+        install_files(self.files)
+        install_dirs(self.directories)
+
+        for module in self.modules:
+            if module.enabled:
+                install_files(module.files(), module.file_variables())
+                install_dirs(module.directories(), module.file_variables())
+
+        return created_files
+
+    def files_to_remove(self, store: Store,
+                        created_files: list[str]) -> list[str]:
+        """
+        Returns all files that should be removed.
+        """
+        to_remove = []
+        for path in store.created_files:
+            if path not in created_files:
+                to_remove.append(path)
+        return to_remove
 
     def units_to_enable(self, store: Store) -> list[str]:
         """

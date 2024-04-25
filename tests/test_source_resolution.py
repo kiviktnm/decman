@@ -139,6 +139,8 @@ class TestSource(unittest.TestCase):
             systemd_units=["1.service", "2.timer"],
             systemd_user_units={"user": ["u1.service", "u2.timer"]},
             modules=modules,
+            files={},
+            directories={},
         )
 
         store = Store()
@@ -151,6 +153,7 @@ class TestSource(unittest.TestCase):
             "ExistingChanged": "1",
             "Disabled": "1",
         }
+        store.created_files = ["/test/file1", "/test/file2", "/test/file3"]
 
         currently_installed_packages = [
             "p1",
@@ -169,6 +172,12 @@ class TestSource(unittest.TestCase):
         self.source = source
         self.store = store
         self.currently_installed_packages = currently_installed_packages
+
+    def test_files_to_remove(self):
+        created_files = ["/test/file1", "/test/file4"]
+        self.assertCountEqual(
+            self.source.files_to_remove(self.store, created_files),
+            ["/test/file2", "/test/file3"])
 
     def test_after_update_executed(self):
         self.source.run_after_update()
