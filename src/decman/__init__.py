@@ -23,33 +23,35 @@ def sh(sh_cmd: str,
     env = os.environ.copy()
     for var, val in env_overrides.items():
         env[var] = val
-    try:
 
-        if user is None:
+    if user is None:
+        try:
             subprocess.run(sh_cmd, shell=True, check=True, env=env)
-        else:
+        except subprocess.CalledProcessError as e:
+            raise decman.error.UserFacingError(
+                f"Running user defined shell command '{sh_cmd}' failed."
+            ) from e
+    else:
+        try:
             uid = pwd.getpwnam(user).pw_uid
             gid = pwd.getpwnam(user).pw_gid
+        except KeyError as e:
+            raise decman.error.UserFacingError(
+                f"Running user defined shell command failed because the user {user} doesn't exist."
+            ) from e
 
-            with subprocess.Popen(sh_cmd,
-                                  shell=True,
-                                  group=gid,
-                                  user=uid,
-                                  env=env) as process:
-                if process.wait() != 0:
-                    raise decman.error.UserFacingError(
-                        f"Running user shell command '{sh_cmd}' as {user} failed."
-                    )
-    except (subprocess.CalledProcessError, KeyError) as e:
-        raise decman.error.UserFacingError(
-            f"Running user shell command '{sh_cmd}' failed.") from e
+        with subprocess.Popen(sh_cmd, shell=True, group=gid, user=uid,
+                              env=env) as process:
+            if process.wait() != 0:
+                raise decman.error.UserFacingError(
+                    f"Running user shell command '{sh_cmd}' as {user} failed.")
 
 
-def cmd(command: list[str],
+def prg(command: list[str],
         user: typing.Optional[str] = None,
         env_overrides: typing.Optional[dict[str, str]] = None):
     """
-    Shortcut for running a command.
+    Shortcut for running a program.
     """
     if env_overrides is None:
         env_overrides = {}
@@ -58,21 +60,26 @@ def cmd(command: list[str],
     for var, val in env_overrides.items():
         env[var] = val
 
-    try:
-        if user is None:
+    if user is None:
+        try:
             subprocess.run(command, check=True, env=env)
-        else:
+        except subprocess.CalledProcessError as e:
+            raise decman.error.UserFacingError(
+                f"Running user defined program '{command}' failed.") from e
+    else:
+        try:
             uid = pwd.getpwnam(user).pw_uid
             gid = pwd.getpwnam(user).pw_gid
+        except KeyError as e:
+            raise decman.error.UserFacingError(
+                f"Running user defined program failed because the user {user} doesn't exist."
+            ) from e
 
-            with subprocess.Popen(command, group=gid, user=uid,
-                                  env=env) as process:
-                if process.wait() != 0:
-                    raise decman.error.UserFacingError(
-                        f"Running user command '{command}' as {user} failed.")
-    except (subprocess.CalledProcessError, KeyError) as e:
-        raise decman.error.UserFacingError(
-            f"Running user command '{command}' failed.") from e
+        with subprocess.Popen(command, group=gid, user=uid,
+                              env=env) as process:
+            if process.wait() != 0:
+                raise decman.error.UserFacingError(
+                    f"Running user program '{command}' as {user} failed.")
 
 
 class File:

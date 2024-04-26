@@ -182,7 +182,8 @@ class Store:
             with open(path, "wt", encoding="utf-8") as file:
                 json.dump(d, file)
         except OSError as e:
-            raise err.UserFacingError("Failed to save store.") from e
+            print_error(f"{e}")
+            raise err.UserFacingError("Failed to save decman store.") from e
 
     @staticmethod
     def restore() -> "Store":
@@ -220,9 +221,13 @@ class Store:
 
             return store
         except json.JSONDecodeError as e:
-            raise err.UserFacingError("Failed to parse state json.") from e
+            print_error(f"{e}")
+            raise err.UserFacingError(
+                "Failed to parse decman store json.") from e
         except OSError as e:
-            raise err.UserFacingError("Failed to read saved store.") from e
+            print_error(f"{e}")
+            raise err.UserFacingError(
+                "Failed to read saved decman store.") from e
 
 
 class Source:
@@ -302,6 +307,7 @@ class Source:
                     file.copy_to(target, variables)
                     print_debug(f"Installing file to {target}.")
                 except OSError as e:
+                    print_error(f"{e}")
                     raise err.UserFacingError(
                         f"Failed to install file to {target}.") from e
 
@@ -312,6 +318,7 @@ class Source:
                     print_debug(f"Installing directory to {target}.")
                     directory.copy_to(target, variables)
                 except OSError as e:
+                    print_error(f"{e}")
                     raise err.UserFacingError(
                         f"Failed to install directory to {target}.") from e
 
@@ -543,7 +550,7 @@ class Pacman:
                     for line in output]
         except IndexError as error:
             raise err.UserFacingError(
-                f"Failed to get foreign packages from pacman output. Output: {output}"
+                f"Failed to parse foreign packages from pacman output. Output: {output}"
             ) from error
 
     def install(self, packages: list[str]):
@@ -553,7 +560,8 @@ class Pacman:
         try:
             subprocess.run(conf.commands.install_pkgs(packages), check=True)
         except subprocess.CalledProcessError as error:
-            raise err.UserFacingError("Failed to install packages.") from error
+            raise err.UserFacingError(
+                "Failed to install packages using pacman.") from error
 
     def install_dependencies(self, deps: list[str]):
         """
@@ -563,7 +571,8 @@ class Pacman:
             subprocess.run(conf.commands.install_deps(deps), check=True)
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(
-                "Failed to install dependency packages.") from error
+                "Failed to install packages as dependencies using pacman."
+            ) from error
 
     def install_files(self, files: list[str], as_explicit: list[str]):
         """
@@ -577,8 +586,11 @@ class Pacman:
                 check=True,
                 capture_output=conf.suppress_command_output)
         except subprocess.CalledProcessError as error:
+            if conf.suppress_command_output:
+                print_error("Output:")
+                print_continuation(error.output)
             raise err.UserFacingError(
-                "Failed to install foreign packages.") from error
+                "Failed to install package files using pacman.") from error
 
     def upgrade(self):
         """
@@ -587,7 +599,8 @@ class Pacman:
         try:
             subprocess.run(conf.commands.upgrade(), check=True)
         except subprocess.CalledProcessError as error:
-            raise err.UserFacingError("Failed to update packages.") from error
+            raise err.UserFacingError(
+                "Failed to upgrade packages using pacman.") from error
 
     def remove(self, packages: list[str]):
         """
@@ -596,7 +609,8 @@ class Pacman:
         try:
             subprocess.run(conf.commands.remove(packages), check=True)
         except subprocess.CalledProcessError as error:
-            raise err.UserFacingError("Failed to remove packages.") from error
+            raise err.UserFacingError(
+                "Failed to remove packages using pacman.") from error
 
 
 class Systemd:
@@ -615,7 +629,7 @@ class Systemd:
             subprocess.run(conf.commands.enable_units(units), check=True)
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(
-                "Failed to enable systemd units.") from error
+                f"Failed to enable systemd units: {units}") from error
         self.state.enabled_systemd_units += units
 
     def disable_units(self, units: list[str]):
@@ -626,7 +640,7 @@ class Systemd:
             subprocess.run(conf.commands.disable_units(units), check=True)
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(
-                "Failed to disable systemd units.") from error
+                f"Failed to disable systemd units: {units}") from error
         for unit in units:
             try:
                 self.state.enabled_systemd_units.remove(unit)
@@ -646,10 +660,10 @@ class Systemd:
                                   user=uid) as process:
                 if process.wait() != 0:
                     raise err.UserFacingError(
-                        f"Failed to enable systemd units for {user}.")
+                        f"Failed to enable systemd units: {units} for {user}.")
         except KeyError as error:
             raise err.UserFacingError(
-                f"Failed to enable systemd units because user '{user}' doesn't exist."
+                f"Failed to enable systemd units because user {user} doesn't exist."
             ) from error
         for unit in units:
             self.state.enabled_user_systemd_units.append((user, unit))
@@ -667,10 +681,11 @@ class Systemd:
                                   user=uid) as process:
                 if process.wait() != 0:
                     raise err.UserFacingError(
-                        f"Failed to disable systemd units for {user}.")
+                        f"Failed to disable systemd units: {units} for {user}."
+                    )
         except KeyError as error:
             raise err.UserFacingError(
-                f"Failed to disable systemd units because user '{user}' doesn't exist."
+                f"Failed to disable systemd units because user {user} doesn't exist."
             ) from error
 
         for unit in units:

@@ -324,8 +324,10 @@ class ExtendedPackageSearch:
 
                 l.print_debug("Request completed.")
             except (requests.RequestException, KeyError) as e:
+                l.print_error(f"{e}")
                 raise err.UserFacingError(
-                    "Failed to fetch package information from AUR RPC.") from e
+                    f"Failed to fetch package information for {packages} from AUR RPC."
+                ) from e
 
     def get_package_info(self, package: str) -> typing.Optional[PackageInfo]:
         """
@@ -379,8 +381,10 @@ class ExtendedPackageSearch:
 
             return info
         except (requests.RequestException, KeyError) as e:
+            l.print_error(f"{e}")
             raise err.UserFacingError(
-                "Failed to fetch package information from AUR RPC.") from e
+                f"Failed to fetch package information for {package} from AUR RPC."
+            ) from e
 
     def find_provider(
             self, stripped_dependency: str) -> typing.Optional[PackageInfo]:
@@ -452,8 +456,10 @@ class ExtendedPackageSearch:
 
             return self._choose_provider(stripped_dependency, results, "AUR")
         except (requests.RequestException, KeyError) as e:
+            l.print_error(f"{e}")
             raise err.UserFacingError(
-                "Failed to fetch package information from AUR RPC.") from e
+                f"Failed to search for {stripped_dependency} from AUR RPC."
+            ) from e
 
     def _choose_provider(self, dep: str, possible_providers: list[str],
                          where: str) -> typing.Optional[PackageInfo]:
@@ -569,7 +575,9 @@ class ForeignPackageManager:
 
             info = self._search.get_package_info(pkg)
             if info is None:
-                raise err.UserFacingError(f"Failed to find package: {pkg}.")
+                raise err.UserFacingError(
+                    f"Failed to find '{pkg}' from AUR or user provided packages."
+                )
 
             if self.should_upgrade_package(pkg, ver, info.version,
                                            upgrade_devel):
@@ -650,6 +658,7 @@ class ForeignPackageManager:
 
                     builder.build_packages(pkgbase, packages, force)
         except (subprocess.CalledProcessError, OSError) as e:
+            l.print_error(f"{e}")
             raise err.UserFacingError("Failed to build packages.") from e
 
         packages_to_install = list(resolved_dependencies.foreign_pkgs)
@@ -792,7 +801,9 @@ class ForeignPackageManager:
             )
             return should_upgrade
         except (ValueError, subprocess.CalledProcessError) as error:
-            raise err.UserFacingError("Failed to compare versions.") from error
+            l.print_error(f"{error}")
+            raise err.UserFacingError(
+                "Failed to compare versions using vercmp.") from error
 
 
 class PackageBuilder:
@@ -1031,7 +1042,7 @@ class PackageBuilder:
         for foreign_pkg in chroot_foreign_pkgs:
             entry = self._store.get_package(foreign_pkg)
             assert entry is not None, "Build order determines that the dependencies are built \
-                    before and thus are found in the cache."
+before and thus are found in the cache."
 
             _, file = entry
 
@@ -1058,7 +1069,7 @@ class PackageBuilder:
 
         if len(matches) != 1:
             raise err.UserFacingError(
-                f"Failed to build package '{pkgname}', because the pkg file cannot be determined."
+                f"Failed to build package '{pkgname}', because the pkg file cannot be determined. Possible files are: {matches}"
             )
 
         return matches[0]
@@ -1100,6 +1111,9 @@ class PackageBuilder:
                 raise err.UserFacingError("Building aborted.")
 
         except subprocess.CalledProcessError as error:
+            if conf.suppress_command_output:
+                l.print_error("Output:")
+                l.print_continuation(error.output)
             raise err.UserFacingError(
                 f"Failed to clone and review PKGBUILD from {git_url}"
             ) from error
