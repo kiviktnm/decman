@@ -51,6 +51,31 @@ def print_summary(msg: str):
     print(f"{_DECMAN_MSG_TAG} {_CYAN_PREFIX}SUMMARY{_RESET_SUFFIX}: {msg}")
 
 
+def print_list_summary(msg: str,
+                       l: list[str],
+                       elements_per_line: typing.Optional[int] = None):
+    """
+    Prints a summary message to the user along with a list of elements.
+
+    If the list is empty, prints nothing.
+    """
+    if len(l) == 0:
+        return
+
+    l = l.copy()
+    print_summary(msg)
+    print_continuation("")
+    if elements_per_line is None:
+        print_continuation(" ".join(l))
+    else:
+        while l:
+            to_print = []
+            for _ in range(elements_per_line):
+                to_print.append(l.pop())
+            print_continuation(" ".join(to_print))
+    print_continuation("")
+
+
 def print_info(msg: str):
     """
     Prints a detailed message to the user if verbose output is not disabled.
@@ -132,6 +157,8 @@ class Store:
     """
 
     def __init__(self):
+        self.source_file: typing.Optional[str] = None
+        self.allow_running_source_without_prompt: bool = False
         self.enabled_systemd_units: list[str] = []
         self.enabled_user_systemd_units: list[tuple[str, str]] = []
         self.enabled_modules: dict[str, str] = {}
@@ -169,6 +196,9 @@ class Store:
         print_debug(f"Writing Store to '{path}'.")
 
         d = {
+            "source_file": self.source_file,
+            "allow_running_source_without_prompt":
+            self.allow_running_source_without_prompt,
             "enabled_systemd_units": self.enabled_systemd_units,
             "enabled_user_systemd_units": self.enabled_user_systemd_units,
             "enabled_modules": self.enabled_modules,
@@ -203,6 +233,9 @@ class Store:
             with open(path, "rt", encoding="utf-8") as file:
                 d = json.load(file)
 
+                store.source_file = d.get("source_file", None)
+                store.allow_running_source_without_prompt = d.get(
+                    "allow_running_source_without_prompt", False)
                 store.enabled_systemd_units = d.get(
                     "enabled_systemd_units",
                     [],
@@ -237,15 +270,15 @@ class Source:
 
     def __init__(
         self,
-        pacman_packages: list[str],
-        aur_packages: list[str],
-        user_packages: list[decman.UserPackage],
-        ignored_packages: list[str],
-        systemd_units: list[str],
-        systemd_user_units: dict[str, list[str]],
+        pacman_packages: set[str],
+        aur_packages: set[str],
+        user_packages: set[decman.UserPackage],
+        ignored_packages: set[str],
+        systemd_units: set[str],
+        systemd_user_units: dict[str, set[str]],
         files: dict[str, decman.File],
         directories: dict[str, decman.Directory],
-        modules: list[decman.Module],
+        modules: set[decman.Module],
     ):
         self.pacman_packages = pacman_packages
         self.aur_packages = aur_packages
@@ -316,7 +349,7 @@ class Source:
             for target, directory in dirs.items():
                 try:
                     print_debug(f"Installing directory to {target}.")
-                    directory.copy_to(target, variables)
+                    created_files.extend(directory.copy_to(target, variables))
                 except OSError as e:
                     print_error(f"{e}")
                     raise err.UserFacingError(
@@ -331,6 +364,32 @@ class Source:
                 install_dirs(module.directories(), module.file_variables())
 
         return created_files
+
+    def all_file_targets(self) -> list[str]:
+        """
+        Returns all file targets combined.
+        """
+        all_files = []
+        all_files.extend(self.files.keys())
+
+        for module in self.modules:
+            if module.enabled:
+                all_files.extend(module.files().keys())
+
+        return all_files
+
+    def all_directory_targets(self) -> list[str]:
+        """
+        Returns all directory targets combined.
+        """
+        all_dirs = []
+        all_dirs.extend(self.directories.keys())
+
+        for module in self.modules:
+            if module.enabled:
+                all_dirs.extend(module.directories().keys())
+
+        return all_dirs
 
     def files_to_remove(self, store: Store,
                         created_files: list[str]) -> list[str]:

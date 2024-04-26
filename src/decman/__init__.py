@@ -208,8 +208,8 @@ class Directory:
         original_wd = os.getcwd()
         try:
             os.chdir(self.source_directory)
-            for src_dir, _, files in os.walk("."):
-                for src_file in files:
+            for src_dir, _, src_files in os.walk("."):
+                for src_file in src_files:
                     src_path = os.path.join(src_dir, src_file)
                     file = File(source_file=src_path,
                                 bin_file=self.bin_files,
@@ -258,6 +258,14 @@ class UserPackage:
         self.make_dependencies = make_dependencies
         self.check_dependencies = check_dependencies
         self.git_url = git_url
+
+    def __hash__(self) -> int:
+        return self.pkgname.__hash__()
+
+    def __eq__(self, value: object, /) -> bool:
+        if isinstance(value, self.__class__):
+            return value.pkgname == self.pkgname
+        return False
 
 
 class Module:
@@ -349,3 +357,22 @@ class Module:
         Module.
         """
         return {}
+
+    def __hash__(self) -> int:
+        return self.name.__hash__()
+
+    def __eq__(self, value: object, /) -> bool:
+        if isinstance(value, self.__class__):
+            return value.name == self.name
+        return False
+
+
+packages: list[str] = []
+aur_packages: list[str] = []
+user_packages: list[UserPackage] = []
+ignored_packages: list[str] = []
+enabled_systemd_units: list[str] = []
+enabled_systemd_user_units: dict[str, list[str]] = {}
+files: dict[str, File] = {}
+directories: dict[str, Directory] = {}
+modules: list[Module] = []

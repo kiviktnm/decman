@@ -550,12 +550,12 @@ class ForeignPackageManager:
     def upgrade(self,
                 upgrade_devel: bool = False,
                 force: bool = False,
-                ignored_pkgs: typing.Optional[list[str]] = None):
+                ignored_pkgs: typing.Optional[set[str]] = None):
         """
         Upgrades all foreign packages.
         """
         if ignored_pkgs is None:
-            ignored_pkgs = []
+            ignored_pkgs = set()
 
         l.print_summary("Determining packages to upgrade.")
 
@@ -609,30 +609,17 @@ class ForeignPackageManager:
         resolved_dependencies = self.resolve_dependencies(
             foreign_pkgs, foreign_dep_pkgs)
 
-        l.print_summary(
-            "The following foreign packages will be installed explicitly:")
-        l.print_continuation("")
-        l.print_continuation(
-            f"\t{' '.join(resolved_dependencies.foreign_pkgs)}")
-        l.print_continuation("")
+        l.print_list_summary(
+            "The following foreign packages will be installed explicitly:",
+            list(resolved_dependencies.foreign_pkgs))
 
-        if resolved_dependencies.foreign_dep_pkgs:
-            l.print_summary(
-                "The following foreign packages will be installed as dependencies:"
-            )
-            l.print_continuation("")
-            l.print_continuation(
-                f"\t{' '.join(resolved_dependencies.foreign_dep_pkgs)}")
-            l.print_continuation("")
+        l.print_list_summary(
+            "The following foreign packages will be installed as dependencies:",
+            list(resolved_dependencies.foreign_dep_pkgs))
 
-        if resolved_dependencies.foreign_build_dep_pkgs:
-            l.print_summary(
-                "The following foreign packages will be built in order to install other packages. They will not be installed:"
-            )
-            l.print_continuation("")
-            l.print_continuation(
-                f"\t{' '.join(resolved_dependencies.foreign_build_dep_pkgs)}")
-            l.print_continuation("")
+        l.print_list_summary(
+            "The following foreign packages will be built in order to install other packages. They will not be installed:",
+            list(resolved_dependencies.foreign_build_dep_pkgs))
 
         if not l.prompt_confirm("Proceed?", default=True):
             raise err.UserFacingError("Installing aborted.")
