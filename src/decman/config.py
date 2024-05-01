@@ -17,7 +17,7 @@ Commands are stored as methods in the Commands-class.
 The global variable 'commands' of this module is an instance of the Commands-class.
 
 To change the defalts, create a new child class of the Commands-class and set the 'commands'
-variable to an instance of your class. Look in the README for examples.
+variable to an instance of your class. Look in the example directory for an example.
 """
 
 import typing
@@ -203,3 +203,4 @@ makepkg_user: str = "nobody"
 build_dir: str = "/tmp/decman/build"
 pkg_cache_dir: str = "/var/cache/decman"
 aur_rpc_timeout: typing.Optional[int] = 30
+enable_fpm: bool = True

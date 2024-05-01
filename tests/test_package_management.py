@@ -3,34 +3,34 @@
 import unittest
 from decman.error import UserFacingError
 from decman.lib import Pacman, Store
-from decman.lib.aur import ForeignPackageManager, DepGraph, ForeignPackage, ExtendedPackageSearch
+from decman.lib.fpm import ForeignPackageManager, DepGraph, ForeignPackage, ExtendedPackageSearch
 
 
 class TestVersionComparisons(unittest.TestCase):
 
     def setUp(self):
         pacman = Pacman()
-        self.aur = ForeignPackageManager(Store(), pacman,
-                                         ExtendedPackageSearch(pacman))
+        self.pm = ForeignPackageManager(Store(), pacman,
+                                        ExtendedPackageSearch(pacman))
 
     def test_should_upgrade_package_returns_true_on_newer_version(self):
         self.assertTrue(
-            self.aur.should_upgrade_package("test", "0.1.9", "0.2.0"))
+            self.pm.should_upgrade_package("test", "0.1.9", "0.2.0"))
 
     def test_should_upgrade_package_returns_false_on_older_version(self):
         self.assertFalse(
-            self.aur.should_upgrade_package("test", "0.1.9", "0.1.8"))
+            self.pm.should_upgrade_package("test", "0.1.9", "0.1.8"))
 
     def test_should_upgrade_package_returns_false_on_same_version(self):
         self.assertFalse(
-            self.aur.should_upgrade_package("test", "0.1.9", "0.1.9"))
+            self.pm.should_upgrade_package("test", "0.1.9", "0.1.9"))
 
     def test_should_upgrade_package_returns_true_on_devel(self):
         self.assertTrue(
-            self.aur.should_upgrade_package("test-git",
-                                            "0",
-                                            "0",
-                                            upgrade_devel=True))
+            self.pm.should_upgrade_package("test-git",
+                                           "0",
+                                           "0",
+                                           upgrade_devel=True))
 
 
 class TestDepGraph(unittest.TestCase):

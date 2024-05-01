@@ -673,13 +673,6 @@ class ForeignPackageManager:
     ) -> ResolvedDependencies:
         """
         Resolves foreign dependencies of foreign packages.
-
-        Returns a tuple of (foreign_packages, pacman_deps)
-
-        foreign_packages are in the order they should be built
-        (the 1st element should be built 1st)
-
-        pacman_deps are dependencies that are required by the foreign packages.
         """
 
         l.print_summary("Resolving foreign package dependencies.")
@@ -809,6 +802,8 @@ class PackageBuilder:
         self.chroot_dir = os.path.join(self.chroot_wd_dir, "root")
         self.pkgbase_dir_map = {}
         self.original_wd = ""
+        self._pkgs_in_chroot = set(PackageBuilder.always_included_packages)
+        self._pkgs_in_chroot.update(resolved_deps.pacman_deps)
 
     def __enter__(self):
         self.store_wd()
@@ -876,9 +871,8 @@ class PackageBuilder:
         except KeyError:
             pass
 
-        subprocess.run(conf.commands.make_chroot(
-            self.chroot_dir, PackageBuilder.always_included_packages +
-            list(self._resolved_deps.pacman_deps)),
+        subprocess.run(conf.commands.make_chroot(self.chroot_dir,
+                                                 list(self._pkgs_in_chroot)),
                        env=mkarchroot_env_vars,
                        check=True,
                        capture_output=conf.suppress_command_output)
@@ -955,9 +949,14 @@ class PackageBuilder:
 
         l.print_info("Removing build dependencies from chroot.")
 
+        # FIX: If installed packages are virtual packages, removing them wont succeed.
         if len(chroot_new_pacman_pkgs) != 0:
+            to_remove = []
+            for p in chroot_new_pacman_pkgs:
+                if p not in self._pkgs_in_chroot:
+                    to_remove.append(strip_dependency(p))
             subprocess.run(conf.commands.remove_chroot_packages(
-                self.chroot_dir, chroot_new_pacman_pkgs),
+                self.chroot_dir, to_remove),
                            check=True,
                            capture_output=conf.suppress_command_output)
 

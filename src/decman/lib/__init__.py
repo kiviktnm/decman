@@ -3,6 +3,7 @@ Library module for decman.
 """
 
 import pwd
+import shutil
 import subprocess
 import json
 import os
@@ -18,13 +19,15 @@ _CYAN_PREFIX = "\033[96m"
 _GREEN_PREFIX = "\033[92m"
 _GRAY_PREFIX = "\033[90m"
 _RESET_SUFFIX = "\033[m"
+_SPACING = "    "
+_CONTINUATION_PREFIX = f"{_DECMAN_MSG_TAG}{_SPACING} "
 
 
 def print_continuation(msg: str):
     """
     Prints a message without a prefix.
     """
-    print(f"{_DECMAN_MSG_TAG}\t {msg}")
+    print(f"{_CONTINUATION_PREFIX}{msg}")
 
 
 def print_error(error_msg: str):
@@ -53,7 +56,9 @@ def print_summary(msg: str):
 
 def print_list_summary(msg: str,
                        l: list[str],
-                       elements_per_line: typing.Optional[int] = None):
+                       elements_per_line: typing.Optional[int] = None,
+                       max_line_width: typing.Optional[int] = None,
+                       limit_to_term_size: bool = True):
     """
     Prints a summary message to the user along with a list of elements.
 
@@ -65,14 +70,37 @@ def print_list_summary(msg: str,
     l = l.copy()
     print_summary(msg)
     print_continuation("")
+
     if elements_per_line is None:
-        print_continuation(" ".join(l))
-    else:
-        while l:
-            to_print = []
-            for _ in range(elements_per_line):
-                to_print.append(l.pop())
-            print_continuation(" ".join(to_print))
+        elements_per_line = len(l)
+
+    if max_line_width is None:
+        max_line_width = 2**32  # Big enough to basically be unlimited
+
+    if limit_to_term_size:
+        max_line_width = shutil.get_terminal_size().columns - len(
+            _SPACING) - len(_CONTINUATION_PREFIX)
+
+    lines = [f"{l.pop(0)}"]
+    index = 0
+    elements_in_current_line = 1
+    while l:
+        next_element = l.pop(0)
+
+        can_fit_elements = elements_in_current_line + 1 <= elements_per_line
+        can_fit_text = len(lines[index]) + len(next_element) <= max_line_width
+
+        if can_fit_text and can_fit_elements:
+            lines[index] += f" {next_element}"
+            elements_in_current_line += 1
+        else:
+            lines.append(f"{next_element}")
+            index += 1
+            elements_in_current_line = 1
+
+    for line in lines:
+        print_continuation(line)
+
     print_continuation("")
 
 
@@ -499,50 +527,50 @@ class Source:
                 result.append((module.name, module.version))
         return result
 
-    def all_user_pkgs(self) -> list[decman.UserPackage]:
+    def all_user_pkgs(self) -> set[decman.UserPackage]:
         """
         Returns all active UserPackages.
         """
-        result = []
-        result.extend(self.user_packages)
+        result = set()
+        result.update(self.user_packages)
         for module in self.modules:
             if module.enabled:
-                result.extend(module.user_packages())
+                result.update(module.user_packages())
         return result
 
-    def _all_pacman_pkgs(self) -> list[str]:
-        result = []
-        result.extend(self.pacman_packages)
+    def _all_pacman_pkgs(self) -> set[str]:
+        result = set()
+        result.update(self.pacman_packages)
         for module in self.modules:
             if module.enabled:
-                result.extend(module.pacman_packages())
+                result.update(module.pacman_packages())
         return result
 
-    def _all_foreign_pkgs(self) -> list[str]:
-        result = []
-        result.extend(self.aur_packages)
-        result.extend(map(lambda p: p.pkgname, self.user_packages))
+    def _all_foreign_pkgs(self) -> set[str]:
+        result = set()
+        result.update(self.aur_packages)
+        result.update(map(lambda p: p.pkgname, self.user_packages))
         for module in self.modules:
             if module.enabled:
-                result.extend(module.aur_packages())
-                result.extend(map(lambda p: p.pkgname, module.user_packages()))
+                result.update(module.aur_packages())
+                result.update(map(lambda p: p.pkgname, module.user_packages()))
         return result
 
-    def _all_pkgs(self) -> list[str]:
-        result = []
-        result.extend(self._all_pacman_pkgs())
-        result.extend(self._all_foreign_pkgs())
+    def _all_pkgs(self) -> set[str]:
+        result = set()
+        result.update(self._all_pacman_pkgs())
+        result.update(self._all_foreign_pkgs())
         return result
 
-    def _all_units(self) -> list[str]:
-        result = []
-        result.extend(self.systemd_units)
+    def _all_units(self) -> set[str]:
+        result = set()
+        result.update(self.systemd_units)
         for module in self.modules:
             if module.enabled:
-                result.extend(module.systemd_units())
+                result.update(module.systemd_units())
         return result
 
-    def _all_user_units(self) -> dict[str, list[str]]:
+    def _all_user_units(self) -> dict[str, set[str]]:
         result = {}
         result.update(self.systemd_user_units)
         for module in self.modules:
@@ -569,7 +597,7 @@ class Pacman:
                 conf.commands.list_pkgs(),
                 check=True,
                 stdout=subprocess.PIPE,
-            ).stdout.decode().split('\n')
+            ).stdout.decode().strip().split('\n')
             return packages
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(

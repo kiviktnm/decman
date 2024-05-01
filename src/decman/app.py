@@ -10,7 +10,8 @@ import traceback
 import decman
 import decman.error as err
 import decman.lib as l
-import decman.lib.aur as aur
+import decman.config as conf
+from decman.lib import fpm
 
 
 def main():
@@ -94,9 +95,9 @@ def _set_up(store: l.Store):
 
     if source is None:
         l.print_error(
-            "Source was not specified. Please specify a source at least once with the --source argument."
+            "Source was not specified. Please specify a source with the '--source' argument."
         )
-        l.print_info("Decman will remember the previous source.")
+        l.print_info("Decman will remember the previously specified source.")
         sys.exit(1)
 
     if source_changed or not store.allow_running_source_without_prompt:
@@ -130,6 +131,9 @@ def _set_up(store: l.Store):
 
 
 class Core:
+    """
+    Contains the main logic of decman.
+    """
 
     def __init__(self, store: l.Store, opts):
         self.only_print, self.update_packages, self.update_files, self.update_units, self.upgrade_devel, self.force_build = opts
@@ -138,16 +142,19 @@ class Core:
         self.source = _resolve_source()
         self.pacman = l.Pacman()
         self.systemctl = l.Systemd(store)
-        self.fpkg_search = aur.ExtendedPackageSearch(self.pacman)
+        self.fpkg_search = fpm.ExtendedPackageSearch(self.pacman)
 
-        for upkg in self.source.user_packages:
+        for upkg in self.source.all_user_pkgs():
             self.fpkg_search.add_user_pkg(
-                aur.PackageInfo.from_user_package(upkg, self.pacman))
+                fpm.PackageInfo.from_user_package(upkg, self.pacman))
 
-        self.fpm = aur.ForeignPackageManager(store, self.pacman,
+        self.fpm = fpm.ForeignPackageManager(store, self.pacman,
                                              self.fpkg_search)
 
     def run(self):
+        """
+        Run the main logic of decman.
+        """
         if self.update_units:
             self._disable_units()
 
@@ -187,8 +194,9 @@ class Core:
         l.print_summary("Upgrading packages.")
         if not self.only_print:
             self.pacman.upgrade()
-            self.fpm.upgrade(self.upgrade_devel, self.force_build,
-                             self.source.ignored_packages)
+            if conf.enable_fpm:
+                self.fpm.upgrade(self.upgrade_devel, self.force_build,
+                                 self.source.ignored_packages)
 
     def _install_pkgs(self):
         currently_installed = self.pacman.get_installed()
@@ -202,13 +210,14 @@ class Core:
 
         if not self.only_print:
             self.pacman.install(to_install_pacman)
-            self.fpm.install(to_install_fpm, force=self.force_build)
+            if conf.enable_fpm:
+                self.fpm.install(to_install_fpm, force=self.force_build)
 
     def _create_and_remove_files(self):
-        l.print_list_summary("Copying files:",
+        l.print_list_summary("Installing files:",
                              self.source.all_file_targets(),
                              elements_per_line=1)
-        l.print_list_summary("Copying directories:",
+        l.print_list_summary("Installing directories:",
                              self.source.all_directory_targets(),
                              elements_per_line=1)
 
@@ -259,7 +268,7 @@ class Core:
 
 def _resolve_source() -> l.Source:
     enabled_systemd_user_units = {}
-    for user, units in decman.enabled_systemd_user_units:
+    for user, units in decman.enabled_systemd_user_units.items():
         enabled_systemd_user_units[user] = set(units)
 
     return l.Source(
