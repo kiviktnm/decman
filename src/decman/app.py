@@ -158,13 +158,13 @@ class Core:
         if self.update_units:
             self._disable_units()
 
+        if self.update_files:
+            self._create_and_remove_files()
+
         if self.update_packages:
             self._remove_pkgs()
             self._upgrade_pkgs()
             self._install_pkgs()
-
-        if self.update_files:
-            self._create_and_remove_files()
 
         if self.update_units:
             self._enable_units()
