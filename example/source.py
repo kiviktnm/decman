@@ -45,8 +45,10 @@ decman.user_packages.append(
             "python",
             "python-requests",
             "devtools",
-            "systemd",
             "pacman",
+            "systemd",
+            "git",
+            "less",
         ],
         make_dependencies=[
             "python-setuptools",

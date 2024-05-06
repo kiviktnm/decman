@@ -89,6 +89,8 @@ class MyModule(Module):
                     "devtools",
                     "systemd",
                     "pacman",
+                    "git",
+                    "less",
                 ],
                 make_dependencies=[
                     "python-setuptools",
