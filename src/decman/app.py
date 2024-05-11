@@ -19,35 +19,6 @@ def main():
     Main entry for the CLI app
     """
 
-    if not _is_root():
-        l.print_error("Not running as root. Please run decman as root.")
-        sys.exit(1)
-
-    original_wd = os.getcwd()
-
-    try:
-        store = l.Store.restore()
-        opts = _set_up(store)
-        Core(store, opts).run()
-    except err.UserFacingError as error:
-        l.print_error(error.user_facing_msg)
-        for line in traceback.format_exc().splitlines():
-            l.print_debug(line)
-        sys.exit(1)
-
-    # Save even when an error has occurred, since this avoids repeating steps like building pkgs.
-    try:
-        store.save()
-    except err.UserFacingError as error:
-        l.print_error(error.user_facing_msg)
-        for line in traceback.format_exc().splitlines():
-            l.print_debug(line)
-        sys.exit(1)
-
-    os.chdir(original_wd)
-
-
-def _set_up(store: l.Store):
     parser = argparse.ArgumentParser(
         prog="decman",
         description=
@@ -64,10 +35,15 @@ def _set_up(store: l.Store):
         help=
         "print what would happen as a result of running decman (doesn't print removed files)"
     )
-    parser.add_argument("--no-packages",
+    parser.add_argument(
+        "--no-packages",
+        action="store_true",
+        default=False,
+        help="don't upgrade any packages (including foreign packages)")
+    parser.add_argument("--no-foreign-packages",
                         action="store_true",
                         default=False,
-                        help="don't upgrade any packages")
+                        help="don't upgrade foreign packages")
     parser.add_argument("--no-files",
                         action="store_true",
                         default=False,
@@ -87,6 +63,36 @@ def _set_up(store: l.Store):
         help="force building of packages that are already cached")
 
     args = parser.parse_args()
+
+    if not _is_root():
+        l.print_error("Not running as root. Please run decman as root.")
+        sys.exit(1)
+
+    original_wd = os.getcwd()
+
+    try:
+        store = l.Store.restore()
+        opts = _set_up(store, args)
+        Core(store, opts).run()
+    except err.UserFacingError as error:
+        l.print_error(error.user_facing_msg)
+        for line in traceback.format_exc().splitlines():
+            l.print_debug(line)
+        sys.exit(1)
+
+    # Save even when an error has occurred, since this avoids repeating steps like building pkgs.
+    try:
+        store.save()
+    except err.UserFacingError as error:
+        l.print_error(error.user_facing_msg)
+        for line in traceback.format_exc().splitlines():
+            l.print_debug(line)
+        sys.exit(1)
+
+    os.chdir(original_wd)
+
+
+def _set_up(store: l.Store, args):
     source = store.source_file
     source_changed = False
     if args.source is not None:
@@ -127,7 +133,7 @@ def _set_up(store: l.Store):
     sys.path.append(".")
     exec(content)
 
-    return args.print, not args.no_packages, not args.no_files, not args.no_systemd_units, args.upgrade_devel, args.force_build
+    return args.print, not args.no_packages, not args.no_foreign_packages, not args.no_files, not args.no_systemd_units, args.upgrade_devel, args.force_build
 
 
 class Core:
@@ -136,7 +142,7 @@ class Core:
     """
 
     def __init__(self, store: l.Store, opts):
-        self.only_print, self.update_packages, self.update_files, self.update_units, self.upgrade_devel, self.force_build = opts
+        self.only_print, self.update_packages, self.update_foreign_packages, self.update_files, self.update_units, self.upgrade_devel, self.force_build = opts
 
         self.store = store
         self.source = _resolve_source()
@@ -194,7 +200,7 @@ class Core:
         l.print_summary("Upgrading packages.")
         if not self.only_print:
             self.pacman.upgrade()
-            if conf.enable_fpm:
+            if conf.enable_fpm and self.update_foreign_packages:
                 self.fpm.upgrade(self.upgrade_devel, self.force_build,
                                  self.source.ignored_packages)
 
@@ -210,7 +216,7 @@ class Core:
 
         if not self.only_print:
             self.pacman.install(to_install_pacman)
-            if conf.enable_fpm:
+            if conf.enable_fpm and self.update_foreign_packages:
                 self.fpm.install(to_install_fpm, force=self.force_build)
 
     def _create_and_remove_files(self):
