@@ -79,6 +79,10 @@ def main():
         for line in traceback.format_exc().splitlines():
             l.print_debug(line)
         sys.exit(1)
+    except decman.UserRaisedError as user_error:
+        l.print_error(
+            f"Error encountered while running the source: {user_error}")
+        sys.exit(1)
 
     # Save even when an error has occurred, since this avoids repeating steps like building pkgs.
     try:

@@ -10,7 +10,7 @@ import decman
 import decman.config
 
 # This is fine since the thing being imported is a class and not a global variable.
-from decman import UserPackage, File, Directory
+from decman import UserPackage, File, Directory, UserRaisedError
 
 # Configuring what packages are installed is easy.
 # Duplicates are OK, so if you have multiple modules that want to ensure a package is installed,
@@ -113,6 +113,9 @@ if socket.gethostname() == "arch-1":
     # This executes code defined in MyModule which can affect for example what packages are
     # installed as a part of this module.
     my_own_mod.enable_my_custom_feature(True)
+else:
+    # If you want to abort running decman from your config because something is wrong, raise a UserRaisedError
+    raise UserRaisedError("Unknown hostname!")
 
 decman.modules += [my_own_mod]
 

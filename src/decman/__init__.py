@@ -11,6 +11,15 @@ import subprocess
 import decman.error
 
 
+class UserRaisedError(Exception):
+    """
+    Error raised by running source
+    """
+
+    def __init__(self, message) -> None:
+        super().__init__(message)
+
+
 def sh(sh_cmd: str,
        user: typing.Optional[str] = None,
        env_overrides: typing.Optional[dict[str, str]] = None):
