@@ -137,7 +137,20 @@ class File:
             variables = {}
 
         target_directory = os.path.dirname(target)
-        os.makedirs(target_directory, exist_ok=True)
+
+        def create_missing_dirs(dirct: str, uid: typing.Optional[int],
+                                gid: typing.Optional[int]):
+            if not os.path.isdir(dirct):
+                parent_dir = os.path.dirname(dirct)
+                if not os.path.isdir(parent_dir):
+                    create_missing_dirs(parent_dir, uid, gid)
+                os.mkdir(dirct)
+
+                if uid is not None:
+                    assert gid is not None, "If uid is set, then gid is set."
+                    os.chown(dirct, uid, gid)
+
+        create_missing_dirs(target_directory, self.uid, self.gid)
 
         self._write_content(target, variables)
 
