@@ -239,7 +239,8 @@ class Directory:
                                 owner=self.owner,
                                 group=self.group,
                                 permissions=self.permissions)
-                    target = os.path.join(target_directory, src_path)
+                    target = os.path.normpath(
+                        os.path.join(target_directory, src_path))
                     created.append(target)
                     file.copy_to(target, variables)
         finally:
