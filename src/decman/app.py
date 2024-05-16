@@ -227,7 +227,11 @@ class Core:
             currently_installed)
 
         l.print_list_summary("Installing pacman packages:", to_install_pacman)
-        l.print_list_summary("Installing foreign packages:", to_install_fpm)
+
+        # fpm prints a summary so no need to print it twice
+        if self.only_print:
+            l.print_list_summary("Installing foreign packages:",
+                                 to_install_fpm)
 
         if not self.only_print:
             self.pacman.install(to_install_pacman)

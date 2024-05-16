@@ -644,6 +644,9 @@ class Pacman:
         """
         Installs the given packages.
         """
+        if not packages:
+            return
+
         try:
             subprocess.run(conf.commands.install_pkgs(packages), check=True)
         except subprocess.CalledProcessError as error:
@@ -654,6 +657,9 @@ class Pacman:
         """
         Installs the given dependencies.
         """
+        if not deps:
+            return
+
         try:
             subprocess.run(conf.commands.install_deps(deps), check=True)
         except subprocess.CalledProcessError as error:
@@ -666,12 +672,17 @@ class Pacman:
         Installs the given files first as dependencies. Then the packages listed in as_explicit are
         installed explicitly.
         """
+        if not files:
+            return
+
         try:
             subprocess.run(conf.commands.install_files(files), check=True)
-            subprocess.run(
-                conf.commands.set_as_explicitly_installed(as_explicit),
-                check=True,
-                capture_output=conf.suppress_command_output)
+
+            if as_explicit:
+                subprocess.run(
+                    conf.commands.set_as_explicitly_installed(as_explicit),
+                    check=True,
+                    capture_output=conf.suppress_command_output)
         except subprocess.CalledProcessError as error:
             if conf.suppress_command_output:
                 print_error("Output:")
@@ -693,6 +704,8 @@ class Pacman:
         """
         Removes the given packages.
         """
+        if not packages:
+            return
         try:
             subprocess.run(conf.commands.remove(packages), check=True)
         except subprocess.CalledProcessError as error:
@@ -712,6 +725,9 @@ class Systemd:
         """
         Enables the given units.
         """
+        if not units:
+            return
+
         try:
             subprocess.run(conf.commands.enable_units(units), check=True)
         except subprocess.CalledProcessError as error:
@@ -723,6 +739,9 @@ class Systemd:
         """
         Disables the given units.
         """
+        if not units:
+            return
+
         try:
             subprocess.run(conf.commands.disable_units(units), check=True)
         except subprocess.CalledProcessError as error:
@@ -738,6 +757,9 @@ class Systemd:
         """
         Enables the given units for the given user.
         """
+        if not units:
+            return
+
         try:
             uid = pwd.getpwnam(user).pw_uid
             gid = pwd.getpwnam(user).pw_gid
@@ -759,6 +781,9 @@ class Systemd:
         """
         Disables the given units for the given user.
         """
+        if not units:
+            return
+
         try:
             uid = pwd.getpwnam(user).pw_uid
             gid = pwd.getpwnam(user).pw_gid
