@@ -19,6 +19,8 @@ def main():
     Main entry for the CLI app
     """
 
+    sys.pycache_prefix = os.path.join(conf.pkg_cache_dir, "python/")
+
     parser = argparse.ArgumentParser(
         prog="decman",
         description=
