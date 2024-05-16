@@ -78,17 +78,26 @@ def main():
 
     try:
         store = l.Store.restore()
+    except err.UserFacingError as error:
+        l.print_error(error.user_facing_msg)
+        for line in traceback.format_exc().splitlines():
+            l.print_debug(line)
+        sys.exit(1)
+
+    errored = False
+
+    try:
         opts = _set_up(store, args)
         Core(store, opts).run()
     except err.UserFacingError as error:
         l.print_error(error.user_facing_msg)
         for line in traceback.format_exc().splitlines():
             l.print_debug(line)
-        sys.exit(1)
+        errored = True
     except decman.UserRaisedError as user_error:
         l.print_error(
             f"Error encountered while running the source: {user_error}")
-        sys.exit(1)
+        errored = True
 
     # Save even when an error has occurred, since this avoids repeating steps like building pkgs.
     try:
@@ -97,9 +106,11 @@ def main():
         l.print_error(error.user_facing_msg)
         for line in traceback.format_exc().splitlines():
             l.print_debug(line)
-        sys.exit(1)
+        errored = True
 
     os.chdir(original_wd)
+    if errored:
+        sys.exit(2)
 
 
 def _set_up(store: l.Store, args):

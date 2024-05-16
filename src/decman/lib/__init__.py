@@ -188,11 +188,44 @@ class Store:
         self.source_file: typing.Optional[str] = None
         self.allow_running_source_without_prompt: bool = False
         self.enabled_systemd_units: list[str] = []
-        self.enabled_user_systemd_units: list[tuple[str, str]] = []
+        self._enabled_user_systemd_units: list[str] = []
         self.enabled_modules: dict[str, str] = {}
         self.created_files: list[str] = []
         self.pkgbuild_latest_reviewed_commits: dict[str, str] = {}
         self._package_file_cache: dict[str, tuple[str, str]] = {}
+
+    def add_enabled_user_systemd_unit(self, user: str, unit: str):
+        """
+        Stores a user unit as enabled.
+        """
+        self._enabled_user_systemd_units.append(f"{user}->{unit}")
+
+    def remove_enabled_user_systemd_unit(self, user: str, unit: str):
+        """
+        Removes a user unit from stored units.
+        """
+        try:
+            self._enabled_user_systemd_units.remove(f"{user}->{unit}")
+        except ValueError:
+            pass
+
+    def is_systemd_used_unit_enabled(self, user: str, unit: str) -> bool:
+        """
+        Returns true if the given user unit is stored as enabled.
+        """
+        return f"{user}->{unit}" in self._enabled_user_systemd_units
+
+    def get_enabled_user_systemd_units(self) -> list[tuple[str, str]]:
+        """
+        Returns all enabled systemd units.
+        """
+        result = []
+        for unit_str in self._enabled_user_systemd_units:
+            unit_l = unit_str.split("->")
+            user = unit_l[0]
+            unit = unit_l[1]
+            result.append((user, unit))
+        return result
 
     def get_package(self, package: str) -> typing.Optional[tuple[str, str]]:
         """
@@ -228,7 +261,7 @@ class Store:
             "allow_running_source_without_prompt":
             self.allow_running_source_without_prompt,
             "enabled_systemd_units": self.enabled_systemd_units,
-            "enabled_user_systemd_units": self.enabled_user_systemd_units,
+            "enabled_user_systemd_units": self._enabled_user_systemd_units,
             "enabled_modules": self.enabled_modules,
             "created_files": self.created_files,
             "package_file_cache": self._package_file_cache,
@@ -268,7 +301,7 @@ class Store:
                     "enabled_systemd_units",
                     [],
                 )
-                store.enabled_user_systemd_units = d.get(
+                store._enabled_user_systemd_units = d.get(
                     "enabled_user_systemd_units",
                     [],
                 )
@@ -457,8 +490,7 @@ class Source:
         result = {}
         for user, units in self._all_user_units().items():
             for unit in units:
-                stored = (user, unit)
-                if stored not in store.enabled_user_systemd_units:
+                if not store.is_systemd_used_unit_enabled(user, unit):
                     entry = result.get(user, [])
                     entry.append(unit)
                     result[user] = entry
@@ -469,10 +501,8 @@ class Source:
         Returns all user systemd units that should be disabled.
         """
         result = {}
-        for stored in store.enabled_user_systemd_units:
-            user, unit = stored
-
-            if unit not in self._all_user_units().get(user, []):
+        for user, unit in store.get_enabled_user_systemd_units():
+            if unit not in self._all_user_units().get(user, set()):
                 entry = result.get(user, [])
                 entry.append(unit)
                 result[user] = entry
@@ -775,7 +805,7 @@ class Systemd:
                 f"Failed to enable systemd units because user {user} doesn't exist."
             ) from error
         for unit in units:
-            self.state.enabled_user_systemd_units.append((user, unit))
+            self.state.add_enabled_user_systemd_unit(user, unit)
 
     def disable_user_units(self, units: list[str], user: str):
         """
@@ -801,7 +831,4 @@ class Systemd:
             ) from error
 
         for unit in units:
-            try:
-                self.state.enabled_user_systemd_units.remove((user, unit))
-            except ValueError:
-                pass
+            self.state.remove_enabled_user_systemd_unit(user, unit)

@@ -146,8 +146,8 @@ class TestSource(unittest.TestCase):
         store = Store()
         store.enabled_systemd_units.extend(
             ["1.service", "3.service", "M_1.service"])
-        store.enabled_user_systemd_units.extend([("user", "u1.service"),
-                                                 ("user", "u3.service")])
+        store.add_enabled_user_systemd_unit("user", "u1.service")
+        store.add_enabled_user_systemd_unit("user", "u3.service")
         store.enabled_modules = {
             "Existing": "1",
             "ExistingChanged": "1",
