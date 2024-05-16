@@ -8,6 +8,7 @@ import subprocess
 import json
 import os
 import typing
+import time
 import decman.config as conf
 import decman.error as err
 import decman
@@ -192,7 +193,7 @@ class Store:
         self.enabled_modules: dict[str, str] = {}
         self.created_files: list[str] = []
         self.pkgbuild_latest_reviewed_commits: dict[str, str] = {}
-        self._package_file_cache: dict[str, tuple[str, str]] = {}
+        self._package_file_cache: dict[str, list[tuple[str, str, int]]] = {}
 
     def add_enabled_user_systemd_unit(self, user: str, unit: str):
         """
@@ -229,23 +230,81 @@ class Store:
 
     def get_package(self, package: str) -> typing.Optional[tuple[str, str]]:
         """
-        Returns the version and the path of a package stored in the built packages cache as a tuple
-        (version, path).
+        Returns the latest version and path of a package stored in the built packages cache as a
+        tuple (version, path).
         """
-        entry = self._package_file_cache.get(package)
-        if entry is None:
+        entries = self._package_file_cache.get(package)
+        if entries is None:
             return None
-        version, path = entry
-        if os.path.exists(path):
-            return (version, path)
-        return None
+
+        latest_version = None
+        latest_path = None
+        latest_timestamp = 0
+
+        for entry in entries:
+            version, path, timestamp = entry
+            if latest_timestamp < timestamp and os.path.exists(path):
+                latest_timestamp = timestamp
+                latest_version = version
+                latest_path = path
+
+        print_debug(f"Latest file for {package} is '{latest_path}'.")
+
+        if latest_path is None:
+            return None
+
+        assert latest_version is not None, "If latest_path is set, then latest_version is set."
+        return (latest_version, latest_path)
 
     def add_package_to_cache(self, package: str, version: str,
                              path_to_built_pkg: str):
         """
-        Adds a built package to the package file cache.
+        Adds a built package to the package file cache. Tries to remove excess cached packages.
         """
-        self._package_file_cache[package] = (version, path_to_built_pkg)
+        new_entry = (version, path_to_built_pkg, int(time.time()))
+        entries = self._package_file_cache.get(package, [])
+        entries.append(new_entry)
+        self._package_file_cache[package] = entries
+        self._clean_pkg_cache(package)
+
+    def _clean_pkg_cache(self, package: str):
+        oldest_version = None
+        oldest_path = None
+        oldest_timestamp = None
+
+        entries = self._package_file_cache[package]
+        print_debug(f"Package cache has {len(entries)} entries.")
+
+        if len(entries) <= conf.number_of_packages_stored_in_cache:
+            print_debug("Old files will not be removed.")
+            return
+
+        for entry in entries:
+            version, path, timestamp = entry
+            if oldest_timestamp is None or oldest_timestamp > timestamp:
+                oldest_version = version
+                oldest_timestamp = timestamp
+                oldest_path = path
+
+        print_debug(f"Oldest cached file for {package} is '{oldest_path}'.")
+        if oldest_path is None:
+            return
+        assert oldest_version is not None
+        assert oldest_timestamp is not None
+
+        entries.remove((oldest_version, oldest_path, oldest_timestamp))
+        if os.path.exists(oldest_path):
+            print_debug(f"Removing '{oldest_path}' from the package cache.")
+            try:
+                os.remove(oldest_path)
+            except OSError as e:
+                print_error(f"{e}")
+                print_error(
+                    f"Failed to remove file '{oldest_path}' from the package cache."
+                )
+                print_continuation("You'll have to remove the file manually.")
+
+        self._package_file_cache[package] = entries
 
     def save(self):
         """

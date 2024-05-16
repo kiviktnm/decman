@@ -146,6 +146,9 @@ decman.config.aur_rpc_timeout = 30
 # Enable installing and upgrading foreign packages.
 decman.config.enable_fpm = True
 
+# Number of package files per package kept in the cache
+decman.config.number_of_packages_stored_in_cache = 3
+
 
 # Changing the default commands decman uses for things is a bit more complex.
 # Create a child class of the decman.config.Commands class and override methods.

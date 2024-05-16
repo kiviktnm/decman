@@ -204,3 +204,4 @@ build_dir: str = "/tmp/decman/build"
 pkg_cache_dir: str = "/var/cache/decman"
 aur_rpc_timeout: typing.Optional[int] = 30
 enable_fpm: bool = True
+number_of_packages_stored_in_cache: int = 3
