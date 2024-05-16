@@ -52,6 +52,10 @@ def main():
                         action="store_true",
                         default=False,
                         help="don't enable/disable systemd units")
+    parser.add_argument("--no-commands",
+                        action="store_true",
+                        default=False,
+                        help="don't run user specified commands")
     parser.add_argument("--upgrade-devel",
                         action="store_true",
                         default=False,
@@ -137,7 +141,7 @@ def _set_up(store: l.Store, args):
     sys.path.append(".")
     exec(content)
 
-    return args.print, not args.no_packages, not args.no_foreign_packages, not args.no_files, not args.no_systemd_units, args.upgrade_devel, args.force_build
+    return args.print, not args.no_packages, not args.no_foreign_packages, not args.no_files, not args.no_systemd_units, not args.no_commands, args.upgrade_devel, args.force_build
 
 
 class Core:
@@ -146,7 +150,7 @@ class Core:
     """
 
     def __init__(self, store: l.Store, opts):
-        self.only_print, self.update_packages, self.update_foreign_packages, self.update_files, self.update_units, self.upgrade_devel, self.force_build = opts
+        self.only_print, self.update_packages, self.update_foreign_packages, self.update_files, self.update_units, self.run_commands, self.upgrade_devel, self.force_build = opts
 
         self.store = store
         self.source = _resolve_source()
@@ -179,7 +183,14 @@ class Core:
         if self.update_units:
             self._enable_units()
 
-        self._run_modules()
+        if self.run_commands:
+            self._run_modules()
+            all_enabled_modules = {}
+            for mod, version in self.source.all_enabled_modules():
+                all_enabled_modules[mod] = version
+            # Enabled modules are really only stored for commands,
+            # so they can be set only when the commands were exacuted.
+            self.store.enabled_modules = all_enabled_modules
 
     def _disable_units(self):
         to_disable = self.source.units_to_disable(self.store)
@@ -245,6 +256,8 @@ class Core:
             except OSError as e:
                 l.print_error(f"{e}")
                 l.print_warning(f"Failed to remove file: {file}")
+
+        self.store.created_files = all_created
 
     def _enable_units(self):
         to_enable = self.source.units_to_enable(self.store)

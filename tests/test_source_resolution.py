@@ -112,16 +112,16 @@ class TestSource(unittest.TestCase):
         self.enabled_module = EnabledTestModule()
         self.existing_module = ExistingTestModule()
         self.existing_module_changed = ExistingChangedVersionTestModule()
-        modules = [
+        modules = {
             self.enabled_module,
             self.disabled_module,
             self.existing_module,
             self.existing_module_changed,
-        ]
+        }
         source = Source(
-            pacman_packages=["p1", "p2", "p3"],
-            aur_packages=["A1", "A2", "A3"],
-            user_packages=[
+            pacman_packages={"p1", "p2", "p3"},
+            aur_packages={"A1", "A2", "A3"},
+            user_packages={
                 UserPackage(
                     pkgname="U1",
                     version="1",
@@ -134,10 +134,10 @@ class TestSource(unittest.TestCase):
                     dependencies=["d2"],
                     git_url="/am/url/yes",
                 )
-            ],
-            ignored_packages=["i1", "i2"],
-            systemd_units=["1.service", "2.timer"],
-            systemd_user_units={"user": ["u1.service", "u2.timer"]},
+            },
+            ignored_packages={"i1", "i2"},
+            systemd_units={"1.service", "2.timer"},
+            systemd_user_units={"user": {"u1.service", "u2.timer"}},
             modules=modules,
             files={},
             directories={},
@@ -172,6 +172,12 @@ class TestSource(unittest.TestCase):
         self.source = source
         self.store = store
         self.currently_installed_packages = currently_installed_packages
+
+    def test_all_enabled_modules(self):
+        enabled_modules = [("Enabled", "1"), ("Existing", "1"),
+                           ("ExistingChanged", "2")]
+        self.assertCountEqual(self.source.all_enabled_modules(),
+                              enabled_modules)
 
     def test_files_to_remove(self):
         created_files = ["/test/file1", "/test/file4"]
