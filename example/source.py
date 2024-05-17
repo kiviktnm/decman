@@ -63,10 +63,10 @@ decman.user_packages.append(
 # Decman also has really powerful ways of managing config files, scripts etc.
 
 # IMPORTANT: Decman will remove files that were created by decman, but are no longer in the decman source.
-# Keep your decman source in version control to avoid losing important files accidentally.
+# Keep your files in version control to avoid losing important files accidentally.
 
 # Define file content inline.
-# By default text file encoding is utf-8 but it can be changed.
+# Default text file encoding is utf-8 but it can be changed.
 decman.files["/etc/vconsole.conf"] = File(content="KEYMAP=us",
                                           encoding="utf-8")
 
@@ -147,6 +147,7 @@ decman.config.aur_rpc_timeout = 30
 decman.config.enable_fpm = True
 
 # Number of package files per package kept in the cache
+# All built AUR packages and user packages are stored in cache.
 decman.config.number_of_packages_stored_in_cache = 3
 
 
