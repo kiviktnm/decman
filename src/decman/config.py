@@ -45,7 +45,7 @@ class Commands:
         """
         Running this command installs the given packages from pacman repositories.
         """
-        return ["pacman", "-S", "--asexplicit"] + pkgs
+        return ["pacman", "-S", "--needed"] + pkgs
 
     def install_files(self, pkg_files: list[str]) -> list[str]:
         """
@@ -97,17 +97,21 @@ class Commands:
         """
         return ["systemctl", "disable", "--quiet"] + units
 
-    def enable_user_units(self, units: list[str]) -> list[str]:
+    def enable_user_units(self, units: list[str], user: str) -> list[str]:
         """
         Running this command enables the given systemd units for the user it's run as.
         """
-        return ["systemctl", "enable", "--now", "--quiet", "--user"] + units
+        return [
+            "systemctl", "--quiet", "--user", "-M", f"{user}@", "enable",
+            "--now"
+        ] + units
 
-    def disable_user_units(self, units: list[str]) -> list[str]:
+    def disable_user_units(self, units: list[str], user: str) -> list[str]:
         """
         Running this command disables the given systemd units fol the user it's run as.
         """
-        return ["systemctl", "disable", "--quiet"] + units
+        return ["systemctl", "--quiet", "--user", "-M", f"{user}@", "disable"
+                ] + units
 
     def compare_versions(self, installed_version: str,
                          new_version: str) -> list[str]:

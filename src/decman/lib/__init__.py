@@ -738,6 +738,8 @@ class Pacman:
 
         try:
             subprocess.run(conf.commands.install_pkgs(packages), check=True)
+            subprocess.run(conf.commands.set_as_explicitly_installed(packages),
+                           check=True)
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(
                 "Failed to install packages using pacman.") from error
@@ -849,20 +851,11 @@ class Systemd:
         if not units:
             return
 
-        try:
-            uid = pwd.getpwnam(user).pw_uid
-            gid = pwd.getpwnam(user).pw_gid
-
-            with subprocess.Popen(conf.commands.enable_user_units(units),
-                                  group=gid,
-                                  user=uid) as process:
-                if process.wait() != 0:
-                    raise err.UserFacingError(
-                        f"Failed to enable systemd units: {units} for {user}.")
-        except KeyError as error:
-            raise err.UserFacingError(
-                f"Failed to enable systemd units because user {user} doesn't exist."
-            ) from error
+        with subprocess.Popen(conf.commands.enable_user_units(
+                units, user)) as process:
+            if process.wait() != 0:
+                raise err.UserFacingError(
+                    f"Failed to enable systemd units: {units} for {user}.")
         for unit in units:
             self.state.add_enabled_user_systemd_unit(user, unit)
 
@@ -873,21 +866,10 @@ class Systemd:
         if not units:
             return
 
-        try:
-            uid = pwd.getpwnam(user).pw_uid
-            gid = pwd.getpwnam(user).pw_gid
-
-            with subprocess.Popen(conf.commands.disable_user_units(units),
-                                  group=gid,
-                                  user=uid) as process:
-                if process.wait() != 0:
-                    raise err.UserFacingError(
-                        f"Failed to disable systemd units: {units} for {user}."
-                    )
-        except KeyError as error:
-            raise err.UserFacingError(
-                f"Failed to disable systemd units because user {user} doesn't exist."
-            ) from error
-
+        with subprocess.Popen(conf.commands.disable_user_units(
+                units, user)) as process:
+            if process.wait() != 0:
+                raise err.UserFacingError(
+                    f"Failed to disable systemd units: {units} for {user}.")
         for unit in units:
             self.state.remove_enabled_user_systemd_unit(user, unit)
