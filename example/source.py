@@ -39,8 +39,9 @@ decman.config.makepkg_user = "kk"
 # This example may not be up to date, but you should keep these up to date with the PKGBUILD.
 decman.user_packages.append(
     UserPackage(
-        pkgname="decman",
-        version="0.0.1",
+        pkgname="decman-git",
+        version="0.1.0",
+        provides=["decman"],
         dependencies=[
             "python",
             "python-requests",

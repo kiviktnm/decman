@@ -81,8 +81,9 @@ class MyModule(Module):
     def user_packages(self) -> list[UserPackage]:
         return [
             UserPackage(
-                pkgname="decman",
-                version="0.0.1",
+                pkgname="decman-git",
+                version="0.1.0",
+                provides=["decman"],
                 dependencies=[
                     "python",
                     "python-requests",

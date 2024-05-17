@@ -226,6 +226,7 @@ decman.user_packages.append(
     decman.UserPackage(
         pkgname="decman-git",
         # Note, this example may not be up to date
+        provides=["decman"],
         version="0.1.0",
         dependencies=["python", "python-requests", "devtools", "pacman", "systemd", "git"],
         make_dependencies=[
