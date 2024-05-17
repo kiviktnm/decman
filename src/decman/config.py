@@ -89,7 +89,7 @@ class Commands:
         """
         Running this command enables the given systemd units.
         """
-        return ["systemctl", "enable", "--now", "--quiet"] + units
+        return ["systemctl", "enable", "--quiet"] + units
 
     def disable_units(self, units: list[str]) -> list[str]:
         """
@@ -99,16 +99,14 @@ class Commands:
 
     def enable_user_units(self, units: list[str], user: str) -> list[str]:
         """
-        Running this command enables the given systemd units for the user it's run as.
+        Running this command enables the given systemd units for the user.
         """
-        return [
-            "systemctl", "--quiet", "--user", "-M", f"{user}@", "enable",
-            "--now"
-        ] + units
+        return ["systemctl", "--quiet", "--user", "-M", f"{user}@", "enable"
+                ] + units
 
     def disable_user_units(self, units: list[str], user: str) -> list[str]:
         """
-        Running this command disables the given systemd units fol the user it's run as.
+        Running this command disables the given systemd units for the user.
         """
         return ["systemctl", "--quiet", "--user", "-M", f"{user}@", "disable"
                 ] + units
