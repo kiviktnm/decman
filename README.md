@@ -81,7 +81,7 @@ from syncthing import Syncthing
 decman.modules += [Syncthing()]
 ```
 
-Then run decman.
+Then run decman. Note that terminal colors cannot be disabled for decman.
 
 > [!WARNING]
 > Decman runs as root. This means that your `source.py` will be executed as root as well.

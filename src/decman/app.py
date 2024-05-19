@@ -95,6 +95,7 @@ def main():
         # Override debug_output if cli option is used
         if args.debug:
             conf.debug_output = True
+            conf.suppress_command_output = False
         # When print cli option is used, show info output
         if args.print:
             conf.quiet_output = False

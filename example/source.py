@@ -4,7 +4,7 @@
 import socket
 import os
 
-# Remember: Do NOT use from imports for global variables
+# Note: Do NOT use from imports for global variables
 # BAD: from decman import packages/modules/etc
 import decman
 import decman.config
@@ -123,14 +123,14 @@ decman.modules += [my_own_mod]
 # Configuring the behavior of decman is also done here.
 # These are the default values.
 
+# Note: you probably don't want to change these 2 settings and instead you'll want to to use the --debug CLI option.
 # Show debug output
 decman.config.debug_output = False
+# Suppress output of some commands that you probably don't want to see.
+decman.config.suppress_command_output = True
 
 # Make output less verbose. Summaries are still printed.
 decman.config.quiet_output = False
-
-# Suppress output of some commands that you probably don't want to see.
-decman.config.suppress_command_output = True
 
 # The user which builds aur and user packages.
 # decman.config.makepkg_user = "nobody" # This was set in a previous example. Let's not override it.
@@ -164,7 +164,7 @@ class MyCommands(decman.config.Commands):
         return ["pacman", "-Qm", "--color=never"]
 
     def install_pkgs(self, pkgs: list[str]) -> list[str]:
-        return ["pacman", "-S", "--asexplicit"] + pkgs
+        return ["pacman", "-S", "--needed"] + pkgs
 
     def install_files(self, pkg_files: list[str]) -> list[str]:
         return ["pacman", "-U", "--asdeps"] + pkg_files
@@ -185,16 +185,16 @@ class MyCommands(decman.config.Commands):
         return ["pacman", "-Rs"] + pkgs
 
     def enable_units(self, units: list[str]) -> list[str]:
-        return ["systemctl", "enable", "--now", "--quiet"] + units
+        return ["systemctl", "enable"] + units
 
     def disable_units(self, units: list[str]) -> list[str]:
-        return ["systemctl", "disable", "--quiet"] + units
+        return ["systemctl", "disable"] + units
 
-    def enable_user_units(self, units: list[str]) -> list[str]:
-        return ["systemctl", "enable", "--now", "--quiet", "--user"] + units
+    def enable_user_units(self, units: list[str], user: str) -> list[str]:
+        return ["systemctl", "--user", "-M", f"{user}@", "enable"] + units
 
-    def disable_user_units(self, units: list[str]) -> list[str]:
-        return ["systemctl", "disable", "--quiet"] + units
+    def disable_user_units(self, units: list[str], user: str) -> list[str]:
+        return ["systemctl", "--user", "-M", f"{user}@", "disable"] + units
 
     def compare_versions(self, installed_version: str,
                          new_version: str) -> list[str]:
@@ -251,7 +251,7 @@ class PikaurWrapperCommands(decman.config.Commands):
         return ["pikaur", "-Qeq"]
 
     def install_pkgs(self, pkgs: list[str]) -> list[str]:
-        return ["pikaur", "-S", "--asexplicit"] + pkgs
+        return ["pikaur", "-S"] + pkgs
 
     def upgrade(self) -> list[str]:
         return ["pikaur", "-Syu"]
