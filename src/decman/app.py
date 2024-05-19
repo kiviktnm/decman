@@ -37,6 +37,10 @@ def main():
         help=
         "print what would happen as a result of running decman (doesn't print removed files)"
     )
+    parser.add_argument("--debug",
+                        action="store_true",
+                        default=False,
+                        help="show debug output")
     parser.add_argument(
         "--no-packages",
         action="store_true",
@@ -88,6 +92,12 @@ def main():
 
     try:
         opts = _set_up(store, args)
+        # Override debug_output if cli option is used
+        if args.debug:
+            conf.debug_output = True
+        # When print cli option is used, show info output
+        if args.print:
+            conf.quiet_output = False
         Core(store, opts).run()
     except err.UserFacingError as error:
         l.print_error(error.user_facing_msg)
@@ -207,20 +217,20 @@ class Core:
 
     def _disable_units(self):
         to_disable = self.source.units_to_disable(self.store)
-        l.print_list_summary("Disabling systemd units:", to_disable)
+        l.print_list("Disabling systemd units:", to_disable)
         if not self.only_print:
             self.systemctl.disable_units(to_disable)
 
         user_units_to_disable = self.source.user_units_to_disable(self.store)
         for user, units in user_units_to_disable.items():
-            l.print_list_summary(f"Disabling systemd units for {user}:", units)
+            l.print_list(f"Disabling systemd units for {user}:", units)
             if not self.only_print:
                 self.systemctl.disable_user_units(units, user)
 
     def _remove_pkgs(self):
         currently_installed = self.pacman.get_installed()
         to_remove = self.source.packages_to_remove(currently_installed)
-        l.print_list_summary("Removing packages:", to_remove)
+        l.print_list("Removing packages:", to_remove)
         if not self.only_print:
             self.pacman.remove(to_remove)
 
@@ -239,12 +249,11 @@ class Core:
         to_install_fpm = self.source.foreign_packages_to_install(
             currently_installed)
 
-        l.print_list_summary("Installing pacman packages:", to_install_pacman)
+        l.print_list("Installing pacman packages:", to_install_pacman)
 
         # fpm prints a summary so no need to print it twice
         if self.only_print:
-            l.print_list_summary("Installing foreign packages:",
-                                 to_install_fpm)
+            l.print_list("Installing foreign packages:", to_install_fpm)
 
         if not self.only_print:
             self.pacman.install(to_install_pacman)
@@ -252,12 +261,14 @@ class Core:
                 self.fpm.install(to_install_fpm, force=self.force_build)
 
     def _create_and_remove_files(self):
-        l.print_list_summary("Installing files:",
-                             self.source.all_file_targets(),
-                             elements_per_line=1)
-        l.print_list_summary("Installing directories:",
-                             self.source.all_directory_targets(),
-                             elements_per_line=1)
+        l.print_list("Installing files:",
+                     self.source.all_file_targets(),
+                     elements_per_line=1,
+                     level=l.INFO)
+        l.print_list("Installing directories:",
+                     self.source.all_directory_targets(),
+                     elements_per_line=1,
+                     level=l.INFO)
 
         if self.only_print:
             return
@@ -265,7 +276,7 @@ class Core:
         all_created = self.source.create_all_files()
         to_remove = self.source.files_to_remove(self.store, all_created)
 
-        l.print_list_summary("Removing files:", to_remove, elements_per_line=1)
+        l.print_list("Removing files:", to_remove, elements_per_line=1)
 
         for file in to_remove:
             try:
@@ -278,13 +289,13 @@ class Core:
 
     def _enable_units(self):
         to_enable = self.source.units_to_enable(self.store)
-        l.print_list_summary("Enabling systemd units:", to_enable)
+        l.print_list("Enabling systemd units:", to_enable)
         if not self.only_print:
             self.systemctl.enable_units(to_enable)
 
         user_units_to_enable = self.source.user_units_to_enable(self.store)
         for user, units in user_units_to_enable.items():
-            l.print_list_summary(f"Enabling systemd units for {user}:", units)
+            l.print_list(f"Enabling systemd units for {user}:", units)
             if not self.only_print:
                 self.systemctl.enable_user_units(units, user)
 

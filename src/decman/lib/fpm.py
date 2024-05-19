@@ -472,7 +472,7 @@ class ExtendedPackageSearch:
         providers = "Providers: "
         for index, name in enumerate(possible_providers):
             providers += f"{index + 1}:{name} "
-        l.print_info(providers)
+        l.print_summary(providers)
 
         selection = l.prompt_number(
             f"Select a provider [{min_selection}-{max_selection}] (default: {min_selection}): ",
@@ -557,7 +557,7 @@ class ForeignPackageManager:
         if ignored_pkgs is None:
             ignored_pkgs = set()
 
-        l.print_summary("Determining packages to upgrade.")
+        l.print_summary("Determining foreign packages to upgrade.")
 
         all_foreign_pkgs = self._pacman.get_versioned_foreign_packages()
         all_explicit_pkgs = set(self._pacman.get_installed())
@@ -609,17 +609,20 @@ class ForeignPackageManager:
         resolved_dependencies = self.resolve_dependencies(
             foreign_pkgs, foreign_dep_pkgs)
 
-        l.print_list_summary(
+        l.print_list(
             "The following foreign packages will be installed explicitly:",
-            list(resolved_dependencies.foreign_pkgs))
+            list(resolved_dependencies.foreign_pkgs),
+            level=l.SUMMARY)
 
-        l.print_list_summary(
+        l.print_list(
             "The following foreign packages will be installed as dependencies:",
-            list(resolved_dependencies.foreign_dep_pkgs))
+            list(resolved_dependencies.foreign_dep_pkgs),
+            level=l.SUMMARY)
 
-        l.print_list_summary(
+        l.print_list(
             "The following foreign packages will be built in order to install other packages. They will not be installed:",
-            list(resolved_dependencies.foreign_build_dep_pkgs))
+            list(resolved_dependencies.foreign_build_dep_pkgs),
+            level=l.SUMMARY)
 
         if not l.prompt_confirm("Proceed?", default=True):
             raise err.UserFacingError("Installing aborted.")
@@ -675,7 +678,7 @@ class ForeignPackageManager:
         Resolves foreign dependencies of foreign packages.
         """
 
-        l.print_summary("Resolving foreign package dependencies.")
+        l.print_info("Resolving foreign package dependencies.")
         l.print_debug(f"Packages: {foreign_pkgs}")
 
         if foreign_dep_pkgs is None:
@@ -739,7 +742,7 @@ class ForeignPackageManager:
             total_processed += 1
             l.print_info(f"Progress: {total_processed}/{len(seen_packages)}.")
 
-        l.print_summary("Determining build order.")
+        l.print_info("Determining build order.")
 
         while True:
             to_add = graph.get_and_remove_outer_dep_pkgs()
@@ -831,7 +834,7 @@ class PackageBuilder:
         """
         Creates a new chroot and clones all PKGBUILDS.
         """
-        l.print_summary("Creating a build environment..")
+        l.print_info("Creating a build environment..")
 
         if os.path.exists(conf.build_dir):
             l.print_info("Removing previous build directory.")
@@ -858,7 +861,7 @@ class PackageBuilder:
             self._git_clone_and_review_pkgbuild(pkgbase, git_url)
             shutil.chown(pkgbuild_dir, user=conf.makepkg_user)
 
-        l.print_summary("Creating a new chroot.")
+        l.print_info("Creating a new chroot.")
         os.makedirs(self.chroot_wd_dir)
 
         # Remove GNUPGHOME from mkarchroot environment variables since it may interfere with
@@ -896,12 +899,12 @@ class PackageBuilder:
         # Rebuild is only needed if at least one package is not in the cache.
 
         if self._are_all_pkgs_cached(packages) and not force:
-            l.print_summary(
+            l.print_info(
                 f"Skipped building '{' '.join(package_names)}'. Already up to date."
             )
             return
 
-        l.print_summary(f"Building '{' '.join(package_names)}'.")
+        l.print_info(f"Building '{' '.join(package_names)}'.")
 
         chroot_new_pacman_pkgs, chroot_pkg_files = self._get_chroot_packages(
             packages)
@@ -960,7 +963,7 @@ class PackageBuilder:
                            check=True,
                            capture_output=conf.suppress_command_output)
 
-        l.print_summary(f"Finished building: '{' '.join(package_names)}'.")
+        l.print_info(f"Finished building: '{' '.join(package_names)}'.")
 
     def _are_all_pkgs_cached(self, pkgs: list[ForeignPackage]) -> bool:
         for pkg in pkgs:

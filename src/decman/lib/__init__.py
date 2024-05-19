@@ -23,12 +23,16 @@ _RESET_SUFFIX = "\033[m"
 _SPACING = "    "
 _CONTINUATION_PREFIX = f"{_DECMAN_MSG_TAG}{_SPACING} "
 
+INFO = 1
+SUMMARY = 2
 
-def print_continuation(msg: str):
+
+def print_continuation(msg: str, level: int = SUMMARY):
     """
     Prints a message without a prefix.
     """
-    print(f"{_CONTINUATION_PREFIX}{msg}")
+    if level == SUMMARY or conf.debug_output or not conf.quiet_output:
+        print(f"{_CONTINUATION_PREFIX}{msg}")
 
 
 def print_error(error_msg: str):
@@ -55,11 +59,12 @@ def print_summary(msg: str):
     print(f"{_DECMAN_MSG_TAG} {_CYAN_PREFIX}SUMMARY{_RESET_SUFFIX}: {msg}")
 
 
-def print_list_summary(msg: str,
-                       l: list[str],
-                       elements_per_line: typing.Optional[int] = None,
-                       max_line_width: typing.Optional[int] = None,
-                       limit_to_term_size: bool = True):
+def print_list(msg: str,
+               l: list[str],
+               elements_per_line: typing.Optional[int] = None,
+               max_line_width: typing.Optional[int] = None,
+               limit_to_term_size: bool = True,
+               level: int = SUMMARY):
     """
     Prints a summary message to the user along with a list of elements.
 
@@ -69,8 +74,12 @@ def print_list_summary(msg: str,
         return
 
     l = l.copy()
-    print_summary(msg)
-    print_continuation("")
+    if level == SUMMARY:
+        print_summary(msg)
+    elif level == INFO:
+        print_info(msg)
+
+    print_continuation("", level=level)
 
     if elements_per_line is None:
         elements_per_line = len(l)
@@ -100,9 +109,9 @@ def print_list_summary(msg: str,
             elements_in_current_line = 1
 
     for line in lines:
-        print_continuation(line)
+        print_continuation(line, level=level)
 
-    print_continuation("")
+    print_continuation("", level=level)
 
 
 def print_info(msg: str):
@@ -739,7 +748,8 @@ class Pacman:
         try:
             subprocess.run(conf.commands.install_pkgs(packages), check=True)
             subprocess.run(conf.commands.set_as_explicitly_installed(packages),
-                           check=True)
+                           check=True,
+                           capture_output=conf.suppress_command_output)
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(
                 "Failed to install packages using pacman.") from error
@@ -820,7 +830,9 @@ class Systemd:
             return
 
         try:
-            subprocess.run(conf.commands.enable_units(units), check=True)
+            subprocess.run(conf.commands.enable_units(units),
+                           check=True,
+                           capture_output=conf.suppress_command_output)
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(
                 f"Failed to enable systemd units: {units}") from error
@@ -834,7 +846,9 @@ class Systemd:
             return
 
         try:
-            subprocess.run(conf.commands.disable_units(units), check=True)
+            subprocess.run(conf.commands.disable_units(units),
+                           check=True,
+                           capture_output=conf.suppress_command_output)
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(
                 f"Failed to disable systemd units: {units}") from error
@@ -851,11 +865,15 @@ class Systemd:
         if not units:
             return
 
-        with subprocess.Popen(conf.commands.enable_user_units(
-                units, user)) as process:
-            if process.wait() != 0:
-                raise err.UserFacingError(
-                    f"Failed to enable systemd units: {units} for {user}.")
+        try:
+            subprocess.run(conf.commands.enable_user_units(units, user),
+                           check=True,
+                           capture_output=conf.suppress_command_output)
+        except subprocess.CalledProcessError as error:
+            raise err.UserFacingError(
+                f"Failed to enable systemd units: {units} for {user}."
+            ) from error
+
         for unit in units:
             self.state.add_enabled_user_systemd_unit(user, unit)
 
@@ -866,10 +884,14 @@ class Systemd:
         if not units:
             return
 
-        with subprocess.Popen(conf.commands.disable_user_units(
-                units, user)) as process:
-            if process.wait() != 0:
-                raise err.UserFacingError(
-                    f"Failed to disable systemd units: {units} for {user}.")
+        try:
+            subprocess.run(conf.commands.disable_user_units(units, user),
+                           check=True,
+                           capture_output=conf.suppress_command_output)
+        except subprocess.CalledProcessError as error:
+            raise err.UserFacingError(
+                f"Failed to disable systemd units: {units} for {user}."
+            ) from error
+
         for unit in units:
             self.state.remove_enabled_user_systemd_unit(user, unit)
