@@ -261,11 +261,12 @@ class Core:
                 self.fpm.install(to_install_fpm, force=self.force_build)
 
     def _create_and_remove_files(self):
-        l.print_list("Installing files:",
+        l.print_summary("Installing files.")
+        l.print_list("Files to install:",
                      self.source.all_file_targets(),
                      elements_per_line=1,
                      level=l.INFO)
-        l.print_list("Installing directories:",
+        l.print_list("Directories to install:",
                      self.source.all_directory_targets(),
                      elements_per_line=1,
                      level=l.INFO)

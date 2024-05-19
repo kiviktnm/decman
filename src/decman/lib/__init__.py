@@ -272,14 +272,20 @@ class Store:
         """
         new_entry = (version, path_to_built_pkg, int(time.time()))
         entries = self._package_file_cache.get(package, [])
+        for _, already_cached_path, __ in entries:
+            if already_cached_path == path_to_built_pkg:
+                print_debug(
+                    f"Trying to cache {package} version {version}, but the version is already cached: {already_cached_path}"
+                )
+                return
         entries.append(new_entry)
         self._package_file_cache[package] = entries
         self._clean_pkg_cache(package)
 
     def _clean_pkg_cache(self, package: str):
-        oldest_version = None
         oldest_path = None
         oldest_timestamp = None
+        index_of_oldest = None
 
         entries = self._package_file_cache[package]
         print_debug(f"Package cache has {len(entries)} entries.")
@@ -288,20 +294,19 @@ class Store:
             print_debug("Old files will not be removed.")
             return
 
-        for entry in entries:
-            version, path, timestamp = entry
+        for index, entry in enumerate(entries):
+            _, path, timestamp = entry
             if oldest_timestamp is None or oldest_timestamp > timestamp:
-                oldest_version = version
                 oldest_timestamp = timestamp
                 oldest_path = path
+                index_of_oldest = index
 
         print_debug(f"Oldest cached file for {package} is '{oldest_path}'.")
         if oldest_path is None:
             return
-        assert oldest_version is not None
-        assert oldest_timestamp is not None
+        assert index_of_oldest is not None
 
-        entries.remove((oldest_version, oldest_path, oldest_timestamp))
+        entries.pop(index_of_oldest)
         if os.path.exists(oldest_path):
             print_debug(f"Removing '{oldest_path}' from the package cache.")
             try:

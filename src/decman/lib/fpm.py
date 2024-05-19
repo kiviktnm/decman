@@ -1074,7 +1074,7 @@ before and thus are found in the cache."
                            check=True,
                            capture_output=conf.suppress_command_output)
 
-            if l.prompt_confirm(f"Review PKGBUILD for {pkgbase}?",
+            if l.prompt_confirm(f"Review PKGBUILD or show diff for {pkgbase}?",
                                 default=True):
                 latest_reviewed_commit = self._store.pkgbuild_latest_reviewed_commits.get(
                     pkgbase)
