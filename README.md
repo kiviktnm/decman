@@ -236,7 +236,9 @@ decman.user_packages.append(
     ))
 ```
 
-Building of foreign packages happens in a chroot. This creates some overhead, but ensures clean builds. Build packages are stored in a cache `/var/cache/decman`. By default decman keeps 3 most recent versions of all packages.
+Building of foreign packages happens in a chroot. This creates some overhead, but ensures clean builds. By default the chroot is created to `/tmp/decman/build`. I recommend to use a tempfs for the `/tmp/` directory to speed up builds. Also make sure that the tempfs-partition is large enough. I recommend at least 6 GB.
+
+Build packages are stored in a cache `/var/cache/decman`. By default decman keeps 3 most recent versions of all packages.
 
 ### Systemd units
 
