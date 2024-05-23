@@ -2,6 +2,8 @@
 
 Decman is a declarative package & configuration manager for Arch Linux. It allows you to manage installed packages, your dotfiles, enabled systemd units, and run commands automatically. Your system is configured using python so your configuration can be very adaptive.
 
+If you want, you can also use decman with other configuration languages. See the [example with TOML later in this README](#decman-with-other-configuration-languages).
+
 ## Overview
 
 A complete example is available in the `example`-directory of this repository. It also serves as documentation so reading it is recommended.
@@ -102,87 +104,6 @@ Decman has some CLI options, to see them all run:
 decman --help
 ```
 
-## Why use decman?
-
-Here are some reasons why I created decman for myself.
-
-### Configuration as documentation
-
-You can consult your config to see what packages are installed and what config files are created. If you organize your config into modules, you also see what files, systemd units and packages are related.
-
-### Modular config
-
-In a modular config, you can also change parts of your system eg. switch shells without it affecting your other setups at all. If you create a module called `Shell` that exposes a function `add_alias`, you can call that function from other modules. Then later if you decide to switch from bash to fish, you can change the internals of your `Shell`-module without modifying your other modules at all.
-
-```py
-import theme
-class Shell(Module):
-    def __init__(self):
-        super().__init__("shell", enabled=True, version="1")
-        self._aliases_text = ""
-
-    # --
-
-    def add_alias(self, alias: str, cmd: str):
-        self._aliases_text += f"alias {alias}='{cmd}'\n"
-
-    def files(self) -> dict[str, File]:
-        return {
-            "/home/user/.config/fish/config.fish":
-            File(source_file="./files/shell/config.fish", owner="user")
-        }
-
-
-    def file_variables(self) -> dict[str, str]:
-        fvars = {
-            "%aliases%": self._aliases_text,
-        }
-        # Remember this line when looking at the next point
-        fvars.update(theme.COLORS)
-        return fvars
-```
-
-### Consistency between applications
-
-Decman's file variables are a great way to make sure different tools are in sync. For example, you can create a theme file in your config and then use that theme in modules. The previous `Shell`-module imports a theme from a theme file.
-
-`theme.py`:
-
-```py
-COLORS = {
-    "%PRIMARY_COLOR%": "#b121ff",
-    "%SECONDARY_COLOR%": "#ff5577",
-    "%BACKGROUND_COLOR%": "#6a30d5",
-    # etc
-}
-```
-
-### Reproducibility
-
-You can easily reinstall your system using your decman config.
-
-### Dynamic configuration
-
-Using python you can use the same config for different computers and only change some things between them.
-
-```py
-import socket
-
-if socket.gethostname() == "laptop":
-    # add brightness controls to your laptop
-    decman.packages += ["brightnessctl"]
-```
-
-### Why not use NixOS?
-
-NixOS is a Linux disto built around the idea of declarative system management, so why create a more limited alternative?
-
-I tried NixOS in the past, but it had some issues that caused me to create decman for Arch Linux instead. In my personal opinion:
-
-- NixOS forces you to do everything the Nix way. Sometimes I just want to develop software without having to use nix tools.
-- NixOS is hard, and the documentation (when I last tried it) wasn't that good. Doing more complex stuff was sometimes just very annoying.
-- NixOS has unnecessary abstraction with NixOS options. They are great until you have to configure something specific and there is not an option for it. Then you'll have to inline other configuration language within your Nix config. And if some software doesn't have any premade options you'll have to do write the config manually. Then you'll have some software managed with just options and others with normal config files. I prefer to keep everything consistent.
-
 ## Installation
 
 Clone the decman PKGBUILD:
@@ -271,6 +192,196 @@ When decman runs, it does the following things in this order.
    1. `after_update`
 
 Operations may be skipped with command line options.
+
+## Decman with other configuration languages
+
+Since decman uses Python files to declare your system, you can easily parse another configuration language in your Python source instead of declaring things directly in Python.
+
+<details>
+<summary>Here is a basic example using TOML.</summary>
+
+To use TOML with Python, you need the `toml`-package. To install it in Arch Linux, install the `python-toml`-package.
+
+> [!NOTE]
+> This example doesn't allow you to use Decman's modules or set Decman's settings using TOML.
+> You'll have to set them using Python. With this example you can use both TOML and Python if you want.
+
+Write this in your decman source.
+
+```py
+import toml
+import decman
+
+TOML_CONFIG_FILE="/your/file/here.toml"
+
+# These functions convert TOML tables to decman Files/Directories/UserPackages.
+
+def toml_to_decman_file(toml_dict) -> decman.File:
+    return decman.File(content=toml_dict.get("content"),
+                       source_file=toml_dict.get("source_file"),
+                       bin_file=toml_dict.get("bin_file", False),
+                       encoding=toml_dict.get("encoding", "utf-8"),
+                       owner=toml_dict.get("owner"),
+                       group=toml_dict.get("group"),
+                       permissions=toml_dict.get("permissions", 0o644))
+
+
+def toml_to_decman_directory(toml_dict) -> decman.Directory:
+    return decman.Directory(source_directory=toml_dict["source_directory"],
+                            bin_files=toml_dict.get("bin_files", False),
+                            encoding=toml_dict.get("encoding", "utf-8"),
+                            owner=toml_dict.get("owner"),
+                            group=toml_dict.get("group"),
+                            permissions=toml_dict.get("permissions", 0o644))
+
+def toml_to_decman_user_package(toml_dict) -> decman.UserPackage:
+    return decman.UserPackage(pkgname=toml_dict["pkgname"],
+                              version=toml_dict["version"],
+                              dependencies=toml_dict["dependencies"],
+                              git_url=toml_dict["git_url"],
+                              pkgbase=toml_dict.get("pkgbase"),
+                              provides=toml_dict.get("provides"),
+                              make_dependencies=toml_dict.get("make_dependencies"),
+                              check_dependencies=toml_dict.get("check_dependencies"))
+
+
+# Parse TOML into a Python dictionary
+toml_source = toml.load(TOML_CONFIG_FILE)
+
+# Set decman variables using the parsed dictionary.
+
+decman.packages = toml_source.get("packages", [])
+decman.aur_packages = toml_source.get("aur_packages", [])
+decman.ignored_packages = toml_source.get("ignored_packages", [])
+decman.enabled_systemd_units = toml_source.get("enabled_systemd_units", [])
+decman.enabled_systemd_user_units = toml_source.get("enabled_systemd_user_units", {})
+
+for filename, toml_file_dec in toml_source.get("files", {}).items():
+    decman.files[filename] = toml_to_decman_file(toml_file_dec)
+
+for dirname, toml_dir_dec in toml_source.get("directories", {}).items():
+    decman.directories[dirname] = toml_to_decman_directory(toml_dir_dec)
+
+for toml_user_package_dec in toml_source.get("user_packages", []):
+    decman.user_packages.append(toml_to_decman_user_package(toml_user_package_dec))
+```
+
+Then you can use TOML configuration like this:
+
+```toml
+packages = ["python", "git", "networkmanager", "ufw", "neovim", "python-toml"]
+aur_packages = ["protonvpn"]
+enabled_systemd_units = ["NetworkManager.service"]
+ignored_packages = ["yay"]
+user_packages = [{
+    pkgname="decman-git",
+    # Note, this example may not be up to date
+    provides=["decman"],
+    version="0.2.0",
+    dependencies=["python", "python-requests", "devtools", "pacman", "systemd", "git"],
+    make_dependencies=[
+        "python-setuptools", "python-build", "python-installer", "python-wheel"
+    ],
+    git_url="https://github.com/kiviktnm/decman-pkgbuild.git",
+}]
+
+[files]
+'/etc/vconsole.conf' = { content="KEYMAP=us" }
+'/etc/pacman.conf' = { source_file="./dotfiles/pacman.conf" }
+
+[directories]
+'/home/user/.config/nvim' = { source_directory="./dotfiles/nvim", owner="user" }
+
+# To set other file/directory attributes, just add them like this. Note that here I am not using octal notation for permissions.
+'/home/user/.config/example' = { source_directory="./dotfiles/example", owner="user", group="user", bin_files=true, encoding="utf-8", permissions=448 }
+
+[enabled_systemd_user_units]
+user = ["syncthing.service"]
+user2 = ["example.service", "another.service"]
+```
+
+</details>
+
+## Why use decman?
+
+Here are some reasons why I created decman for myself.
+
+### Configuration as documentation
+
+You can consult your config to see what packages are installed and what config files are created. If you organize your config into modules, you also see what files, systemd units and packages are related.
+
+### Modular config
+
+In a modular config, you can also change parts of your system eg. switch shells without it affecting your other setups at all. If you create a module called `Shell` that exposes a function `add_alias`, you can call that function from other modules. Then later if you decide to switch from bash to fish, you can change the internals of your `Shell`-module without modifying your other modules at all.
+
+```py
+import theme
+class Shell(Module):
+    def __init__(self):
+        super().__init__("shell", enabled=True, version="1")
+        self._aliases_text = ""
+
+    # --
+
+    def add_alias(self, alias: str, cmd: str):
+        self._aliases_text += f"alias {alias}='{cmd}'\n"
+
+    def files(self) -> dict[str, File]:
+        return {
+            "/home/user/.config/fish/config.fish":
+            File(source_file="./files/shell/config.fish", owner="user")
+        }
+
+
+    def file_variables(self) -> dict[str, str]:
+        fvars = {
+            "%aliases%": self._aliases_text,
+        }
+        # Remember this line when looking at the next point
+        fvars.update(theme.COLORS)
+        return fvars
+```
+
+### Consistency between applications
+
+Decman's file variables are a great way to make sure different tools are in sync. For example, you can create a theme file in your config and then use that theme in modules. The previous `Shell`-module imports a theme from a theme file.
+
+`theme.py`:
+
+```py
+COLORS = {
+    "%PRIMARY_COLOR%": "#b121ff",
+    "%SECONDARY_COLOR%": "#ff5577",
+    "%BACKGROUND_COLOR%": "#6a30d5",
+    # etc
+}
+```
+
+### Reproducibility
+
+You can easily reinstall your system using your decman config.
+
+### Dynamic configuration
+
+Using python you can use the same config for different computers and only change some things between them.
+
+```py
+import socket
+
+if socket.gethostname() == "laptop":
+    # add brightness controls to your laptop
+    decman.packages += ["brightnessctl"]
+```
+
+### Why not use NixOS?
+
+NixOS is a Linux disto built around the idea of declarative system management, so why create a more limited alternative?
+
+I tried NixOS in the past, but it had some issues that caused me to create decman for Arch Linux instead. In my personal opinion:
+
+- NixOS forces you to do everything the Nix way. Sometimes I just want to develop software without having to use nix tools.
+- NixOS is hard, and the documentation (when I last tried it) wasn't that good. Doing more complex stuff was sometimes just very annoying.
+- NixOS has unnecessary abstraction with NixOS options. They are great until you have to configure something specific and there is not an option for it. Then you'll have to inline other configuration language within your Nix config. And if some software doesn't have any premade options you'll have to do write the config manually. Then you'll have some software managed with just options and others with normal config files. I prefer to keep everything consistent.
 
 ## License
 
