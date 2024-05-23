@@ -202,9 +202,8 @@ Since decman uses Python files to declare your system, you can easily parse anot
 
 To use TOML with Python, you need the `toml`-package. To install it in Arch Linux, install the `python-toml`-package.
 
-> [!NOTE]
-> This example doesn't allow you to use Decman's modules or set Decman's settings using TOML.
-> You'll have to set them using Python. With this example you can use both TOML and Python if you want.
+This example doesn't allow you to use decman's modules or set decman's settings using TOML. You'll have to set them using Python. With this example you can use both TOML and Python if you want.
+It would be possible to add support for TOML decman modules, but I don't think it would be worth the effort.
 
 Write this in your decman source.
 
@@ -282,7 +281,7 @@ user_packages = [{
     make_dependencies=[
         "python-setuptools", "python-build", "python-installer", "python-wheel"
     ],
-    git_url="https://github.com/kiviktnm/decman-pkgbuild.git",
+    git_url="https://github.com/kiviktnm/decman-pkgbuild.git"
 }]
 
 [files]
