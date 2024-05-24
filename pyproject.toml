@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "decman"
-version = "0.2.0"
+version = "0.2.1"
 description = "Declarative package & configuration manager for Arch Linux."
 license = {file = "LICENSE"}
 authors = [
