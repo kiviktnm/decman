@@ -217,10 +217,10 @@ class Directory:
         if group is not None:
             self.gid = grp.getgrnam(group).gr_gid
 
-    def copy_to(
-            self,
-            target_directory: str,
-            variables: typing.Optional[dict[str, str]] = None) -> list[str]:
+    def copy_to(self,
+                target_directory: str,
+                variables: typing.Optional[dict[str, str]] = None,
+                only_print: bool = False) -> list[str]:
         """
         Copies the files in this directory to the target directory.
 
@@ -242,7 +242,9 @@ class Directory:
                     target = os.path.normpath(
                         os.path.join(target_directory, src_path))
                     created.append(target)
-                    file.copy_to(target, variables)
+
+                    if not only_print:
+                        file.copy_to(target, variables)
         finally:
             os.chdir(original_wd)
         return created

@@ -459,7 +459,7 @@ class Source:
             elif module.enabled and module.name not in store.enabled_modules:
                 module.after_version_change()
 
-    def create_all_files(self) -> list[str]:
+    def create_all_files(self, only_print: bool) -> list[str]:
         """
         Creates all files and returns them. The files created are based on the specified files,
         directories and modules.
@@ -470,9 +470,13 @@ class Source:
                           variables: typing.Optional[dict[str, str]] = None):
             for target, file in files.items():
                 created_files.append(target)
+
+                if only_print:
+                    continue
+
                 try:
-                    file.copy_to(target, variables)
                     print_debug(f"Installing file to {target}.")
+                    file.copy_to(target, variables)
                 except OSError as e:
                     print_error(f"{e}")
                     raise err.UserFacingError(
@@ -483,7 +487,8 @@ class Source:
             for target, directory in dirs.items():
                 try:
                     print_debug(f"Installing directory to {target}.")
-                    created_files.extend(directory.copy_to(target, variables))
+                    created_files.extend(
+                        directory.copy_to(target, variables, only_print))
                 except OSError as e:
                     print_error(f"{e}")
                     raise err.UserFacingError(

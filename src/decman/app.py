@@ -32,11 +32,10 @@ def main():
                         help="python file containing configuration")
     parser.add_argument(
         "--print",
+        "--dry-run",
         action="store_true",
         default=False,
-        help=
-        "print what would happen as a result of running decman (doesn't print removed files)"
-    )
+        help="print what would happen as a result of running decman")
     parser.add_argument("--debug",
                         action="store_true",
                         default=False,
@@ -263,22 +262,17 @@ class Core:
 
     def _create_and_remove_files(self):
         l.print_summary("Installing files.")
-        l.print_list("Files to install:",
-                     self.source.all_file_targets(),
-                     elements_per_line=1,
-                     level=l.INFO)
-        l.print_list("Directories to install:",
-                     self.source.all_directory_targets(),
-                     elements_per_line=1,
-                     level=l.INFO)
+
+        all_created = self.source.create_all_files(self.only_print)
+        to_remove = self.source.files_to_remove(self.store, all_created)
+
+        l.print_list("Ensured files are up to date:",
+                     all_created,
+                     elements_per_line=1)
+        l.print_list("Removing files:", to_remove, elements_per_line=1)
 
         if self.only_print:
             return
-
-        all_created = self.source.create_all_files()
-        to_remove = self.source.files_to_remove(self.store, all_created)
-
-        l.print_list("Removing files:", to_remove, elements_per_line=1)
 
         for file in to_remove:
             try:
