@@ -125,7 +125,7 @@ So far I have not created an AUR package for decman, because I'm not sure if oth
 
 ### Packages
 
-Decman can be used to install pacman packages. Decman will install all packages defined in the source and **remove** all packages not defined in the source. You can set packages to be ignored by decman, so that it won't install them nor remove them.
+Decman can be used to install pacman packages. Decman will install all packages defined in the source and **remove** all explicitly installed packages not defined in the source. You don't need to list dependencies as those will be handeled by pacman. You can set packages to be ignored by decman, so that it won't install them nor remove them.
 
 ```py
 # Include both foreign and pacman packages here.
