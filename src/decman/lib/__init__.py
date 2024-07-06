@@ -2,7 +2,8 @@
 Library module for decman.
 """
 
-import pwd
+import threading
+import sys
 import shutil
 import subprocess
 import json
@@ -755,14 +756,23 @@ class Pacman:
         if not packages:
             return
 
+        returncode, output = echo_and_capture_command(
+            conf.commands.install_pkgs(packages))
+        if returncode != 0:
+            raise err.UserFacingError(
+                f"Failed to install packages using pacman. Process exited with code {returncode}."
+            )
+        if conf.print_pacman_output_highlights:
+            print_highlighted_pacman_messages(output)
+
         try:
-            subprocess.run(conf.commands.install_pkgs(packages), check=True)
             subprocess.run(conf.commands.set_as_explicitly_installed(packages),
                            check=True,
                            capture_output=conf.suppress_command_output)
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(
-                "Failed to install packages using pacman.") from error
+                "Failed to set packages as explicitly installed using pacman."
+            ) from error
 
     def install_dependencies(self, deps: list[str]):
         """
@@ -771,12 +781,14 @@ class Pacman:
         if not deps:
             return
 
-        try:
-            subprocess.run(conf.commands.install_deps(deps), check=True)
-        except subprocess.CalledProcessError as error:
+        returncode, output = echo_and_capture_command(
+            conf.commands.install_deps(deps))
+        if returncode != 0:
             raise err.UserFacingError(
-                "Failed to install packages as dependencies using pacman."
-            ) from error
+                f"Failed to install packages as dependencies using pacman. Process exited with code {returncode}."
+            )
+        if conf.print_pacman_output_highlights:
+            print_highlighted_pacman_messages(output)
 
     def install_files(self, files: list[str], as_explicit: list[str]):
         """
@@ -786,9 +798,16 @@ class Pacman:
         if not files:
             return
 
-        try:
-            subprocess.run(conf.commands.install_files(files), check=True)
+        returncode, output = echo_and_capture_command(
+            conf.commands.install_files(files))
+        if returncode != 0:
+            raise err.UserFacingError(
+                f"Failed to install package files using pacman. Process exited with code {returncode}."
+            )
+        if conf.print_pacman_output_highlights:
+            print_highlighted_pacman_messages(output)
 
+        try:
             if as_explicit:
                 subprocess.run(
                     conf.commands.set_as_explicitly_installed(as_explicit),
@@ -799,17 +818,20 @@ class Pacman:
                 print_error("Output:")
                 print_continuation(error.output)
             raise err.UserFacingError(
-                "Failed to install package files using pacman.") from error
+                "Failed to set packages as explicitly installed using pacman."
+            ) from error
 
     def upgrade(self):
         """
         Upgrades all packages.
         """
-        try:
-            subprocess.run(conf.commands.upgrade(), check=True)
-        except subprocess.CalledProcessError as error:
+        returncode, output = echo_and_capture_command(conf.commands.upgrade())
+        if returncode != 0:
             raise err.UserFacingError(
-                "Failed to upgrade packages using pacman.") from error
+                f"Failed to upgrade packages using pacman. Process exited with code {returncode}."
+            )
+        if conf.print_pacman_output_highlights:
+            print_highlighted_pacman_messages(output)
 
     def remove(self, packages: list[str]):
         """
@@ -817,11 +839,95 @@ class Pacman:
         """
         if not packages:
             return
-        try:
-            subprocess.run(conf.commands.remove(packages), check=True)
-        except subprocess.CalledProcessError as error:
+
+        returncode, output = echo_and_capture_command(
+            conf.commands.remove(packages))
+        if returncode != 0:
             raise err.UserFacingError(
-                "Failed to remove packages using pacman.") from error
+                f"Failed to remove packages using pacman. Process exited with code {returncode}."
+            )
+        if conf.print_pacman_output_highlights:
+            print_highlighted_pacman_messages(output)
+
+
+def print_highlighted_pacman_messages(output: str):
+    """
+    Prints lines that contain pacman output keywords.
+    """
+    print_summary("Pacman output highlights:")
+    lines = output.split("\n")
+    for index, line in enumerate(lines):
+        for keyword in conf.pacman_output_keywords:
+            if keyword.lower() in line.lower():
+                print_summary(f"lines: {index}-{index+2}")
+                if index >= 1:
+                    print_continuation(lines[index - 1])
+                print_continuation(line)
+                if index + 1 < len(lines):
+                    print_continuation(lines[index + 1])
+                print_continuation("")
+
+                # Break, as to not print the same line again if it contains multiple keywords
+                break
+
+
+def echo_and_capture_command(program: list[str]) -> tuple[int, str]:
+    """
+    Runs the given CLI program and arguments.
+
+    Returns a tuple containing the return code of the program as well as all output of the program.
+    """
+    with subprocess.Popen(program,
+                          stdin=subprocess.PIPE,
+                          stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT) as process:
+        os.set_blocking(process.stdout.fileno(), False)
+
+        output_thread = _OutputCapturingThread(process.stdout)
+        output_thread.start()
+
+        os.set_blocking(sys.stdin.fileno(), False)
+
+        # Capture stdin and forward it to the process in a non-blocking manner
+        while process.poll() is None:
+            inp = sys.stdin.readline()
+
+            if inp:
+                process.stdin.write(inp.encode())
+                process.stdin.flush()
+
+            time.sleep(0.1)
+
+        os.set_blocking(sys.stdin.fileno(), True)
+
+        output_thread.done = True
+        output_thread.join()
+
+        # Capture any output that may not have been yet captured
+        output = output_thread.output
+        missing_output = process.stdout.read()
+        if missing_output:
+            output += missing_output.decode()
+
+        return (process.returncode, output)
+
+
+class _OutputCapturingThread(threading.Thread):
+
+    def __init__(self, stream):
+        super().__init__()
+        self._stream = stream
+        self.output = ""
+        self.done = False
+
+    def run(self):
+        while not self.done and not self._stream.closed:
+            output = self._stream.read()
+            if output:
+                output = output.decode()
+                self.output += output
+                print(output, end="")
+            time.sleep(0.1)
 
 
 class Systemd:

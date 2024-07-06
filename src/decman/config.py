@@ -199,6 +199,15 @@ valid_pkgexts: list[str] = [
     ".pkg.tar.Z",
 ]
 
+pacman_output_keywords: list[str] = [
+    "warning",
+    "error",
+    "note",
+    "pacsave",
+    "pacnew",
+]
+print_pacman_output_highlights: bool = True
+
 makepkg_user: str = "nobody"
 build_dir: str = "/tmp/decman/build"
 pkg_cache_dir: str = "/var/cache/decman"

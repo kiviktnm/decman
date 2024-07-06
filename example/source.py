@@ -132,6 +132,18 @@ decman.config.suppress_command_output = True
 # Make output less verbose. Summaries are still printed.
 decman.config.quiet_output = False
 
+# Decman captures pacman command output, and any line (and adjacent lines) that contains any of
+# the following keywords (case-insensetive) will be printed after the pacman command finishes.
+decman.config.pacman_output_keywords = [
+    "warning",
+    "error",
+    "note",
+    "pacsave",
+    "pacnew",
+]
+# If you don't want to print lines that contain keywords, set this to False
+decman.config.print_pacman_output_highlights = True
+
 # The user which builds aur and user packages.
 # decman.config.makepkg_user = "nobody" # This was set in a previous example. Let's not override it.
 
