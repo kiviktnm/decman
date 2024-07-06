@@ -180,26 +180,30 @@ class MyCommands(decman.config.Commands):
     def list_foreign_pkgs_versioned(self) -> list[str]:
         return ["pacman", "-Qm", "--color=never"]
 
+    # --color=always is used in many commands since --color=auto results in no color.
+    # It seems a sensible default for me, since decman already uses color and it can't be disabled.
+
     def install_pkgs(self, pkgs: list[str]) -> list[str]:
-        return ["pacman", "-S", "--needed"] + pkgs
+        return ["pacman", "-S", "--color=always", "--needed"] + pkgs
 
     def install_files(self, pkg_files: list[str]) -> list[str]:
-        return ["pacman", "-U", "--asdeps"] + pkg_files
+        return ["pacman", "-U", "--color=always", "--asdeps"] + pkg_files
 
     def set_as_explicitly_installed(self, pkgs: list[str]) -> list[str]:
         return ["pacman", "-D", "--asexplicit"] + pkgs
 
     def install_deps(self, deps: list[str]) -> list[str]:
-        return ["pacman", "-S", "--needed", "--asdeps"] + deps
+        return ["pacman", "-S", "--color=always", "--needed", "--asdeps"
+                ] + deps
 
     def is_installable(self, pkg: str) -> list[str]:
         return ["pacman", "-Sddp", pkg]
 
     def upgrade(self) -> list[str]:
-        return ["pacman", "-Syu"]
+        return ["pacman", "-Syu", "--color=always"]
 
     def remove(self, pkgs: list[str]) -> list[str]:
-        return ["pacman", "-Rs"] + pkgs
+        return ["pacman", "-Rs", "--color=always"] + pkgs
 
     def enable_units(self, units: list[str]) -> list[str]:
         return ["systemctl", "enable"] + units

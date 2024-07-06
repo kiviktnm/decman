@@ -45,26 +45,27 @@ class Commands:
         """
         Running this command installs the given packages from pacman repositories.
         """
-        return ["pacman", "-S", "--needed"] + pkgs
+        return ["pacman", "-S", "--color=always", "--needed"] + pkgs
 
     def install_files(self, pkg_files: list[str]) -> list[str]:
         """
         Running this command installs the given packages files.
         """
-        return ["pacman", "-U", "--asdeps"] + pkg_files
+        return ["pacman", "-U", "--color=always", "--asdeps"] + pkg_files
 
     def set_as_explicitly_installed(self, pkgs: list[str]) -> list[str]:
         """
         Running this command installs sets the given as explicitly installed.
         """
-        return ["pacman", "-D", "--asexplicit"] + pkgs
+        return ["pacman", "-D", "--color=always", "--asexplicit"] + pkgs
 
     def install_deps(self, deps: list[str]) -> list[str]:
         """
         Running this command installs the given packages from pacman repositories.
         The packages are installed as dependencies.
         """
-        return ["pacman", "-S", "--needed", "--asdeps"] + deps
+        return ["pacman", "-S", "--color=always", "--needed", "--asdeps"
+                ] + deps
 
     def is_installable(self, pkg: str) -> list[str]:
         """
@@ -76,14 +77,14 @@ class Commands:
         """
         Running this command upgrades all pacman packages.
         """
-        return ["pacman", "-Syu"]
+        return ["pacman", "-Syu", "--color=always"]
 
     def remove(self, pkgs: list[str]) -> list[str]:
         """
         Running this command removes the given packages and their dependencies
         (that aren't required by other packages).
         """
-        return ["pacman", "-Rs"] + pkgs
+        return ["pacman", "-Rs", "--color=always"] + pkgs
 
     def enable_units(self, units: list[str]) -> list[str]:
         """
