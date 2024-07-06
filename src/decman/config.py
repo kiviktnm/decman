@@ -200,11 +200,12 @@ valid_pkgexts: list[str] = [
 ]
 
 pacman_output_keywords: list[str] = [
-    "warning",
-    "error",
-    "note",
     "pacsave",
     "pacnew",
+    # These cause too many false positives IMO
+    #"warning",
+    #"error",
+    #"note",
 ]
 print_pacman_output_highlights: bool = True
 

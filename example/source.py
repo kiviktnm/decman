@@ -134,12 +134,17 @@ decman.config.quiet_output = False
 
 # Decman captures pacman command output, and any line (and adjacent lines) that contains any of
 # the following keywords (case-insensetive) will be printed after the pacman command finishes.
+#
+# REMEMBER: You should still generally pay attention to pacman output
+# since these keywords may not catch all cases.
 decman.config.pacman_output_keywords = [
-    "warning",
-    "error",
-    "note",
     "pacsave",
     "pacnew",
+    # Additional keywords can be:
+    #"warning",
+    #"error",
+    #"note",
+    # They might cause too many highlights however.
 ]
 # If you don't want to print lines that contain keywords, set this to False
 decman.config.print_pacman_output_highlights = True
