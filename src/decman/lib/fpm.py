@@ -1078,7 +1078,14 @@ before and thus are found in the cache."
                                 default=True):
                 latest_reviewed_commit = self._store.pkgbuild_latest_reviewed_commits.get(
                     pkgbase)
-                if latest_reviewed_commit is None:
+
+                git_commit_ids = subprocess.run(
+                    conf.commands.git_log_commit_ids(),
+                    check=True,
+                    stdout=subprocess.PIPE,
+                ).stdout.decode().strip().split('\n')
+
+                if latest_reviewed_commit is None or latest_reviewed_commit not in git_commit_ids:
                     for file in os.scandir("."):
                         if file.is_file() and not file.name.startswith("."):
                             subprocess.run(conf.commands.review_file(

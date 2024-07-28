@@ -136,6 +136,12 @@ class Commands:
         """
         return ["git", "rev-parse", "HEAD"]
 
+    def git_log_commit_ids(self) -> list[str]:
+        """
+        Running this command outputs commit hashes of the repository.
+        """
+        return ["git", "log", "--format=format:%H"]
+
     def review_file(self, file: str) -> list[str]:
         """
         Running this command outputs a file for the user to see.

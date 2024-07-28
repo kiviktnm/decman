@@ -230,6 +230,9 @@ class MyCommands(decman.config.Commands):
     def git_get_commit_id(self) -> list[str]:
         return ["git", "rev-parse", "HEAD"]
 
+    def git_log_commit_ids(self) -> list[str]:
+        return ["git", "log", "--format=format:%H"]
+
     def review_file(self, file: str) -> list[str]:
         return ["less", file]
 
