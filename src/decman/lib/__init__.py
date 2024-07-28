@@ -922,11 +922,11 @@ class _OutputCapturingThread(threading.Thread):
 
     def run(self):
         while not self.done and not self._stream.closed:
-            output = self._stream.read()
+            output = self._stream.read(1000)
             if output:
                 output = output.decode()
                 self.output += output
-                print(output, end="")
+                print(output, end="", flush=True)
             time.sleep(0.1)
 
 
