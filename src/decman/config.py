@@ -187,6 +187,22 @@ class Commands:
 
         return makechrootpkg_cmd
 
+    def install_flatpak(self, flatpaks: list[str]):
+        """
+        Running this command installs Flatpaks
+        """
+        return [
+            "flatpak",
+            "install",
+            "--system",
+        ] + flatpaks
+
+    def uninstall_flatpak(self, flatpaks: list[str]):
+        """
+        Running this command uninstalls Flatpaks
+        """
+        return ["flatpak", "uninstall", "--system"] + flatpaks
+
 
 commands: Commands = Commands()
 debug_output: bool = False

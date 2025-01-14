@@ -2,6 +2,7 @@
 Library module for decman.
 """
 
+import pty
 import threading
 import sys
 import shutil
@@ -202,6 +203,7 @@ class Store:
         self._enabled_user_systemd_units: list[str] = []
         self.enabled_modules: dict[str, str] = {}
         self.created_files: list[str] = []
+        self.installed_flatpaks: list[str] = []
         self.pkgbuild_latest_reviewed_commits: dict[str, str] = {}
         self._package_file_cache: dict[str, list[tuple[str, str, int]]] = {}
 
@@ -335,6 +337,7 @@ class Store:
             "allow_running_source_without_prompt":
             self.allow_running_source_without_prompt,
             "enabled_systemd_units": self.enabled_systemd_units,
+            "installed_flatpaks": self.installed_flatpaks,
             "enabled_user_systemd_units": self._enabled_user_systemd_units,
             "enabled_modules": self.enabled_modules,
             "created_files": self.created_files,
@@ -375,6 +378,10 @@ class Store:
                     "enabled_systemd_units",
                     [],
                 )
+                store.installed_flatpaks = d.get(
+                    "installed_flatpaks",
+                    [],
+                )
                 store._enabled_user_systemd_units = d.get(
                     "enabled_user_systemd_units",
                     [],
@@ -411,6 +418,7 @@ class Source:
         ignored_packages: set[str],
         systemd_units: set[str],
         systemd_user_units: dict[str, set[str]],
+        flatpaks: set[str],
         files: dict[str, decman.File],
         directories: dict[str, decman.Directory],
         modules: set[decman.Module],
@@ -421,6 +429,7 @@ class Source:
         self.ignored_packages = ignored_packages
         self.systemd_units = systemd_units
         self.systemd_user_units = systemd_user_units
+        self.flatpaks = flatpaks
         self.files = files
         self.directories = directories
         self.modules = modules
@@ -611,6 +620,31 @@ class Source:
                 continue
             if pkg not in currently_installed_packages:
                 result.append(pkg)
+        return result
+
+    def flatpaks_to_install(self, store: Store) -> list[str]:
+        """
+        Returns all Flatpaks that should be installed.
+        """
+        result = []
+        for flatpak in self._all_flatpaks():
+            if flatpak not in store.installed_flatpaks:
+                result.append(flatpak)
+        return result
+    def flatpaks_to_uninstall(self, store: Store) -> list[str]:
+        """
+        Returns all Flatpaks that should be uninstalled.
+        """
+        result = []
+        for flatpak in store.installed_flatpaks:
+            if flatpak not in self._all_flatpaks():
+                result.append(flatpak)
+
+        return result
+
+    def _all_flatpaks(self) -> set[str]:
+        result = set()
+        result.update(self.flatpaks)
         return result
 
     def foreign_packages_to_install(
@@ -913,6 +947,10 @@ def echo_and_capture_command(program: list[str]) -> tuple[int, str]:
 
 
 class _OutputCapturingThread(threading.Thread):
+def echo_and_capture_pty(program: list[str]) -> tuple[int, str]:
+    ret: int = pty.spawn(program)
+    return (ret, "")
+
 
     def __init__(self, stream):
         super().__init__()
@@ -928,6 +966,49 @@ class _OutputCapturingThread(threading.Thread):
                 self.output += output
                 print(output, end="", flush=True)
             time.sleep(0.1)
+
+
+class Flatpak:
+    """
+    Interface for interacting with Flatpaks.
+    """
+
+    def __init__(self, state: Store):
+        self.state = state
+
+    def install(self, flatpaks: list[str]):
+        """
+        Installs the given Flatpaks
+        """
+        if not flatpaks:
+            return
+
+        returncode, output = echo_and_capture_pty(
+            conf.commands.install_flatpak(flatpaks)
+        )
+        if returncode != 0:
+            raise err.UserFacingError(
+                f"Failed to install Flatpaks. Process exited with code {returncode}."
+            )
+
+        self.state.installed_flatpaks += flatpaks
+
+    def list_installed(self) -> list[str]:
+        raise NotImplementedError
+
+    def uninstall(self, flatpaks: list[str]):
+        if not flatpaks:
+            return
+
+        returncode, output = echo_and_capture_pty(
+            conf.commands.uninstall_flatpak(flatpaks)
+        )
+        if returncode != 0:
+            raise err.UserFacingError(
+                f"Failed to uninstall Flatpaks. Process exited with code {returncode}."
+            )
+
+        [self.state.installed_flatpaks.remove(flatpak) for flatpak in flatpaks]
 
 
 class Systemd:

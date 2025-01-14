@@ -178,6 +178,7 @@ class Core:
         self.store = store
         self.source = _resolve_source()
         self.pacman = l.Pacman()
+        self.flatpak = l.Flatpak(store)
         self.systemctl = l.Systemd(store)
         self.fpkg_search = fpm.ExtendedPackageSearch(self.pacman)
 
@@ -214,6 +215,21 @@ class Core:
             # Enabled modules are really only stored for commands,
             # so they can be set only when the commands were exacuted.
             self.store.enabled_modules = all_enabled_modules
+
+        self._uninstall_flatpaks()
+        self._install_flatpaks()
+
+    def _uninstall_flatpaks(self):
+        to_uninstall = self.source.flatpaks_to_uninstall(self.store)
+        l.print_list("Uninstalling Flatpaks:", to_uninstall)
+        if not self.only_print:
+            self.flatpak.uninstall(to_uninstall)
+
+    def _install_flatpaks(self):
+        to_install = self.source.flatpaks_to_install(self.store)
+        l.print_list("Installing Flatpaks:", to_install)
+        if not self.only_print:
+            self.flatpak.install(to_install)
 
     def _disable_units(self):
         to_disable = self.source.units_to_disable(self.store)
@@ -324,6 +340,7 @@ def _resolve_source() -> l.Source:
         user_packages=set(decman.user_packages),
         ignored_packages=set(decman.ignored_packages),
         systemd_units=set(decman.enabled_systemd_units),
+        flatpaks=set(decman.flatpaks),
         systemd_user_units=enabled_systemd_user_units,
         files=decman.files,
         directories=decman.directories,

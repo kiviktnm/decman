@@ -400,4 +400,5 @@ enabled_systemd_units: list[str] = []
 enabled_systemd_user_units: dict[str, list[str]] = {}
 files: dict[str, File] = {}
 directories: dict[str, Directory] = {}
+flatpaks: list[str] = []
 modules: list[Module] = []
