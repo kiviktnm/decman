@@ -90,25 +90,25 @@ class Commands:
         """
         Running this command enables the given systemd units.
         """
-        return ["systemctl", "enable"] + units
+        return ["systemctl", "enable", "--now"] + units
 
     def disable_units(self, units: list[str]) -> list[str]:
         """
         Running this command disables the given systemd units.
         """
-        return ["systemctl", "disable"] + units
+        return ["systemctl", "disable", "--now"] + units
 
     def enable_user_units(self, units: list[str], user: str) -> list[str]:
         """
         Running this command enables the given systemd units for the user.
         """
-        return ["systemctl", "--user", "-M", f"{user}@", "enable"] + units
+        return ["systemctl", "--user", "-M", f"{user}@", "enable", "--now"] + units
 
     def disable_user_units(self, units: list[str], user: str) -> list[str]:
         """
         Running this command disables the given systemd units for the user.
         """
-        return ["systemctl", "--user", "-M", f"{user}@", "disable"] + units
+        return ["systemctl", "--user", "-M", f"{user}@", "disable", "--now"] + units
 
     def compare_versions(self, installed_version: str,
                          new_version: str) -> list[str]:
