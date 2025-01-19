@@ -163,6 +163,9 @@ Build packages are stored in a cache `/var/cache/decman`. By default decman keep
 
 ### Systemd units
 
+> [!NOTE]
+> Decman will only enable and disable systemd systemd. It will not start or stop them.
+
 Decman can enable systemd services, system wide or for a specific user. Decman will enable all units defined in the source, and disable them when they are removed from the source. If a unit is not defined in the source, decman will not touch it.
 
 ### Files

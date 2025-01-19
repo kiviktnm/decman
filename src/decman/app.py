@@ -218,6 +218,9 @@ class Core:
     def _disable_units(self):
         to_disable = self.source.units_to_disable(self.store)
         l.print_list("Disabling systemd units:", to_disable)
+        if to_disable:
+            l.print_info(
+                "Disabled systemd units won't be stopped automatically.")
         if not self.only_print:
             self.systemctl.disable_units(to_disable)
 
@@ -286,6 +289,9 @@ class Core:
     def _enable_units(self):
         to_enable = self.source.units_to_enable(self.store)
         l.print_list("Enabling systemd units:", to_enable)
+        if to_enable:
+            l.print_info(
+                "Enabled systemd units won't be started automatically.")
         if not self.only_print:
             self.systemctl.enable_units(to_enable)
 
