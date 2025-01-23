@@ -264,3 +264,49 @@ class TestSource(unittest.TestCase):
             self.source.packages_to_remove(self.currently_installed_packages),
             ["p4", "A4", "M_A1", "M_A2"],
         )
+
+class TestModuleUserServices(unittest.TestCase):
+
+    class ModuleWithUserServiceOne(Module):
+
+        def __init__(self):
+            super().__init__("one", True, "0")
+
+        def systemd_user_units(self) -> dict[str, list[str]]:
+            return {
+                    "user": ['foo.service']
+                    }
+
+    class ModuleWithUserServiceTwo(Module):
+
+        def __init__(self):
+            super().__init__("two", True, "0")
+
+        def systemd_user_units(self) -> dict[str, list[str]]:
+            return {
+                    "user": ['bar.service']
+                    }
+
+    def setUp(self) -> None:
+        self.source = Source(
+                pacman_packages=set(),
+                aur_packages=set(),
+                user_packages=set(),
+                ignored_packages=set(),
+                systemd_units=set(),
+                systemd_user_units={},
+                files={},
+                directories={},
+                modules={                
+                         self.ModuleWithUserServiceOne(),
+                         self.ModuleWithUserServiceTwo()
+                         },
+            )
+        self.store = Store()
+
+
+    def test_user_units_to_enable(self):
+        self.assertDictEqual(
+            self.source.user_units_to_enable(self.store),
+            {"user": ["foo.service", "bar.service"]},
+        )
