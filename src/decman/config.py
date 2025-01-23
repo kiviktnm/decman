@@ -64,8 +64,7 @@ class Commands:
         Running this command installs the given packages from pacman repositories.
         The packages are installed as dependencies.
         """
-        return ["pacman", "-S", "--color=always", "--needed", "--asdeps"
-                ] + deps
+        return ["pacman", "-S", "--color=always", "--needed", "--asdeps"] + deps
 
     def is_installable(self, pkg: str) -> list[str]:
         """
@@ -110,8 +109,7 @@ class Commands:
         """
         return ["systemctl", "--user", "-M", f"{user}@", "disable"] + units
 
-    def compare_versions(self, installed_version: str,
-                         new_version: str) -> list[str]:
+    def compare_versions(self, installed_version: str, new_version: str) -> list[str]:
         """
         Running this command outputs -1 when the installed version is older than the new version.
         """
@@ -160,27 +158,29 @@ class Commands:
         Running this command installs the given packages to the given chroot.
         """
         return [
-            "arch-nspawn", chroot_dir, "pacman", "-S", "--needed",
-            "--noconfirm"
+            "arch-nspawn",
+            chroot_dir,
+            "pacman",
+            "-S",
+            "--needed",
+            "--noconfirm",
         ] + packages
 
     def remove_chroot_packages(self, chroot_dir: str, packages: list[str]):
         """
         Running this command removes the given packages from the given chroot.
         """
-        return ["arch-nspawn", chroot_dir, "pacman", "-Rsu", "--noconfirm"
-                ] + packages
+        return ["arch-nspawn", chroot_dir, "pacman", "-Rsu", "--noconfirm"] + packages
 
-    def make_chroot_pkg(self, chroot_wd_dir: str, user: str,
-                        pkgfiles_to_install: list[str]) -> list[str]:
+    def make_chroot_pkg(
+        self, chroot_wd_dir: str, user: str, pkgfiles_to_install: list[str]
+    ) -> list[str]:
         """
         Running this command creates a package file using the given chroot.
         The package is created as the user and the pkg_files_to_install are installed
         in the chroot before the package is created.
         """
-        makechrootpkg_cmd = [
-            "makechrootpkg", "-c", "-r", chroot_wd_dir, "-U", user
-        ]
+        makechrootpkg_cmd = ["makechrootpkg", "-c", "-r", chroot_wd_dir, "-U", user]
 
         for pkgfile in pkgfiles_to_install:
             makechrootpkg_cmd += ["-I", pkgfile]
@@ -210,9 +210,9 @@ pacman_output_keywords: list[str] = [
     "pacsave",
     "pacnew",
     # These cause too many false positives IMO
-    #"warning",
-    #"error",
-    #"note",
+    # "warning",
+    # "error",
+    # "note",
 ]
 print_pacman_output_highlights: bool = True
 
