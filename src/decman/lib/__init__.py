@@ -680,11 +680,13 @@ class Source:
         return result
 
     def _all_user_units(self) -> dict[str, set[str]]:
-        result = {}
-        result.update(self.systemd_user_units)
-        for module in self.modules:
-            if module.enabled:
-                result.update(module.systemd_user_units())
+        result = self.systemd_user_units
+        for module in [m for m in self.modules if m.enabled]:
+            module_user_units: dict[str, list[str]] = module.systemd_user_units()
+            for user in module_user_units.keys():
+                if user not in result:
+                    result[user] = set()
+                result[user].update(module_user_units[user])
         return result
 
 
