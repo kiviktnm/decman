@@ -8,9 +8,9 @@ import sys
 import traceback
 
 import decman
+import decman.config as conf
 import decman.error as err
 import decman.lib as l
-import decman.config as conf
 from decman.lib import fpm
 
 
@@ -23,53 +23,62 @@ def main():
 
     parser = argparse.ArgumentParser(
         prog="decman",
-        description=
-        "Declarative package & configuration manager for Arch Linux",
-        epilog="See more help at: https://github.com/kiviktnm/decman")
+        description="Declarative package & configuration manager for Arch Linux",
+        epilog="See more help at: https://github.com/kiviktnm/decman",
+    )
 
-    parser.add_argument("--source",
-                        action="store",
-                        help="python file containing configuration")
+    parser.add_argument(
+        "--source", action="store", help="python file containing configuration"
+    )
     parser.add_argument(
         "--print",
         "--dry-run",
         action="store_true",
         default=False,
-        help="print what would happen as a result of running decman")
-    parser.add_argument("--debug",
-                        action="store_true",
-                        default=False,
-                        help="show debug output")
+        help="print what would happen as a result of running decman",
+    )
+    parser.add_argument(
+        "--debug", action="store_true", default=False, help="show debug output"
+    )
     parser.add_argument(
         "--no-packages",
         action="store_true",
         default=False,
-        help="don't upgrade any packages (including foreign packages)")
-    parser.add_argument("--no-foreign-packages",
-                        action="store_true",
-                        default=False,
-                        help="don't upgrade foreign packages")
-    parser.add_argument("--no-files",
-                        action="store_true",
-                        default=False,
-                        help="don't install any files")
-    parser.add_argument("--no-systemd-units",
-                        action="store_true",
-                        default=False,
-                        help="don't enable/disable systemd units")
-    parser.add_argument("--no-commands",
-                        action="store_true",
-                        default=False,
-                        help="don't run user specified commands")
-    parser.add_argument("--upgrade-devel",
-                        action="store_true",
-                        default=False,
-                        help="upgrade devel packages")
+        help="don't upgrade any packages (including foreign packages)",
+    )
+    parser.add_argument(
+        "--no-foreign-packages",
+        action="store_true",
+        default=False,
+        help="don't upgrade foreign packages",
+    )
+    parser.add_argument(
+        "--no-files", action="store_true", default=False, help="don't install any files"
+    )
+    parser.add_argument(
+        "--no-systemd-units",
+        action="store_true",
+        default=False,
+        help="don't enable/disable systemd units",
+    )
+    parser.add_argument(
+        "--no-commands",
+        action="store_true",
+        default=False,
+        help="don't run user specified commands",
+    )
+    parser.add_argument(
+        "--upgrade-devel",
+        action="store_true",
+        default=False,
+        help="upgrade devel packages",
+    )
     parser.add_argument(
         "--force-build",
         action="store_true",
         default=False,
-        help="force building of packages that are already cached")
+        help="force building of packages that are already cached",
+    )
 
     args = parser.parse_args()
 
@@ -105,8 +114,7 @@ def main():
             l.print_debug(line)
         errored = True
     except decman.UserRaisedError as user_error:
-        l.print_error(
-            f"Error encountered while running the source: {user_error}")
+        l.print_error(f"Error encountered while running the source: {user_error}")
         errored = True
 
     # Save even when an error has occurred, since this avoids repeating steps like building pkgs.
@@ -158,13 +166,23 @@ def _set_up(store: l.Store, args):
             content = file.read()
     except OSError as e:
         raise err.UserFacingError(
-            f"Failed to read source file '{store.source_file}'.") from e
+            f"Failed to read source file '{store.source_file}'."
+        ) from e
 
     os.chdir(source_dir)
     sys.path.append(".")
     exec(content)
 
-    return args.print, not args.no_packages, not args.no_foreign_packages, not args.no_files, not args.no_systemd_units, not args.no_commands, args.upgrade_devel, args.force_build
+    return (
+        args.print,
+        not args.no_packages,
+        not args.no_foreign_packages,
+        not args.no_files,
+        not args.no_systemd_units,
+        not args.no_commands,
+        args.upgrade_devel,
+        args.force_build,
+    )
 
 
 class Core:
@@ -173,7 +191,16 @@ class Core:
     """
 
     def __init__(self, store: l.Store, opts):
-        self.only_print, self.update_packages, self.update_foreign_packages, self.update_files, self.update_units, self.run_commands, self.upgrade_devel, self.force_build = opts
+        (
+            self.only_print,
+            self.update_packages,
+            self.update_foreign_packages,
+            self.update_files,
+            self.update_units,
+            self.run_commands,
+            self.upgrade_devel,
+            self.force_build,
+        ) = opts
 
         self.store = store
         self.source = _resolve_source()
@@ -183,10 +210,10 @@ class Core:
 
         for upkg in self.source.all_user_pkgs():
             self.fpkg_search.add_user_pkg(
-                fpm.PackageInfo.from_user_package(upkg, self.pacman))
+                fpm.PackageInfo.from_user_package(upkg, self.pacman)
+            )
 
-        self.fpm = fpm.ForeignPackageManager(store, self.pacman,
-                                             self.fpkg_search)
+        self.fpm = fpm.ForeignPackageManager(store, self.pacman, self.fpkg_search)
 
     def run(self):
         """
@@ -219,8 +246,7 @@ class Core:
         to_disable = self.source.units_to_disable(self.store)
         l.print_list("Disabling systemd units:", to_disable)
         if to_disable:
-            l.print_info(
-                "Disabled systemd units won't be stopped automatically.")
+            l.print_info("Disabled systemd units won't be stopped automatically.")
         if not self.only_print:
             self.systemctl.disable_units(to_disable)
 
@@ -242,15 +268,14 @@ class Core:
         if not self.only_print:
             self.pacman.upgrade()
             if conf.enable_fpm and self.update_foreign_packages:
-                self.fpm.upgrade(self.upgrade_devel, self.force_build,
-                                 self.source.ignored_packages)
+                self.fpm.upgrade(
+                    self.upgrade_devel, self.force_build, self.source.ignored_packages
+                )
 
     def _install_pkgs(self):
         currently_installed = self.pacman.get_installed()
-        to_install_pacman = self.source.pacman_packages_to_install(
-            currently_installed)
-        to_install_fpm = self.source.foreign_packages_to_install(
-            currently_installed)
+        to_install_pacman = self.source.pacman_packages_to_install(currently_installed)
+        to_install_fpm = self.source.foreign_packages_to_install(currently_installed)
 
         l.print_list("Installing pacman packages:", to_install_pacman)
 
@@ -269,9 +294,7 @@ class Core:
         all_created = self.source.create_all_files(self.only_print)
         to_remove = self.source.files_to_remove(self.store, all_created)
 
-        l.print_list("Ensured files are up to date:",
-                     all_created,
-                     elements_per_line=1)
+        l.print_list("Ensured files are up to date:", all_created, elements_per_line=1)
         l.print_list("Removing files:", to_remove, elements_per_line=1)
 
         if self.only_print:
@@ -290,8 +313,7 @@ class Core:
         to_enable = self.source.units_to_enable(self.store)
         l.print_list("Enabling systemd units:", to_enable)
         if to_enable:
-            l.print_info(
-                "Enabled systemd units won't be started automatically.")
+            l.print_info("Enabled systemd units won't be started automatically.")
         if not self.only_print:
             self.systemctl.enable_units(to_enable)
 

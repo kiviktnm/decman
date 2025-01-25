@@ -2,12 +2,13 @@
 Module for writing system configurations for decman.
 """
 
-import typing
-import pwd
 import grp
-import shutil
 import os
+import pwd
+import shutil
 import subprocess
+import typing
+
 import decman.error
 
 
@@ -20,9 +21,11 @@ class UserRaisedError(Exception):
         super().__init__(message)
 
 
-def sh(sh_cmd: str,
-       user: typing.Optional[str] = None,
-       env_overrides: typing.Optional[dict[str, str]] = None):
+def sh(
+    sh_cmd: str,
+    user: typing.Optional[str] = None,
+    env_overrides: typing.Optional[dict[str, str]] = None,
+):
     """
     Shortcut for running a shell command.
     """
@@ -49,16 +52,20 @@ def sh(sh_cmd: str,
                 f"Running user defined shell command failed because the user {user} doesn't exist."
             ) from e
 
-        with subprocess.Popen(sh_cmd, shell=True, group=gid, user=uid,
-                              env=env) as process:
+        with subprocess.Popen(
+            sh_cmd, shell=True, group=gid, user=uid, env=env
+        ) as process:
             if process.wait() != 0:
                 raise decman.error.UserFacingError(
-                    f"Running user shell command '{sh_cmd}' as {user} failed.")
+                    f"Running user shell command '{sh_cmd}' as {user} failed."
+                )
 
 
-def prg(command: list[str],
-        user: typing.Optional[str] = None,
-        env_overrides: typing.Optional[dict[str, str]] = None):
+def prg(
+    command: list[str],
+    user: typing.Optional[str] = None,
+    env_overrides: typing.Optional[dict[str, str]] = None,
+):
     """
     Shortcut for running a program.
     """
@@ -74,7 +81,8 @@ def prg(command: list[str],
             subprocess.run(command, check=True, env=env)
         except subprocess.CalledProcessError as e:
             raise decman.error.UserFacingError(
-                f"Running user defined program '{command}' failed.") from e
+                f"Running user defined program '{command}' failed."
+            ) from e
     else:
         try:
             uid = pwd.getpwnam(user).pw_uid
@@ -84,11 +92,11 @@ def prg(command: list[str],
                 f"Running user defined program failed because the user {user} doesn't exist."
             ) from e
 
-        with subprocess.Popen(command, group=gid, user=uid,
-                              env=env) as process:
+        with subprocess.Popen(command, group=gid, user=uid, env=env) as process:
             if process.wait() != 0:
                 raise decman.error.UserFacingError(
-                    f"Running user program '{command}' as {user} failed.")
+                    f"Running user program '{command}' as {user} failed."
+                )
 
 
 class File:
@@ -127,9 +135,7 @@ class File:
         if group is not None:
             self.gid = grp.getgrnam(group).gr_gid
 
-    def copy_to(self,
-                target: str,
-                variables: typing.Optional[dict[str, str]] = None):
+    def copy_to(self, target: str, variables: typing.Optional[dict[str, str]] = None):
         """
         Copies the contents of this file to the target file.
         """
@@ -138,8 +144,9 @@ class File:
 
         target_directory = os.path.dirname(target)
 
-        def create_missing_dirs(dirct: str, uid: typing.Optional[int],
-                                gid: typing.Optional[int]):
+        def create_missing_dirs(
+            dirct: str, uid: typing.Optional[int], gid: typing.Optional[int]
+        ):
             if not os.path.isdir(dirct):
                 parent_dir = os.path.dirname(dirct)
                 if not os.path.isdir(parent_dir):
@@ -161,8 +168,7 @@ class File:
         os.chmod(target, self.permissions)
 
     def _write_content(self, target: str, variables: dict[str, str]):
-        if self.source_file is not None and (self.bin_file
-                                             or len(variables) == 0):
+        if self.source_file is not None and (self.bin_file or len(variables) == 0):
             shutil.copy(self.source_file, target)
         elif self.bin_file and self.content is not None:
             with open(target, "wb") as file:
@@ -177,7 +183,9 @@ class File:
             with open(target, "wt", encoding=self.encoding) as file:
                 file.write(content)
         else:
-            assert self.content is not None, "Content should be set since source_file was not set."
+            assert self.content is not None, (
+                "Content should be set since source_file was not set."
+            )
             content = self.content
             for var, value in variables.items():
                 content = content.replace(var, value)
@@ -217,10 +225,12 @@ class Directory:
         if group is not None:
             self.gid = grp.getgrnam(group).gr_gid
 
-    def copy_to(self,
-                target_directory: str,
-                variables: typing.Optional[dict[str, str]] = None,
-                only_print: bool = False) -> list[str]:
+    def copy_to(
+        self,
+        target_directory: str,
+        variables: typing.Optional[dict[str, str]] = None,
+        only_print: bool = False,
+    ) -> list[str]:
         """
         Copies the files in this directory to the target directory.
 
@@ -233,14 +243,15 @@ class Directory:
             for src_dir, _, src_files in os.walk("."):
                 for src_file in src_files:
                     src_path = os.path.join(src_dir, src_file)
-                    file = File(source_file=src_path,
-                                bin_file=self.bin_files,
-                                encoding=self.encoding,
-                                owner=self.owner,
-                                group=self.group,
-                                permissions=self.permissions)
-                    target = os.path.normpath(
-                        os.path.join(target_directory, src_path))
+                    file = File(
+                        source_file=src_path,
+                        bin_file=self.bin_files,
+                        encoding=self.encoding,
+                        owner=self.owner,
+                        group=self.group,
+                        permissions=self.permissions,
+                    )
+                    target = os.path.normpath(os.path.join(target_directory, src_path))
                     created.append(target)
 
                     if not only_print:

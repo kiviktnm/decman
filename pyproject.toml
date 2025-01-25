@@ -11,8 +11,14 @@ authors = [
     {name = "Kivi Kaitaniemi"}
 ]
 dependencies = [
-    "requests"
+    "requests",
 ]
 
 [project.scripts]
 decman = "decman.app:main"
+
+[dependency-groups]
+dev = [
+    "isort>=5.13.2",
+    "ruff>=0.9.3",
+]

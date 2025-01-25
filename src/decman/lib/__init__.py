@@ -2,17 +2,18 @@
 Library module for decman.
 """
 
-import threading
-import sys
-import shutil
-import subprocess
 import json
 import os
-import typing
+import shutil
+import subprocess
+import sys
+import threading
 import time
+import typing
+
+import decman
 import decman.config as conf
 import decman.error as err
-import decman
 
 _DECMAN_MSG_TAG = "[\033[1;35mDECMAN\033[m]"
 _RED_PREFIX = "\033[91m"
@@ -60,12 +61,14 @@ def print_summary(msg: str):
     print(f"{_DECMAN_MSG_TAG} {_CYAN_PREFIX}SUMMARY{_RESET_SUFFIX}: {msg}")
 
 
-def print_list(msg: str,
-               l: list[str],
-               elements_per_line: typing.Optional[int] = None,
-               max_line_width: typing.Optional[int] = None,
-               limit_to_term_size: bool = True,
-               level: int = SUMMARY):
+def print_list(
+    msg: str,
+    l: list[str],
+    elements_per_line: typing.Optional[int] = None,
+    max_line_width: typing.Optional[int] = None,
+    limit_to_term_size: bool = True,
+    level: int = SUMMARY,
+):
     """
     Prints a summary message to the user along with a list of elements.
 
@@ -89,8 +92,11 @@ def print_list(msg: str,
         max_line_width = 2**32  # Big enough to basically be unlimited
 
     if limit_to_term_size:
-        max_line_width = shutil.get_terminal_size().columns - len(
-            _SPACING) - len(_CONTINUATION_PREFIX)
+        max_line_width = (
+            shutil.get_terminal_size().columns
+            - len(_SPACING)
+            - len(_CONTINUATION_PREFIX)
+        )
 
     lines = [f"{l.pop(0)}"]
     index = 0
@@ -131,10 +137,9 @@ def print_debug(msg: str):
         print(f"{_DECMAN_MSG_TAG} {_GRAY_PREFIX}DEBUG{_RESET_SUFFIX}: {msg}")
 
 
-def prompt_number(msg: str,
-                  min_num: int,
-                  max_num: int,
-                  default: typing.Optional[int] = None) -> int:
+def prompt_number(
+    msg: str, min_num: int, max_num: int, default: typing.Optional[int] = None
+) -> int:
     """
     Prompts the user for a integer.
     """
@@ -263,11 +268,12 @@ class Store:
         if latest_path is None:
             return None
 
-        assert latest_version is not None, "If latest_path is set, then latest_version is set."
+        assert latest_version is not None, (
+            "If latest_path is set, then latest_version is set."
+        )
         return (latest_version, latest_path)
 
-    def add_package_to_cache(self, package: str, version: str,
-                             path_to_built_pkg: str):
+    def add_package_to_cache(self, package: str, version: str, path_to_built_pkg: str):
         """
         Adds a built package to the package file cache. Tries to remove excess cached packages.
         """
@@ -332,14 +338,13 @@ class Store:
 
         d = {
             "source_file": self.source_file,
-            "allow_running_source_without_prompt":
-            self.allow_running_source_without_prompt,
+            "allow_running_source_without_prompt": self.allow_running_source_without_prompt,
             "enabled_systemd_units": self.enabled_systemd_units,
             "enabled_user_systemd_units": self._enabled_user_systemd_units,
             "enabled_modules": self.enabled_modules,
             "created_files": self.created_files,
             "package_file_cache": self._package_file_cache,
-            "pkgbuild_git_commits": self.pkgbuild_latest_reviewed_commits
+            "pkgbuild_git_commits": self.pkgbuild_latest_reviewed_commits,
         }
 
         try:
@@ -370,7 +375,8 @@ class Store:
 
                 store.source_file = d.get("source_file", None)
                 store.allow_running_source_without_prompt = d.get(
-                    "allow_running_source_without_prompt", False)
+                    "allow_running_source_without_prompt", False
+                )
                 store.enabled_systemd_units = d.get(
                     "enabled_systemd_units",
                     [],
@@ -390,12 +396,10 @@ class Store:
             return store
         except json.JSONDecodeError as e:
             print_error(f"{e}")
-            raise err.UserFacingError(
-                "Failed to parse decman store json.") from e
+            raise err.UserFacingError("Failed to parse decman store json.") from e
         except OSError as e:
             print_error(f"{e}")
-            raise err.UserFacingError(
-                "Failed to read saved decman store.") from e
+            raise err.UserFacingError("Failed to read saved decman store.") from e
 
 
 class Source:
@@ -455,7 +459,8 @@ class Source:
         """
         for module in self.modules:
             if module.enabled and module.version != store.enabled_modules.get(
-                    module.name, module.version):
+                module.name, module.version
+            ):
                 module.after_version_change()
             elif module.enabled and module.name not in store.enabled_modules:
                 module.after_version_change()
@@ -467,8 +472,10 @@ class Source:
         """
         created_files = []
 
-        def install_files(files: dict[str, decman.File],
-                          variables: typing.Optional[dict[str, str]] = None):
+        def install_files(
+            files: dict[str, decman.File],
+            variables: typing.Optional[dict[str, str]] = None,
+        ):
             for target, file in files.items():
                 created_files.append(target)
 
@@ -481,19 +488,24 @@ class Source:
                 except OSError as e:
                     print_error(f"{e}")
                     raise err.UserFacingError(
-                        f"Failed to install file to {target}.") from e
+                        f"Failed to install file to {target}."
+                    ) from e
 
-        def install_dirs(dirs: dict[str, decman.Directory],
-                         variables: typing.Optional[dict[str, str]] = None):
+        def install_dirs(
+            dirs: dict[str, decman.Directory],
+            variables: typing.Optional[dict[str, str]] = None,
+        ):
             for target, directory in dirs.items():
                 try:
                     print_debug(f"Installing directory to {target}.")
                     created_files.extend(
-                        directory.copy_to(target, variables, only_print))
+                        directory.copy_to(target, variables, only_print)
+                    )
                 except OSError as e:
                     print_error(f"{e}")
                     raise err.UserFacingError(
-                        f"Failed to install directory to {target}.") from e
+                        f"Failed to install directory to {target}."
+                    ) from e
 
         install_files(self.files)
         install_dirs(self.directories)
@@ -531,8 +543,7 @@ class Source:
 
         return all_dirs
 
-    def files_to_remove(self, store: Store,
-                        created_files: list[str]) -> list[str]:
+    def files_to_remove(self, store: Store, created_files: list[str]) -> list[str]:
         """
         Returns all files that should be removed.
         """
@@ -587,8 +598,7 @@ class Source:
                 result[user] = entry
         return result
 
-    def packages_to_remove(
-            self, currently_installed_packages: list[str]) -> list[str]:
+    def packages_to_remove(self, currently_installed_packages: list[str]) -> list[str]:
         """
         Returns all packages that should be removed. This includes pacman, aur and user packages.
         """
@@ -601,7 +611,8 @@ class Source:
         return result
 
     def pacman_packages_to_install(
-            self, currently_installed_packages: list[str]) -> list[str]:
+        self, currently_installed_packages: list[str]
+    ) -> list[str]:
         """
         Returns all pacman packages that should be installed.
         """
@@ -614,7 +625,8 @@ class Source:
         return result
 
     def foreign_packages_to_install(
-            self, currently_installed_packages: list[str]) -> list[str]:
+        self, currently_installed_packages: list[str]
+    ) -> list[str]:
         """
         Returns all aur and user packages that should be installed.
         """
@@ -704,11 +716,16 @@ class Pacman:
         """
 
         try:
-            packages = subprocess.run(
-                conf.commands.list_pkgs(),
-                check=True,
-                stdout=subprocess.PIPE,
-            ).stdout.decode().strip().split('\n')
+            packages = (
+                subprocess.run(
+                    conf.commands.list_pkgs(),
+                    check=True,
+                    stdout=subprocess.PIPE,
+                )
+                .stdout.decode()
+                .strip()
+                .split("\n")
+            )
             return packages
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(
@@ -722,9 +739,12 @@ class Pacman:
         if dep in self._installable:
             return self._installable[dep]
 
-        result = subprocess.run(conf.commands.is_installable(dep),
-                                check=False,
-                                capture_output=True).returncode == 0
+        result = (
+            subprocess.run(
+                conf.commands.is_installable(dep), check=False, capture_output=True
+            ).returncode
+            == 0
+        )
         self._installable[dep] = result
         return result
 
@@ -734,18 +754,23 @@ class Pacman:
         basically AUR packages.
         """
         try:
-            output = subprocess.run(
-                conf.commands.list_foreign_pkgs_versioned(),
-                check=True,
-                stdout=subprocess.PIPE).stdout.decode().strip().split('\n')
+            output = (
+                subprocess.run(
+                    conf.commands.list_foreign_pkgs_versioned(),
+                    check=True,
+                    stdout=subprocess.PIPE,
+                )
+                .stdout.decode()
+                .strip()
+                .split("\n")
+            )
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(
                 f"Failed to get foreign packages using '{error.cmd}'. Output: {error.stdout}."
             ) from error
 
         try:
-            return [(line.split(" ")[0], line.split(" ")[1])
-                    for line in output]
+            return [(line.split(" ")[0], line.split(" ")[1]) for line in output]
         except IndexError as error:
             raise err.UserFacingError(
                 f"Failed to parse foreign packages from pacman output. Output: {output}"
@@ -759,7 +784,8 @@ class Pacman:
             return
 
         returncode, output = echo_and_capture_command(
-            conf.commands.install_pkgs(packages))
+            conf.commands.install_pkgs(packages)
+        )
         if returncode != 0:
             raise err.UserFacingError(
                 f"Failed to install packages using pacman. Process exited with code {returncode}."
@@ -768,9 +794,11 @@ class Pacman:
             print_highlighted_pacman_messages(output)
 
         try:
-            subprocess.run(conf.commands.set_as_explicitly_installed(packages),
-                           check=True,
-                           capture_output=conf.suppress_command_output)
+            subprocess.run(
+                conf.commands.set_as_explicitly_installed(packages),
+                check=True,
+                capture_output=conf.suppress_command_output,
+            )
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(
                 "Failed to set packages as explicitly installed using pacman."
@@ -783,8 +811,7 @@ class Pacman:
         if not deps:
             return
 
-        returncode, output = echo_and_capture_command(
-            conf.commands.install_deps(deps))
+        returncode, output = echo_and_capture_command(conf.commands.install_deps(deps))
         if returncode != 0:
             raise err.UserFacingError(
                 f"Failed to install packages as dependencies using pacman. Process exited with code {returncode}."
@@ -801,7 +828,8 @@ class Pacman:
             return
 
         returncode, output = echo_and_capture_command(
-            conf.commands.install_files(files))
+            conf.commands.install_files(files)
+        )
         if returncode != 0:
             raise err.UserFacingError(
                 f"Failed to install package files using pacman. Process exited with code {returncode}."
@@ -814,7 +842,8 @@ class Pacman:
                 subprocess.run(
                     conf.commands.set_as_explicitly_installed(as_explicit),
                     check=True,
-                    capture_output=conf.suppress_command_output)
+                    capture_output=conf.suppress_command_output,
+                )
         except subprocess.CalledProcessError as error:
             if conf.suppress_command_output:
                 print_error("Output:")
@@ -842,8 +871,7 @@ class Pacman:
         if not packages:
             return
 
-        returncode, output = echo_and_capture_command(
-            conf.commands.remove(packages))
+        returncode, output = echo_and_capture_command(conf.commands.remove(packages))
         if returncode != 0:
             raise err.UserFacingError(
                 f"Failed to remove packages using pacman. Process exited with code {returncode}."
@@ -861,7 +889,7 @@ def print_highlighted_pacman_messages(output: str):
     for index, line in enumerate(lines):
         for keyword in conf.pacman_output_keywords:
             if keyword.lower() in line.lower():
-                print_summary(f"lines: {index}-{index+2}")
+                print_summary(f"lines: {index}-{index + 2}")
                 if index >= 1:
                     print_continuation(lines[index - 1])
                 print_continuation(line)
@@ -879,10 +907,9 @@ def echo_and_capture_command(program: list[str]) -> tuple[int, str]:
 
     Returns a tuple containing the return code of the program as well as all output of the program.
     """
-    with subprocess.Popen(program,
-                          stdin=subprocess.PIPE,
-                          stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT) as process:
+    with subprocess.Popen(
+        program, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    ) as process:
         os.set_blocking(process.stdout.fileno(), False)
 
         output_thread = _OutputCapturingThread(process.stdout)
@@ -915,7 +942,6 @@ def echo_and_capture_command(program: list[str]) -> tuple[int, str]:
 
 
 class _OutputCapturingThread(threading.Thread):
-
     def __init__(self, stream):
         super().__init__()
         self._stream = stream
@@ -948,12 +974,15 @@ class Systemd:
             return
 
         try:
-            subprocess.run(conf.commands.enable_units(units),
-                           check=True,
-                           capture_output=conf.suppress_command_output)
+            subprocess.run(
+                conf.commands.enable_units(units),
+                check=True,
+                capture_output=conf.suppress_command_output,
+            )
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(
-                f"Failed to enable systemd units: {units}") from error
+                f"Failed to enable systemd units: {units}"
+            ) from error
         self.state.enabled_systemd_units += units
 
     def disable_units(self, units: list[str]):
@@ -964,12 +993,15 @@ class Systemd:
             return
 
         try:
-            subprocess.run(conf.commands.disable_units(units),
-                           check=True,
-                           capture_output=conf.suppress_command_output)
+            subprocess.run(
+                conf.commands.disable_units(units),
+                check=True,
+                capture_output=conf.suppress_command_output,
+            )
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(
-                f"Failed to disable systemd units: {units}") from error
+                f"Failed to disable systemd units: {units}"
+            ) from error
         for unit in units:
             try:
                 self.state.enabled_systemd_units.remove(unit)
@@ -984,9 +1016,11 @@ class Systemd:
             return
 
         try:
-            subprocess.run(conf.commands.enable_user_units(units, user),
-                           check=True,
-                           capture_output=conf.suppress_command_output)
+            subprocess.run(
+                conf.commands.enable_user_units(units, user),
+                check=True,
+                capture_output=conf.suppress_command_output,
+            )
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(
                 f"Failed to enable systemd units: {units} for {user}."
@@ -1003,9 +1037,11 @@ class Systemd:
             return
 
         try:
-            subprocess.run(conf.commands.disable_user_units(units, user),
-                           check=True,
-                           capture_output=conf.suppress_command_output)
+            subprocess.run(
+                conf.commands.disable_user_units(units, user),
+                check=True,
+                capture_output=conf.suppress_command_output,
+            )
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(
                 f"Failed to disable systemd units: {units} for {user}."
