@@ -166,6 +166,19 @@ class Commands:
             "--noconfirm",
         ] + packages
 
+    def resolve_real_name(self, chroot_dir: str, pkg: str) -> list[str]:
+        """
+        This command prints a real name of a package. For example, it prints the package which provides a virtual package.
+        """
+        return [
+            "arch-nspawn",
+            chroot_dir,
+            "pacman",
+            "-Sddp",
+            "--print-format=%n",
+            pkg,
+        ]
+
     def remove_chroot_packages(self, chroot_dir: str, packages: list[str]):
         """
         Running this command removes the given packages from the given chroot.
