@@ -984,12 +984,20 @@ class PackageBuilder:
 
         l.print_info("Removing build dependencies from chroot.")
 
-        # FIX: If installed packages are virtual packages, removing them wont succeed.
         if len(chroot_new_pacman_pkgs) != 0:
             to_remove = []
             for p in chroot_new_pacman_pkgs:
                 if p not in self._pkgs_in_chroot:
-                    to_remove.append(strip_dependency(p))
+                    real_pkgname = (
+                        subprocess.run(
+                            conf.commands.resolve_real_name(self.chroot_dir, p),
+                            check=True,
+                            stdout=subprocess.PIPE,
+                        )
+                        .stdout.decode()
+                        .strip()
+                    )
+                    to_remove.append(real_pkgname)
             subprocess.run(
                 conf.commands.remove_chroot_packages(self.chroot_dir, to_remove),
                 check=True,

@@ -58,7 +58,8 @@ decman.user_packages.append(
             "python-wheel",
         ],
         git_url="https://github.com/kiviktnm/decman-pkgbuild.git",
-    ))
+    )
+)
 
 # Managing only packages with decman is not that interesting.
 # Decman also has really powerful ways of managing config files, scripts etc.
@@ -68,23 +69,25 @@ decman.user_packages.append(
 
 # Define file content inline.
 # Default text file encoding is utf-8 but it can be changed.
-decman.files["/etc/vconsole.conf"] = File(content="KEYMAP=us",
-                                          encoding="utf-8")
+decman.files["/etc/vconsole.conf"] = File(content="KEYMAP=us", encoding="utf-8")
 
 # Include file content from another file, set the file owner and permissions.
 # The source_file is relative to the directory where the main decman source.py is located.
 # By default, the file group is set to the group of the owner, but it can be overridden with the group argument.
 decman.files["/home/kk/.bin/user-script.sh"] = File(
-    source_file="files/user-script.sh", owner="kk", permissions=0o744)
+    source_file="files/user-script.sh", owner="kk", permissions=0o744
+)
 
 # Non-text files such as images can also be managed.
 decman.files["/home/kk/.background.png"] = File(
-    source_file="files/i-dont-actually-exist.png", bin_file=True, owner="kk")
+    source_file="files/i-dont-actually-exist.png", bin_file=True, owner="kk"
+)
 
 # If you need to install multiple files at once, use directories.
 # All files from the source directory will be copied recursively to the target.
 decman.directories["/home/kk/.config/app/"] = Directory(
-    source_directory="files/app-config", owner="kk")
+    source_directory="files/app-config", owner="kk"
+)
 
 # Decman has built in support for managing systemd units as well.
 # Decman will enable services declared here, and disable services removed from here.
@@ -95,8 +98,9 @@ decman.enabled_systemd_units += ["NetworkManager.service"]
 # You can manage units for users as well.
 
 # Ensure that previous user unit declarations aren't overwritten and they are initialized.
-decman.enabled_systemd_user_units[
-    "kk"] = decman.enabled_systemd_user_units.get("kk", [])
+decman.enabled_systemd_user_units["kk"] = decman.enabled_systemd_user_units.get(
+    "kk", []
+)
 # Add user unit.
 decman.enabled_systemd_user_units["kk"].append("syncthing.service")
 
@@ -141,9 +145,9 @@ decman.config.pacman_output_keywords = [
     "pacsave",
     "pacnew",
     # Additional keywords can be:
-    #"warning",
-    #"error",
-    #"note",
+    # "warning",
+    # "error",
+    # "note",
     # They might cause too many highlights however.
 ]
 # If you don't want to print lines that contain keywords, set this to False
@@ -173,7 +177,6 @@ decman.config.number_of_packages_stored_in_cache = 3
 # Create a child class of the decman.config.Commands class and override methods.
 # These are the defaults.
 class MyCommands(decman.config.Commands):
-
     def list_pkgs(self) -> list[str]:
         return ["pacman", "-Qeq", "--color=never"]
 
@@ -193,8 +196,7 @@ class MyCommands(decman.config.Commands):
         return ["pacman", "-D", "--asexplicit"] + pkgs
 
     def install_deps(self, deps: list[str]) -> list[str]:
-        return ["pacman", "-S", "--color=always", "--needed", "--asdeps"
-                ] + deps
+        return ["pacman", "-S", "--color=always", "--needed", "--asdeps"] + deps
 
     def is_installable(self, pkg: str) -> list[str]:
         return ["pacman", "-Sddp", pkg]
@@ -217,8 +219,7 @@ class MyCommands(decman.config.Commands):
     def disable_user_units(self, units: list[str], user: str) -> list[str]:
         return ["systemctl", "--user", "-M", f"{user}@", "disable"] + units
 
-    def compare_versions(self, installed_version: str,
-                         new_version: str) -> list[str]:
+    def compare_versions(self, installed_version: str, new_version: str) -> list[str]:
         return ["vercmp", installed_version, new_version]
 
     def git_clone(self, repo: str, dest: str) -> list[str]:
@@ -241,19 +242,31 @@ class MyCommands(decman.config.Commands):
 
     def install_chroot_packages(self, chroot_dir: str, packages: list[str]):
         return [
-            "arch-nspawn", chroot_dir, "pacman", "-S", "--needed",
-            "--noconfirm"
+            "arch-nspawn",
+            chroot_dir,
+            "pacman",
+            "-S",
+            "--needed",
+            "--noconfirm",
         ] + packages
 
-    def remove_chroot_packages(self, chroot_dir: str, packages: list[str]):
-        return ["arch-nspawn", chroot_dir, "pacman", "-Rsu", "--noconfirm"
-                ] + packages
-
-    def make_chroot_pkg(self, chroot_wd_dir: str, user: str,
-                        pkgfiles_to_install: list[str]) -> list[str]:
-        makechrootpkg_cmd = [
-            "makechrootpkg", "-c", "-r", chroot_wd_dir, "-U", user
+    def resolve_real_name(self, chroot_dir: str, pkg: str) -> list[str]:
+        return [
+            "arch-nspawn",
+            chroot_dir,
+            "pacman",
+            "-Sddp",
+            "--print-format=%n",
+            pkg,
         ]
+
+    def remove_chroot_packages(self, chroot_dir: str, packages: list[str]):
+        return ["arch-nspawn", chroot_dir, "pacman", "-Rsu", "--noconfirm"] + packages
+
+    def make_chroot_pkg(
+        self, chroot_wd_dir: str, user: str, pkgfiles_to_install: list[str]
+    ) -> list[str]:
+        makechrootpkg_cmd = ["makechrootpkg", "-c", "-r", chroot_wd_dir, "-U", user]
 
         for pkgfile in pkgfiles_to_install:
             makechrootpkg_cmd += ["-I", pkgfile]
@@ -270,7 +283,6 @@ decman.config.commands = MyCommands()
 
 
 class PikaurWrapperCommands(decman.config.Commands):
-
     def list_pkgs(self) -> list[str]:
         return ["pikaur", "-Qeq"]
 
