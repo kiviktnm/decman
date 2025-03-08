@@ -265,6 +265,7 @@ class ExtendedPackageSearch:
         self._pacman = pacman
         self._package_info_cache: dict[str, PackageInfo] = {}
         self._dep_provider_cache: dict[str, PackageInfo] = {}
+        self._known_providers_cache: dict[str, list[str]] = {}
         self._user_packages: list[PackageInfo] = []
 
     def add_user_pkg(self, user_pkg: PackageInfo):
@@ -272,6 +273,15 @@ class ExtendedPackageSearch:
         Adds the given package to user packages.
         """
         self._user_packages.append(user_pkg)
+        self._cache_pkg(user_pkg)
+
+    def _cache_pkg(self, pkg: PackageInfo):
+        for provided_pkg in pkg.provides:
+            self._known_providers_cache[provided_pkg] = self._known_providers_cache.get(
+                provided_pkg, []
+            )
+            self._known_providers_cache[provided_pkg].append(pkg.pkgname)
+        self._package_info_cache[pkg.pkgname] = pkg
 
     def try_caching_packages(self, packages: list[str]):
         """
@@ -313,7 +323,7 @@ class ExtendedPackageSearch:
                     for user_package in self._user_packages:
                         if user_package.pkgname == pkgname:
                             l.print_debug(f"'{pkgname}' found in user packages.")
-                            self._package_info_cache[pkgname] = user_package
+                            self._cache_pkg(user_package)
                             break
                     else:  # if not in user_packages then:
                         info = PackageInfo(
@@ -327,7 +337,7 @@ class ExtendedPackageSearch:
                             git_url=f"https://aur.archlinux.org/{result['PackageBase']}.git",
                             pacman=self._pacman,
                         )
-                        self._package_info_cache[pkgname] = info
+                        self._cache_pkg(info)
 
                 l.print_debug("Request completed.")
             except (requests.RequestException, KeyError) as e:
@@ -352,7 +362,7 @@ class ExtendedPackageSearch:
         for user_package in self._user_packages:
             if user_package.pkgname == package:
                 l.print_debug(f"'{package}' found in user packages.")
-                self._package_info_cache[package] = user_package
+                self._cache_pkg(user_package)
                 return user_package
 
         url = f"https://aur.archlinux.org/rpc/v5/info/{package}"
@@ -383,7 +393,7 @@ class ExtendedPackageSearch:
                 pacman=self._pacman,
             )
 
-            self._package_info_cache[package] = info
+            self._cache_pkg(info)
 
             return info
         except (requests.RequestException, KeyError) as e:
@@ -415,23 +425,26 @@ class ExtendedPackageSearch:
 
         l.print_debug("No exact name matches found. Finding providers.")
 
-        user_pkg_results = []
+        known_pkg_results = self._known_providers_cache.get(stripped_dependency, [])
         for user_package in self._user_packages:
-            if stripped_dependency in user_package.provides:
-                user_pkg_results.append(user_package.pkgname)
+            if (
+                stripped_dependency in user_package.provides
+                and stripped_dependency not in known_pkg_results
+            ):
+                known_pkg_results.append(user_package.pkgname)
 
-        if len(user_pkg_results) == 1:
-            pkg = self.get_package_info(user_pkg_results[0])
+        if len(known_pkg_results) == 1:
+            pkg = self.get_package_info(known_pkg_results[0])
             assert pkg is not None
             l.print_debug(
-                f"Single provider for '{stripped_dependency}' found in user packages: '{pkg}'."
+                f"Single provider for '{stripped_dependency}' found in known packages: '{pkg}'."
             )
             self._dep_provider_cache[stripped_dependency] = pkg
             return pkg
 
-        if len(user_pkg_results) > 1:
+        if len(known_pkg_results) > 1:
             return self._choose_provider(
-                stripped_dependency, user_pkg_results, "user packages"
+                stripped_dependency, known_pkg_results, "user packages"
             )
 
         url = (
