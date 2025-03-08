@@ -80,6 +80,8 @@ Then import your module in your main source file.
 import decman
 from syncthing import Syncthing
 
+# NOTE! Removing a enabled module from decman.module means that on_disable will not run.
+# Instead disable the module.
 decman.modules += [Syncthing()]
 ```
 
@@ -157,14 +159,14 @@ decman.user_packages.append(
     ))
 ```
 
-Building of foreign packages happens in a chroot. This creates some overhead, but ensures clean builds. By default the chroot is created to `/tmp/decman/build`. I recommend to use a tempfs for the `/tmp/` directory to speed up builds. Also make sure that the tempfs-partition is large enough. I recommend at least 6 GB.
+Building of foreign packages happens in a chroot. This creates some overhead, but ensures clean builds. By default the chroot is created to `/tmp/decman/build`. I recommend to use a tmpfs for the `/tmp/` directory to speed up builds. Also make sure that the tmpfs-partition is large enough. I recommend at least 6 GB.
 
 Build packages are stored in a cache `/var/cache/decman`. By default decman keeps 3 most recent versions of all packages.
 
 ### Systemd units
 
 > [!NOTE]
-> Decman will only enable and disable systemd systemd. It will not start or stop them.
+> Decman will only enable and disable systemd services. It will not start or stop them.
 
 Decman can enable systemd services, system wide or for a specific user. Decman will enable all units defined in the source, and disable them when they are removed from the source. If a unit is not defined in the source, decman will not touch it.
 
