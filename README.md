@@ -1,5 +1,15 @@
 # Decman
 
+> 🎉 Decman now has a AUR package! 🎉
+>
+> To start using the AUR package simply add `decman` to `decman.aur_packages`. To ensure a smooth change, add decman-git to ignored_packages during the conversion.
+>
+> ```py
+> import decman
+> decman.aur_packages += ["decman"]
+> decman.ignored_packages += ["decman-git"]
+> ```
+
 Decman is a declarative package & configuration manager for Arch Linux. It allows you to manage installed packages, your dotfiles, enabled systemd units, and run commands automatically. Your system is configured using python so your configuration can be very adaptive.
 
 If you want, you can also use decman with other configuration languages. See the [example with TOML later in this README](#decman-with-other-configuration-languages).
@@ -111,17 +121,22 @@ decman --help
 Clone the decman PKGBUILD:
 
 ```sh
-git clone https://github.com/kiviktnm/decman-pkgbuild.git
+git clone https://aur.archlinux.org/decman.git
 ```
 
 Review the PKGBUILD and install it.
 
 ```sh
-cd decman-pkgbuild
+cd decman
 makepkg -si
 ```
 
-So far I have not created an AUR package for decman, because I'm not sure if other people would find decman useful.
+Remember to add decman to its own configuration.
+
+```py
+import decman
+decman.aur_packages += ["decman"]
+```
 
 ## What decman manages?
 
@@ -145,10 +160,11 @@ Decman can install AUR packages as well as user defined packages. Foreign packag
 Here is an example of a user package. Managing user packages is somewhat cumbersome as you have to declare their versions, dependencies and make dependencies manually. However, you probably won't install many user packages anyway.
 
 ```py
+# Note, decman now has a aur package, I recommend using that instead.
+# Also, this example may be out of date
 decman.user_packages.append(
     decman.UserPackage(
         pkgname="decman-git",
-        # Note, this example may not be up to date
         provides=["decman"],
         version="0.3.3",
         dependencies=["python", "python-requests", "devtools", "pacman", "systemd", "git"],
@@ -278,8 +294,9 @@ aur_packages = ["protonvpn"]
 enabled_systemd_units = ["NetworkManager.service"]
 ignored_packages = ["yay"]
 user_packages = [{
+    # Note, decman now has a aur package, I recommend using that instead.
+    # Also, this example may be out of date
     pkgname="decman-git",
-    # Note, this example may not be up to date
     provides=["decman"],
     version="0.3.3",
     dependencies=["python", "python-requests", "devtools", "pacman", "systemd", "git"],

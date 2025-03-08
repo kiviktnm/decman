@@ -26,7 +26,7 @@ decman.packages += ["python", "python", "devtools", "git", "networkmanager"]
 decman.ignored_packages += ["rustup", "yay"]
 
 # Installing AUR packages is easy.
-decman.aur_packages += ["protonvpn"]
+decman.aur_packages += ["decman", "protonvpn"]
 
 # To import GPG keys, set the GNUPGHOME environment variable.
 # It can easily be done with python as well.
@@ -36,7 +36,9 @@ decman.config.makepkg_user = "kk"
 
 # You can also install packages from anywhere, but then you must include some
 # information about the package. The git_url is the url to the PKGBUILD,
-# This example may not be up to date, but you should keep these up to date with the PKGBUILD.
+#
+# Note, decman now has a aur package, I recommend using that instead.
+# Also, this example may be out of date
 decman.user_packages.append(
     UserPackage(
         pkgname="decman-git",

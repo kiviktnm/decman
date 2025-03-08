@@ -4,7 +4,6 @@ from decman import Module, File, Directory, UserPackage, sh, prg
 
 
 class MyModule(Module):
-
     def __init__(self):
         self.pkgs = ["rust"]
         self.update_rustup = False
@@ -28,6 +27,8 @@ class MyModule(Module):
         # or run a program with arguments.
         prg(["usermod", "--append", "--groups", "mygroup", "kk"])
 
+    # NOTE! Removing a enabled module from decman.module means that on_disable will not run.
+    # Instead disable the module.
     def on_disable(self):
         # You can run commands as any user
         sh("whoami", user="kk")
@@ -58,18 +59,21 @@ class MyModule(Module):
     def files(self) -> dict[str, File]:
         # Variables are substituted in text files automatically.
         return {
-            "/usr/local/bin/say-hello":
-            File(content="#!/usr/bin/env bash\necho %msg%", permissions=0o755),
+            "/usr/local/bin/say-hello": File(
+                content="#!/usr/bin/env bash\necho %msg%", permissions=0o755
+            ),
             # Variables are not substituted in binary files.
-            "/usr/local/share/say-hello/image.png":
-            File(source_file="files/i-dont-exist.png", bin_file=True),
+            "/usr/local/share/say-hello/image.png": File(
+                source_file="files/i-dont-exist.png", bin_file=True
+            ),
         }
 
     def directories(self) -> dict[str, Directory]:
         # Directories are handeled the same way. Variables are substituted in text files.
         return {
-            "/home/kk/.config/mod-app/":
-            Directory(source_directory="files/app-config", owner="kk")
+            "/home/kk/.config/mod-app/": Directory(
+                source_directory="files/app-config", owner="kk"
+            )
         }
 
     # Packages and systemd units are basically the same with modules as without modules.
@@ -79,6 +83,8 @@ class MyModule(Module):
         return self.pkgs
 
     def user_packages(self) -> list[UserPackage]:
+        # Note, decman now has a aur package, I recommend using that instead.
+        # Also, this example may be out of date
         return [
             UserPackage(
                 pkgname="decman-git",
