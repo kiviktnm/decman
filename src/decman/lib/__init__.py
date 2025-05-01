@@ -4,6 +4,7 @@ Library module for decman.
 
 import json
 import os
+import pty
 import shutil
 import subprocess
 import sys
@@ -907,55 +908,18 @@ def echo_and_capture_command(program: list[str]) -> tuple[int, str]:
 
     Returns a tuple containing the return code of the program as well as all output of the program.
     """
-    with subprocess.Popen(
-        program, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-    ) as process:
-        os.set_blocking(process.stdout.fileno(), False)
 
-        output_thread = _OutputCapturingThread(process.stdout)
-        output_thread.start()
+    output = ""
 
-        os.set_blocking(sys.stdin.fileno(), False)
+    def read(fd):
+        nonlocal output
+        buffer = os.read(fd, 1024)
+        output += buffer.decode(encoding="utf-8")
+        return buffer
 
-        # Capture stdin and forward it to the process in a non-blocking manner
-        while process.poll() is None:
-            inp = sys.stdin.readline()
+    returncode = os.waitstatus_to_exitcode(pty.spawn(program, read))
 
-            if inp:
-                process.stdin.write(inp.encode())
-                process.stdin.flush()
-
-            time.sleep(0.1)
-
-        os.set_blocking(sys.stdin.fileno(), True)
-
-        output_thread.done = True
-        output_thread.join()
-
-        # Capture any output that may not have been yet captured
-        output = output_thread.output
-        missing_output = process.stdout.read()
-        if missing_output:
-            output += missing_output.decode()
-
-        return (process.returncode, output)
-
-
-class _OutputCapturingThread(threading.Thread):
-    def __init__(self, stream):
-        super().__init__()
-        self._stream = stream
-        self.output = ""
-        self.done = False
-
-    def run(self):
-        while not self.done and not self._stream.closed:
-            output = self._stream.read(1000)
-            if output:
-                output = output.decode()
-                self.output += output
-                print(output, end="", flush=True)
-            time.sleep(0.1)
+    return (returncode, output)
 
 
 class Systemd:
