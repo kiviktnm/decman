@@ -144,7 +144,7 @@ decman.aur_packages += ["decman"]
 
 Decman can be used to install pacman packages. Decman will install all packages defined in the source and **remove** all explicitly installed packages not defined in the source. You don't need to list dependencies as those will be handeled by pacman. You can set packages to be ignored by decman, so that it won't install them nor remove them.
 
-Please keep in mind that decman doesn't play well with package groups, since all packages part of that group will be installed explicitly. After the initial run decman will now try to remove those packages since it only knows that the group itself should be explicitly installed. Instead of package groups, use meta packages. 
+Please keep in mind that decman doesn't play well with package groups, since all packages part of that group will be installed explicitly. After the initial run decman will now try to remove those packages since it only knows that the group itself should be explicitly installed. Instead of package groups, use meta packages.
 
 ```py
 # Include both foreign and pacman packages here.
@@ -168,7 +168,7 @@ decman.user_packages.append(
     decman.UserPackage(
         pkgname="decman-git",
         provides=["decman"],
-        version="0.3.3",
+        version="0.3.4",
         dependencies=["python", "python-requests", "devtools", "pacman", "systemd", "git"],
         make_dependencies=[
             "python-setuptools", "python-build", "python-installer", "python-wheel"
@@ -300,7 +300,7 @@ user_packages = [{
     # Also, this example may be out of date
     pkgname="decman-git",
     provides=["decman"],
-    version="0.3.3",
+    version="0.3.4",
     dependencies=["python", "python-requests", "devtools", "pacman", "systemd", "git"],
     make_dependencies=[
         "python-setuptools", "python-build", "python-installer", "python-wheel"
