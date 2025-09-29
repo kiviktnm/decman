@@ -6,7 +6,6 @@ from decman import UserPackage, Module
 
 
 class ExistingTestModule(Module):
-
     def __init__(self):
         self.on_enable_executed = False
         self.on_disable_executed = False
@@ -28,7 +27,6 @@ class ExistingTestModule(Module):
 
 
 class ExistingChangedVersionTestModule(Module):
-
     def __init__(self):
         self.on_enable_executed = False
         self.on_disable_executed = False
@@ -50,7 +48,6 @@ class ExistingChangedVersionTestModule(Module):
 
 
 class EnabledTestModule(Module):
-
     def __init__(self):
         self.on_enable_executed = False
         self.on_disable_executed = False
@@ -78,7 +75,6 @@ class EnabledTestModule(Module):
 
 
 class DisabledTestModule(Module):
-
     def __init__(self):
         self.on_enable_executed = False
         self.on_disable_executed = False
@@ -106,7 +102,6 @@ class DisabledTestModule(Module):
 
 
 class TestSource(unittest.TestCase):
-
     def setUp(self):
         self.disabled_module = DisabledTestModule()
         self.enabled_module = EnabledTestModule()
@@ -133,7 +128,7 @@ class TestSource(unittest.TestCase):
                     version="1",
                     dependencies=["d2"],
                     git_url="/am/url/yes",
-                )
+                ),
             },
             ignored_packages={"i1", "i2"},
             systemd_units={"1.service", "2.timer"},
@@ -141,11 +136,12 @@ class TestSource(unittest.TestCase):
             modules=modules,
             files={},
             directories={},
+            flatpak_packages={"f1", "f2", "f3"},
+            ignored_flatpak_packages={"i1", "i2"},
         )
 
         store = Store()
-        store.enabled_systemd_units.extend(
-            ["1.service", "3.service", "M_1.service"])
+        store.enabled_systemd_units.extend(["1.service", "3.service", "M_1.service"])
         store.add_enabled_user_systemd_unit("user", "u1.service")
         store.add_enabled_user_systemd_unit("user", "u3.service")
         store.enabled_modules = {
@@ -174,16 +170,19 @@ class TestSource(unittest.TestCase):
         self.currently_installed_packages = currently_installed_packages
 
     def test_all_enabled_modules(self):
-        enabled_modules = [("Enabled", "1"), ("Existing", "1"),
-                           ("ExistingChanged", "2")]
-        self.assertCountEqual(self.source.all_enabled_modules(),
-                              enabled_modules)
+        enabled_modules = [
+            ("Enabled", "1"),
+            ("Existing", "1"),
+            ("ExistingChanged", "2"),
+        ]
+        self.assertCountEqual(self.source.all_enabled_modules(), enabled_modules)
 
     def test_files_to_remove(self):
         created_files = ["/test/file1", "/test/file4"]
         self.assertCountEqual(
             self.source.files_to_remove(self.store, created_files),
-            ["/test/file2", "/test/file3"])
+            ["/test/file2", "/test/file3"],
+        )
 
     def test_after_update_executed(self):
         self.source.run_after_update()
@@ -197,8 +196,7 @@ class TestSource(unittest.TestCase):
         self.source.run_after_version_change(self.store)
 
         self.assertTrue(self.enabled_module.after_version_change_executed)
-        self.assertTrue(
-            self.existing_module_changed.after_version_change_executed)
+        self.assertTrue(self.existing_module_changed.after_version_change_executed)
         self.assertFalse(self.existing_module.after_version_change_executed)
         self.assertFalse(self.disabled_module.after_version_change_executed)
 
@@ -233,10 +231,7 @@ class TestSource(unittest.TestCase):
     def test_user_units_to_enable(self):
         self.assertDictEqual(
             self.source.user_units_to_enable(self.store),
-            {
-                "user": ["u2.timer"],
-                "muser": ["M_u1.service"]
-            },
+            {"user": ["u2.timer"], "muser": ["M_u1.service"]},
         )
 
     def test_user_units_to_disable(self):
@@ -247,15 +242,13 @@ class TestSource(unittest.TestCase):
 
     def test_pacman_packages_to_install(self):
         self.assertCountEqual(
-            self.source.pacman_packages_to_install(
-                self.currently_installed_packages),
+            self.source.pacman_packages_to_install(self.currently_installed_packages),
             ["p3", "M_p1", "M_p2"],
         )
 
     def test_foreign_packages_to_install(self):
         self.assertCountEqual(
-            self.source.foreign_packages_to_install(
-                self.currently_installed_packages),
+            self.source.foreign_packages_to_install(self.currently_installed_packages),
             ["A1", "U2"],
         )
 
@@ -265,45 +258,37 @@ class TestSource(unittest.TestCase):
             ["p4", "A4", "M_A1", "M_A2"],
         )
 
+
 class TestModuleUserServices(unittest.TestCase):
-
     class ModuleWithUserServiceOne(Module):
-
         def __init__(self):
             super().__init__("one", True, "0")
 
         def systemd_user_units(self) -> dict[str, list[str]]:
-            return {
-                    "user": ['foo.service']
-                    }
+            return {"user": ["foo.service"]}
 
     class ModuleWithUserServiceTwo(Module):
-
         def __init__(self):
             super().__init__("two", True, "0")
 
         def systemd_user_units(self) -> dict[str, list[str]]:
-            return {
-                    "user": ['bar.service']
-                    }
+            return {"user": ["bar.service"]}
 
     def setUp(self) -> None:
         self.source = Source(
-                pacman_packages=set(),
-                aur_packages=set(),
-                user_packages=set(),
-                ignored_packages=set(),
-                systemd_units=set(),
-                systemd_user_units={},
-                files={},
-                directories={},
-                modules={                
-                         self.ModuleWithUserServiceOne(),
-                         self.ModuleWithUserServiceTwo()
-                         },
-            )
+            pacman_packages=set(),
+            aur_packages=set(),
+            user_packages=set(),
+            ignored_packages=set(),
+            systemd_units=set(),
+            systemd_user_units={},
+            files={},
+            directories={},
+            modules={self.ModuleWithUserServiceOne(), self.ModuleWithUserServiceTwo()},
+            flatpak_packages=set(),
+            ignored_flatpak_packages=set(),
+        )
         self.store = Store()
-
 
     def test_user_units_to_enable(self):
         self.assertDictEqual(

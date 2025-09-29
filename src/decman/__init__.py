@@ -412,3 +412,5 @@ enabled_systemd_user_units: dict[str, list[str]] = {}
 files: dict[str, File] = {}
 directories: dict[str, Directory] = {}
 modules: list[Module] = []
+flatpak_packages: list[str] = []
+ignored_flatpak_packages: list[str] = []

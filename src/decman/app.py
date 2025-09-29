@@ -205,6 +205,7 @@ class Core:
         self.store = store
         self.source = _resolve_source()
         self.pacman = l.Pacman()
+        self.flatpak = l.Flatpak()
         self.systemctl = l.Systemd(store)
         self.fpkg_search = fpm.ExtendedPackageSearch(self.pacman)
 
@@ -257,36 +258,76 @@ class Core:
                 self.systemctl.disable_user_units(units, user)
 
     def _remove_pkgs(self):
+        """
+        Remove pacman and flatpak packages
+        """
+        # pacman
         currently_installed = self.pacman.get_installed()
         to_remove = self.source.packages_to_remove(currently_installed)
-        l.print_list("Removing packages:", to_remove)
-        if not self.only_print:
-            self.pacman.remove(to_remove)
+
+        currently_installed_flatpak = self.flatpak.get_installed()
+        to_remove_flatpak = self.source.flatpak_packages_to_remove(
+            currently_installed_flatpak
+        )
+
+        l.print_list("Removing pacman packages:", to_remove)
+        l.print_list("Removing flatpak packages:", to_remove_flatpak)
+
+        if self.only_print:
+            return
+
+        self.pacman.remove(to_remove)
+
+        # flatpak
+        self.flatpak.remove(to_remove_flatpak)
 
     def _upgrade_pkgs(self):
+        """
+        Upgrade pacman, fpm and flatpak packages
+        """
+        # flatpak + fpm
         l.print_summary("Upgrading packages.")
-        if not self.only_print:
-            self.pacman.upgrade()
-            if conf.enable_fpm and self.update_foreign_packages:
-                self.fpm.upgrade(
-                    self.upgrade_devel, self.force_build, self.source.ignored_packages
-                )
+        if self.only_print:
+            return
+
+        self.pacman.upgrade()
+        if conf.enable_fpm and self.update_foreign_packages:
+            self.fpm.upgrade(
+                self.upgrade_devel, self.force_build, self.source.ignored_packages
+            )
+
+        # flatpak
+        self.flatpak.upgrade()
 
     def _install_pkgs(self):
+        """
+        Installs all pacman, fpm, and flatpak packages.
+        """
+
+        # pacman + fpm
         currently_installed = self.pacman.get_installed()
         to_install_pacman = self.source.pacman_packages_to_install(currently_installed)
         to_install_fpm = self.source.foreign_packages_to_install(currently_installed)
 
+        # flatpak
+        currently_installed_flatpak = self.flatpak.get_installed()
+        to_install_flatpak = self.source.flatpak_packages_to_install(
+            currently_installed_flatpak
+        )
+
         l.print_list("Installing pacman packages:", to_install_pacman)
+        l.print_list("Installing flatpak packages:", to_install_flatpak)
 
         # fpm prints a summary so no need to print it twice
         if self.only_print:
             l.print_list("Installing foreign packages:", to_install_fpm)
+            return
 
-        if not self.only_print:
-            self.pacman.install(to_install_pacman)
-            if conf.enable_fpm and self.update_foreign_packages:
-                self.fpm.install(to_install_fpm, force=self.force_build)
+        self.pacman.install(to_install_pacman)
+        if conf.enable_fpm and self.update_foreign_packages:
+            self.fpm.install(to_install_fpm, force=self.force_build)
+
+        self.flatpak.install(to_install_flatpak)
 
     def _create_and_remove_files(self):
         l.print_summary("Installing files.")
@@ -356,6 +397,8 @@ def _resolve_source() -> l.Source:
         files=decman.files,
         directories=decman.directories,
         modules=set(decman.modules),
+        flatpak_packages=set(decman.flatpak_packages),
+        ignored_flatpak_packages=set(decman.ignored_flatpak_packages),
     )
 
 
