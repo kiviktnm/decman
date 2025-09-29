@@ -1,5 +1,6 @@
 # pylint: disable=missing-module-docstring,missing-class-docstring,missing-function-docstring
 
+from typing import override
 import unittest
 from decman.lib import Source, Store
 from decman import UserPackage, Module
@@ -72,6 +73,9 @@ class EnabledTestModule(Module):
 
     def systemd_user_units(self) -> dict[str, list[str]]:
         return {"muser": ["M_u1.service"]}
+
+    def flatpak_packages(self) -> list[str]:
+        return ["M_f1", "M_f2"]
 
 
 class DisabledTestModule(Module):

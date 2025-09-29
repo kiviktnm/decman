@@ -380,6 +380,13 @@ class Module:
         """
         return []
 
+    def flatpak_packages(self) -> list[str]:
+        """
+        Override this method to return flatpak packages that should be installed as a part of this
+        Module.
+        """
+        return []
+
     def systemd_units(self) -> list[str]:
         """
         Override this method to return systemd units that should be enabled as a part of this

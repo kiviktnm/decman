@@ -651,7 +651,7 @@ class Source:
         """
 
         result: list[str] = []
-        for pkg in self.flatpak_packages:
+        for pkg in self._all_flatpak_packages():
             if pkg in self.ignored_flatpak_packages:
                 continue
             if pkg not in currently_installed_packages:
@@ -668,7 +668,7 @@ class Source:
         for package in currently_installed_packages:
             if package in self.ignored_flatpak_packages:
                 continue
-            if package not in self.flatpak_packages:
+            if package not in self._all_flatpak_packages():
                 result.append(package)
 
         return result
@@ -700,6 +700,15 @@ class Source:
         for module in self.modules:
             if module.enabled:
                 result.update(module.pacman_packages())
+        return result
+
+    def _all_flatpak_packages(self) -> set[str]:
+        result = set()
+        result.update(self.flatpak_packages)
+        for module in self.modules:
+            if module.enabled:
+                result.update(module.flatpak_packages())
+
         return result
 
     def _all_foreign_pkgs(self) -> set[str]:
