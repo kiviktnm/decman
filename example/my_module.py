@@ -1,5 +1,6 @@
 # from import is ok for importing classes and functions
 # just remember to not import variables this way
+from typing import override
 from decman import Module, File, Directory, UserPackage, sh, prg
 
 
@@ -111,6 +112,9 @@ class MyModule(Module):
 
     def aur_packages(self) -> list[str]:
         return ["protonvpn"]
+
+    def flatpak_packages(self) -> list[str]:
+        return ["org.mozilla.firefox"]
 
     def systemd_units(self) -> list[str]:
         return ["reflector.timer"]

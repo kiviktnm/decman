@@ -12,6 +12,9 @@ import decman.config
 # This is fine since the thing being imported is a class and not a global variable.
 from decman import UserPackage, File, Directory, UserRaisedError
 
+# Flatpaks are disabled by default. This way no already installed flatpaks will get suddenly deleted.
+decman.config.enable_flatpak = True
+
 # Configuring what packages are installed is easy.
 # Duplicates are OK, so if you have multiple modules that want to ensure a package is installed,
 # you can add the same package multiple times.
@@ -27,6 +30,12 @@ decman.ignored_packages += ["rustup", "yay"]
 
 # Installing AUR packages is easy.
 decman.aur_packages += ["decman", "protonvpn"]
+
+# Flatpaks work the same way as all other packages.
+decman.flatpak_packages += ["dev.qwery.AddWater"]
+
+# They too can be ignored of course
+decman.ignored_flatpak_packages += ["org.signal.Signal"]
 
 # To import GPG keys, set the GNUPGHOME environment variable.
 # It can easily be done with python as well.

@@ -1,5 +1,8 @@
 # Decman
 
+> 🎉 Support for Flatpaks was just added! 🎉
+> By default flatpak management this feature is disabled. Take a look at the example to learn how to use flatpaks.
+
 > 🎉 Decman now has a AUR package! 🎉
 >
 > To start using the AUR package simply add `decman` to `decman.aur_packages`. To ensure a smooth change, add decman-git to ignored_packages during the conversion.
