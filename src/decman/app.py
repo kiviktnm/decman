@@ -5,6 +5,7 @@ Module containing the CLI Application.
 
 import argparse
 import os
+import shutil
 import sys
 import traceback
 
@@ -211,6 +212,10 @@ class Core:
             self.upgrade_devel,
             self.force_build,
         ) = opts
+
+        if conf.enable_flatpak and not shutil.which("flatpak"):
+            l.print_error("Flatpaks have been enabled in the source file, but the flatpak command could not be found. Either disable flatpaks or make sure that flatpak is installed and can be accessed by decman. Exiting.")
+            exit()
 
         self.store = store
         self.source = _resolve_source()
