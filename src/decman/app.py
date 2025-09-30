@@ -1,3 +1,4 @@
+# pyright: reportUnusedCallResult=false
 """
 Module containing the CLI Application.
 """
@@ -27,6 +28,7 @@ def main():
         epilog="See more help at: https://github.com/kiviktnm/decman",
     )
 
+
     parser.add_argument(
         "--source", action="store", help="python file containing configuration"
     )
@@ -51,6 +53,12 @@ def main():
         action="store_true",
         default=False,
         help="don't upgrade foreign packages",
+    )
+    parser.add_argument(
+        "--no-flatpaks",
+        action="store_true",
+        default=False,
+        help="don't upgrade flatpak packages",
     )
     parser.add_argument(
         "--no-files", action="store_true", default=False, help="don't install any files"
@@ -177,6 +185,7 @@ def _set_up(store: l.Store, args):
         args.print,
         not args.no_packages,
         not args.no_foreign_packages,
+        not args.no_flatpaks
         not args.no_files,
         not args.no_systemd_units,
         not args.no_commands,
@@ -195,6 +204,7 @@ class Core:
             self.only_print,
             self.update_packages,
             self.update_foreign_packages,
+            self.update_flatpaks,
             self.update_files,
             self.update_units,
             self.run_commands,
@@ -279,7 +289,8 @@ class Core:
         self.pacman.remove(to_remove)
 
         # flatpak
-        self.flatpak.remove(to_remove_flatpak)
+        if conf.enable_flatpak and self.update_flatpaks:
+            self.flatpak.remove(to_remove_flatpak)
 
     def _upgrade_pkgs(self):
         """
@@ -297,7 +308,8 @@ class Core:
             )
 
         # flatpak
-        self.flatpak.upgrade()
+        if conf.enable_flatpak and self.update_flatpaks:
+            self.flatpak.upgrade()
 
     def _install_pkgs(self):
         """
@@ -327,7 +339,8 @@ class Core:
         if conf.enable_fpm and self.update_foreign_packages:
             self.fpm.install(to_install_fpm, force=self.force_build)
 
-        self.flatpak.install(to_install_flatpak)
+        if conf.enable_flatpak and self.update_flatpaks:
+            self.flatpak.install(to_install_flatpak)
 
     def _create_and_remove_files(self):
         l.print_summary("Installing files.")
