@@ -37,6 +37,9 @@ decman.flatpak_packages += ["dev.qwery.AddWater"]
 # They too can be ignored of course
 decman.ignored_flatpak_packages += ["org.signal.Signal"]
 
+# You can also install them to your user installation instead of the system installation
+decman.flatpak_user_packages += ["dev.zed.Zed"]
+
 # To import GPG keys, set the GNUPGHOME environment variable.
 # It can easily be done with python as well.
 os.environ["GNUPGHOME"] = "/home/kk/.gnupg/"

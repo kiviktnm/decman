@@ -116,6 +116,9 @@ class MyModule(Module):
     def flatpak_packages(self) -> list[str]:
         return ["org.mozilla.firefox"]
 
+    def flatpak_user_packages(self) -> list[str]:
+        return ["org.github.kolunmi.Bazaar"]
+
     def systemd_units(self) -> list[str]:
         return ["reflector.timer"]
 

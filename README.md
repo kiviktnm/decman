@@ -1,7 +1,7 @@
 # Decman
 
 > 🎉 Support for Flatpaks was just added! 🎉
-> By default flatpak management this feature is disabled. Take a look at the example to learn how to use flatpaks.
+> By default flatpak management this feature is disabled. Take a look at the example to learn how to use flatpaks. You can install to the user as well as the system installation.
 
 > 🎉 Decman now has a AUR package! 🎉
 >
