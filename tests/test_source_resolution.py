@@ -141,6 +141,7 @@ class TestSource(unittest.TestCase):
             files={},
             directories={},
             flatpak_packages={"f1", "f2", "f3"},
+            flatpak_user_packages={"fu1", "fu2", "fu3"},
             ignored_flatpak_packages={"i1", "i2"},
         )
 
@@ -290,6 +291,7 @@ class TestModuleUserServices(unittest.TestCase):
             directories={},
             modules={self.ModuleWithUserServiceOne(), self.ModuleWithUserServiceTwo()},
             flatpak_packages=set(),
+            flatpak_user_packages=set(),
             ignored_flatpak_packages=set(),
         )
         self.store = Store()

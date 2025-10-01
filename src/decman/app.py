@@ -29,7 +29,6 @@ def main():
         epilog="See more help at: https://github.com/kiviktnm/decman",
     )
 
-
     parser.add_argument(
         "--source", action="store", help="python file containing configuration"
     )
@@ -186,7 +185,7 @@ def _set_up(store: l.Store, args):
         args.print,
         not args.no_packages,
         not args.no_foreign_packages,
-        not args.no_flatpaks
+        not args.no_flatpaks,
         not args.no_files,
         not args.no_systemd_units,
         not args.no_commands,
@@ -214,7 +213,9 @@ class Core:
         ) = opts
 
         if conf.enable_flatpak and not shutil.which("flatpak"):
-            l.print_error("Flatpaks have been enabled in the source file, but the flatpak command could not be found. Either disable flatpaks or make sure that flatpak is installed and can be accessed by decman. Exiting.")
+            l.print_error(
+                "Flatpaks have been enabled in the source file, but the flatpak command could not be found. Either disable flatpaks or make sure that flatpak is installed and can be accessed by decman. Exiting."
+            )
             exit()
 
         self.store = store
@@ -284,9 +285,14 @@ class Core:
         to_remove_flatpak = self.source.flatpak_packages_to_remove(
             currently_installed_flatpak
         )
+        currently_installed_user_flatpak = self.flatpak.get_installed(True)
+        to_remove_user_flatpak = self.source.flatpak_packages_to_remove(
+            currently_installed_user_flatpak, as_user=True
+        )
 
         l.print_list("Removing pacman packages:", to_remove)
         l.print_list("Removing flatpak packages:", to_remove_flatpak)
+        l.print_list("Removing user flatpak packages:", to_remove_user_flatpak)
 
         if self.only_print:
             return
@@ -296,6 +302,7 @@ class Core:
         # flatpak
         if conf.enable_flatpak and self.update_flatpaks:
             self.flatpak.remove(to_remove_flatpak)
+            self.flatpak.remove(to_remove_user_flatpak, True)
 
     def _upgrade_pkgs(self):
         """
@@ -331,9 +338,14 @@ class Core:
         to_install_flatpak = self.source.flatpak_packages_to_install(
             currently_installed_flatpak
         )
+        currently_installed_user_flatpak = self.flatpak.get_installed(True)
+        to_install_user_flatpak = self.source.flatpak_packages_to_install(
+            currently_installed_user_flatpak, True
+        )
 
         l.print_list("Installing pacman packages:", to_install_pacman)
         l.print_list("Installing flatpak packages:", to_install_flatpak)
+        l.print_list("Installing user flatpak packages:", to_install_user_flatpak)
 
         # fpm prints a summary so no need to print it twice
         if self.only_print:
@@ -346,6 +358,7 @@ class Core:
 
         if conf.enable_flatpak and self.update_flatpaks:
             self.flatpak.install(to_install_flatpak)
+            self.flatpak.install(to_install_user_flatpak, True)
 
     def _create_and_remove_files(self):
         l.print_summary("Installing files.")
@@ -416,6 +429,7 @@ def _resolve_source() -> l.Source:
         directories=decman.directories,
         modules=set(decman.modules),
         flatpak_packages=set(decman.flatpak_packages),
+        flatpak_user_packages=set(decman.flatpak_user_packages),
         ignored_flatpak_packages=set(decman.ignored_flatpak_packages),
     )
 

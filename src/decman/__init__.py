@@ -382,7 +382,14 @@ class Module:
 
     def flatpak_packages(self) -> list[str]:
         """
-        Override this method to return flatpak packages that should be installed as a part of this
+        Override this method to return flatpak packages that should be installed to the system installation as a part of this
+        Module.
+        """
+        return []
+
+    def flatpak_user_packages(self) -> list[str]:
+        """
+        Override this method to return flatpak packages that should be installed to the user installation as a part of this
         Module.
         """
         return []
@@ -420,4 +427,5 @@ files: dict[str, File] = {}
 directories: dict[str, Directory] = {}
 modules: list[Module] = []
 flatpak_packages: list[str] = []
+flatpak_user_packages: list[str] = []
 ignored_flatpak_packages: list[str] = []
