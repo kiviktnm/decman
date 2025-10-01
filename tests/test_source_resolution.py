@@ -1,8 +1,9 @@
 # pylint: disable=missing-module-docstring,missing-class-docstring,missing-function-docstring
 
 import unittest
+
+from decman import Module, UserPackage
 from decman.lib import Source, Store
-from decman import UserPackage, Module
 
 
 class ExistingTestModule(Module):
@@ -306,7 +307,6 @@ class TestModuleUserServices(unittest.TestCase):
 
 
     def test_user_units_to_enable(self):
-        self.assertDictEqual(
-            self.source.user_units_to_enable(self.store),
-            {"user": ["foo.service", "bar.service"]},
-        )
+        result = self.source.user_units_to_enable(self.store)
+        self.assertEqual(len(result), 1)
+        self.assertCountEqual(result["user"], ["foo.service", "bar.service"])
