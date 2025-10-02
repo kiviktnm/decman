@@ -419,6 +419,9 @@ class Source:
         files: dict[str, decman.File],
         directories: dict[str, decman.Directory],
         modules: set[decman.Module],
+        flatpak_packages: set[str],
+        flatpak_user_packages: set[str],
+        ignored_flatpak_packages: set[str],
     ):
         self.pacman_packages = pacman_packages
         self.aur_packages = aur_packages
@@ -429,6 +432,9 @@ class Source:
         self.files = files
         self.directories = directories
         self.modules = modules
+        self.flatpak_packages = flatpak_packages
+        self.flatpak_user_packages = flatpak_user_packages
+        self.ignored_flatpak_packages = ignored_flatpak_packages
 
     def run_on_enable(self, store: Store):
         """
@@ -639,6 +645,37 @@ class Source:
                 result.append(pkg)
         return result
 
+    def flatpak_packages_to_install(
+        self, currently_installed_packages: list[str], as_user: bool = False
+    ) -> list[str]:
+        """
+        Returns all flatpak packages, that are not installed or ignored
+        """
+
+        result: list[str] = []
+        for pkg in self._all_flatpak_packages(as_user):
+            if pkg in self.ignored_flatpak_packages:
+                continue
+            if pkg not in currently_installed_packages:
+                result.append(pkg)
+        return result
+
+    def flatpak_packages_to_remove(
+        self, currently_installed_packages: list[str], as_user: bool = False
+    ) -> list[str]:
+        """
+        This returns a list of flatpak app ids, that need to be removed since they are installed but not found in either the list of ignored packages,
+        the list of system packages or the list of user packages that need to be installed.
+        """
+        result: list[str] = []
+        for package in currently_installed_packages:
+            if package in self.ignored_flatpak_packages:
+                continue
+            if package not in self._all_flatpak_packages(as_user):
+                result.append(package)
+
+        return result
+
     def all_enabled_modules(self) -> list[tuple[str, str]]:
         """
         Returns all enabled modules and their versions.
@@ -666,6 +703,21 @@ class Source:
         for module in self.modules:
             if module.enabled:
                 result.update(module.pacman_packages())
+        return result
+
+    def _all_flatpak_packages(self, as_user: bool = False) -> set[str]:
+        result = set()
+        result.update(
+            self.flatpak_packages if not as_user else self.flatpak_user_packages
+        )
+        for module in self.modules:
+            if module.enabled:
+                result.update(
+                    module.flatpak_packages()
+                    if not as_user
+                    else module.flatpak_user_packages()
+                )
+
         return result
 
     def _all_foreign_pkgs(self) -> set[str]:
@@ -920,6 +972,87 @@ def echo_and_capture_command(program: list[str]) -> tuple[int, str]:
     returncode = os.waitstatus_to_exitcode(pty.spawn(program, read))
 
     return (returncode, output)
+
+
+class Flatpak:
+    def __init__(self) -> None:
+        pass
+
+    def get_installed(self, as_user: bool = False) -> list[str]:
+        """
+        Return all of the installed applications. Dependencies and runtimes are exluded since they will not be explicitly installed and thus flatpak will manage them.
+        """
+        try:
+            packages = (
+                subprocess.run(
+                    conf.commands.list_flatpak_pkgs(as_user),
+                    check=True,
+                    stdout=subprocess.PIPE,
+                )
+                .stdout.decode()
+                .strip()
+                .split("\n")
+            )
+
+            # The header might be included. It might also not. This will make sure that it is not present.
+            if "Application ID" in packages:
+                packages.remove("Application ID")
+
+            return packages
+        except subprocess.CalledProcessError as error:
+            raise err.UserFacingError(
+                user_facing_msg=f"Failed to get installed flatpak packages using '{error.cmd}'. Output: {error.stdout}."
+            ) from error
+
+    def install(self, packages: list[str], as_user: bool = False):
+        """
+        Install the listed flatpak packages.
+        """
+        if not packages:
+            return
+
+        returncode, _output = echo_and_capture_command(
+            conf.commands.install_flatpak_pkgs(packages, as_user)
+        )
+        if returncode != 0:
+            raise err.UserFacingError(
+                f"Failed to install flatpak packages. Process exited with code {returncode}."
+            )
+
+    def upgrade(self) -> None:
+        """
+        Upgrade all flatpak packages.
+        """
+        returncode, _output = echo_and_capture_command(conf.commands.upgrade_flatpak())
+        if not returncode == 0:
+            raise err.UserFacingError(
+                f"Failed to upgrade flatpak packages. Process exited with code {returncode}."
+            )
+
+    def remove(self, packages: list[str], as_user: bool = False):
+        """
+        Remove all the listed packages and their unused dependecies. This has to happen in two steps.
+        """
+        if not packages:
+            return
+
+        returncode, _output = echo_and_capture_command(
+            conf.commands.remove_flatpak(packages, as_user)
+        )
+
+        if not returncode == 0:
+            raise err.UserFacingError(
+                f"Failed to remove flatpak packages. Process exited with code {returncode}."
+            )
+
+        returncode, _output = echo_and_capture_command(
+            conf.commands.remove_unused_flatpak()
+        )
+
+        if not returncode == 0:
+            raise err.UserFacingError(
+                f"Failed to remove unused flatpak packages. Process exited with code {returncode}."
+            )
 
 
 class Systemd:
