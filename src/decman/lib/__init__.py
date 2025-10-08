@@ -998,6 +998,9 @@ class Flatpak:
             if "Application ID" in packages:
                 packages.remove("Application ID")
 
+            if packages == [""]:
+                return []
+
             return packages
         except subprocess.CalledProcessError as error:
             raise err.UserFacingError(

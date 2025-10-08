@@ -216,7 +216,7 @@ class Core:
             l.print_error(
                 "Flatpaks have been enabled in the source file, but the flatpak command could not be found. Either disable flatpaks or make sure that flatpak is installed and can be accessed by decman. Exiting."
             )
-            exit()
+            sys.exit(1)
 
         self.store = store
         self.source = _resolve_source()
@@ -291,8 +291,10 @@ class Core:
         )
 
         l.print_list("Removing pacman packages:", to_remove)
-        l.print_list("Removing flatpak packages:", to_remove_flatpak)
-        l.print_list("Removing user flatpak packages:", to_remove_user_flatpak)
+
+        if conf.enable_flatpak:
+            l.print_list("Removing flatpak packages:", to_remove_flatpak)
+            l.print_list("Removing user flatpak packages:", to_remove_user_flatpak)
 
         if self.only_print:
             return
@@ -344,8 +346,10 @@ class Core:
         )
 
         l.print_list("Installing pacman packages:", to_install_pacman)
-        l.print_list("Installing flatpak packages:", to_install_flatpak)
-        l.print_list("Installing user flatpak packages:", to_install_user_flatpak)
+
+        if conf.enable_flatpak:
+            l.print_list("Installing flatpak packages:", to_install_flatpak)
+            l.print_list("Installing user flatpak packages:", to_install_user_flatpak)
 
         # fpm prints a summary so no need to print it twice
         if self.only_print:
