@@ -1023,6 +1023,9 @@ class Flatpak:
             return
 
         uinfo = get_user_info(which_user)
+        env = os.environ.copy()
+        user_env = env.copy()
+        user_env["HOME"] = os.path.expanduser(f"~{which_user}")
 
         proc = subprocess.run(
             conf.commands.install_flatpak_pkgs(packages, as_user),
@@ -1030,6 +1033,7 @@ class Flatpak:
             stdout=subprocess.PIPE,
             user=uinfo[0] if as_user else 0,
             group=uinfo[1] if as_user else 0,
+            env=user_env if as_user else env
         )
 
         if proc.returncode != 0:
@@ -1055,6 +1059,9 @@ class Flatpak:
             return
 
         uinfo = get_user_info(which_user)
+        env = os.environ.copy()
+        user_env = env.copy()
+        user_env["HOME"] = os.path.expanduser(f"~{which_user}")
 
         proc = subprocess.run(
             conf.commands.remove_flatpak(packages, as_user),
@@ -1062,6 +1069,7 @@ class Flatpak:
             stdout=subprocess.PIPE,
             user=uinfo[0] if as_user else 0,
             group=uinfo[1] if as_user else 0,
+            env=user_env if as_user else env
         )
 
         if not proc.returncode == 0:
@@ -1075,6 +1083,7 @@ class Flatpak:
             stdout=subprocess.PIPE,
             user=uinfo[0] if as_user else 0,
             group=uinfo[1] if as_user else 0,
+            env=user_env if as_user else env
         )
 
         if not proc.returncode == 0:
