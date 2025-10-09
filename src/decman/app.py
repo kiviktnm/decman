@@ -6,8 +6,10 @@ Module containing the CLI Application.
 import argparse
 import os
 import shutil
+import subprocess
 import sys
 import traceback
+import pwd
 
 import decman
 import decman.config as conf
@@ -285,16 +287,12 @@ class Core:
         to_remove_flatpak = self.source.flatpak_packages_to_remove(
             currently_installed_flatpak
         )
-        currently_installed_user_flatpak = self.flatpak.get_installed(True)
-        to_remove_user_flatpak = self.source.flatpak_packages_to_remove(
-            currently_installed_user_flatpak, as_user=True
-        )
 
         l.print_list("Removing pacman packages:", to_remove)
 
         if conf.enable_flatpak:
             l.print_list("Removing flatpak packages:", to_remove_flatpak)
-            l.print_list("Removing user flatpak packages:", to_remove_user_flatpak)
+            self._remove_user_flatpaks(only_print=True)
 
         if self.only_print:
             return
@@ -304,7 +302,21 @@ class Core:
         # flatpak
         if conf.enable_flatpak and self.update_flatpaks:
             self.flatpak.remove(to_remove_flatpak)
-            self.flatpak.remove(to_remove_user_flatpak, True)
+            self._remove_user_flatpaks()
+
+    def _remove_user_flatpaks(self, only_print: bool = False):
+        # get all users through a command instead of pwd because pwd also lists all 'virtual' users. add root since they can also have user installed packages
+        users = subprocess.run(["users"], check=True, stdout=subprocess.PIPE).stdout.decode().strip().split('\n')
+        users.append("root")
+
+        for user in users:
+            currently_installed_flatpak = self.flatpak.get_installed(as_user=True, which_user=user)
+            to_remove_flatpak = self.source.flatpak_packages_to_remove(currently_installed_flatpak, as_user=True, which_user=user)
+            l.print_list(f"Removing flatpak packages from user installation for user {user}", to_remove_flatpak)
+
+            if only_print: continue
+
+            self.flatpak.remove(to_remove_flatpak, True, user)
 
     def _upgrade_pkgs(self):
         """
@@ -340,16 +352,12 @@ class Core:
         to_install_flatpak = self.source.flatpak_packages_to_install(
             currently_installed_flatpak
         )
-        currently_installed_user_flatpak = self.flatpak.get_installed(True)
-        to_install_user_flatpak = self.source.flatpak_packages_to_install(
-            currently_installed_user_flatpak, True
-        )
 
         l.print_list("Installing pacman packages:", to_install_pacman)
 
         if conf.enable_flatpak:
             l.print_list("Installing flatpak packages:", to_install_flatpak)
-            l.print_list("Installing user flatpak packages:", to_install_user_flatpak)
+            self._install_user_flatpaks(only_print=True)
 
         # fpm prints a summary so no need to print it twice
         if self.only_print:
@@ -362,7 +370,21 @@ class Core:
 
         if conf.enable_flatpak and self.update_flatpaks:
             self.flatpak.install(to_install_flatpak)
-            self.flatpak.install(to_install_user_flatpak, True)
+            self._install_user_flatpaks()
+
+    def _install_user_flatpaks(self, only_print: bool = False):
+        # get all users through a command instead of pwd because pwd also lists all 'virtual' users. add root since they can also have user installed packages
+        users = subprocess.run(["users"], check=True, stdout=subprocess.PIPE).stdout.decode().strip().split('\n')
+        users.append("root")
+
+        for user in users:
+            currently_installed_flatpak = self.flatpak.get_installed(as_user=True, which_user=user)
+            to_install_flatpak = self.source.flatpak_packages_to_install(currently_installed_flatpak, as_user=True, which_user=user)
+            l.print_list(f"Installing flatpak packages to user installation for user {user}", to_install_flatpak)
+
+            if only_print: continue
+
+            self.flatpak.install(to_install_flatpak, True, user)
 
     def _create_and_remove_files(self):
         l.print_summary("Installing files.")
