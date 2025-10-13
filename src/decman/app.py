@@ -238,6 +238,7 @@ class Core:
         """
         Run the main logic of decman.
         """
+
         if self.update_units:
             self._disable_units()
 
@@ -305,16 +306,33 @@ class Core:
             self._remove_user_flatpaks()
 
     def _remove_user_flatpaks(self, only_print: bool = False):
+        """
         # get all users through a command instead of pwd because pwd also lists all 'virtual' users. add root since they can also have user installed packages
-        users = subprocess.run(["users"], check=True, stdout=subprocess.PIPE).stdout.decode().strip().split('\n')
-        users.append("root")
+        users = (
+            subprocess.run(["users"], check=True, stdout=subprocess.PIPE)
+            .stdout.decode()
+            .strip()
+            .split("\n")
+        )
+        print()
+        users.append("root")"""
 
+        users = pwd.getpwall()
         for user in users:
-            currently_installed_flatpak = self.flatpak.get_installed(as_user=True, which_user=user)
-            to_remove_flatpak = self.source.flatpak_packages_to_remove(currently_installed_flatpak, as_user=True, which_user=user)
-            l.print_list(f"Removing flatpak packages from user installation for user {user}", to_remove_flatpak)
+            user = user.pw_name
+            currently_installed_flatpak = self.flatpak.get_installed(
+                as_user=True, which_user=user
+            )
+            to_remove_flatpak = self.source.flatpak_packages_to_remove(
+                currently_installed_flatpak, as_user=True, which_user=user
+            )
+            l.print_list(
+                f"Removing flatpak packages from user installation for user {user}",
+                to_remove_flatpak,
+            )
 
-            if only_print: continue
+            if only_print:
+                continue
 
             self.flatpak.remove(to_remove_flatpak, True, user)
 
@@ -373,16 +391,32 @@ class Core:
             self._install_user_flatpaks()
 
     def _install_user_flatpaks(self, only_print: bool = False):
-        # get all users through a command instead of pwd because pwd also lists all 'virtual' users. add root since they can also have user installed packages
-        users = subprocess.run(["users"], check=True, stdout=subprocess.PIPE).stdout.decode().strip().split('\n')
-        users.append("root")
+        """# get all users through a command instead of pwd because pwd also lists all 'virtual' users. add root since they can also have user installed packages
+        users = (
+            subprocess.run(["users"], check=True, stdout=subprocess.PIPE)
+            .stdout.decode()
+            .strip()
+            .split("\n")
+        )
+        users.append("root")"""
+
+        users = pwd.getpwall()
 
         for user in users:
-            currently_installed_flatpak = self.flatpak.get_installed(as_user=True, which_user=user)
-            to_install_flatpak = self.source.flatpak_packages_to_install(currently_installed_flatpak, as_user=True, which_user=user)
-            l.print_list(f"Installing flatpak packages to user installation for user {user}", to_install_flatpak)
+            user = user.pw_name
+            currently_installed_flatpak = self.flatpak.get_installed(
+                as_user=True, which_user=user
+            )
+            to_install_flatpak = self.source.flatpak_packages_to_install(
+                currently_installed_flatpak, as_user=True, which_user=user
+            )
 
-            if only_print: continue
+            if only_print:
+                l.print_list(
+                    f"Installing flatpak packages to user installation for user {user}",
+                    to_install_flatpak,
+                )
+                continue
 
             self.flatpak.install(to_install_flatpak, True, user)
 
@@ -444,6 +478,10 @@ def _resolve_source() -> l.Source:
     for user, units in decman.enabled_systemd_user_units.items():
         enabled_systemd_user_units[user] = set(units)
 
+    flatpak_user_packages = {}
+    for user, pkgs in decman.flatpak_user_packages.items():
+        flatpak_user_packages[user] = set(pkgs)
+
     return l.Source(
         pacman_packages=set(decman.packages),
         aur_packages=set(decman.aur_packages),
@@ -455,7 +493,7 @@ def _resolve_source() -> l.Source:
         directories=decman.directories,
         modules=set(decman.modules),
         flatpak_packages=set(decman.flatpak_packages),
-        flatpak_user_packages=set(decman.flatpak_user_packages),
+        flatpak_user_packages=flatpak_user_packages,
         ignored_flatpak_packages=set(decman.ignored_flatpak_packages),
     )
 

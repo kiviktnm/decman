@@ -36,12 +36,14 @@ def print_continuation(msg: str, level: int = SUMMARY):
     if level == SUMMARY or conf.debug_output or not conf.quiet_output:
         print(f"{_CONTINUATION_PREFIX}{msg}")
 
+
 def print_error(error_msg: str):
     """
     Prints an error message to the user.
     """
 
     print(f"{_DECMAN_MSG_TAG} {_RED_PREFIX}ERROR{_RESET_SUFFIX}: {error_msg}")
+
 
 def print_warning(msg: str):
     """
@@ -50,12 +52,14 @@ def print_warning(msg: str):
 
     print(f"{_DECMAN_MSG_TAG} {_YELLOW_PREFIX}WARNING{_RESET_SUFFIX}: {msg}")
 
+
 def print_summary(msg: str):
     """
     Prints a summary message to the user.
     """
 
     print(f"{_DECMAN_MSG_TAG} {_CYAN_PREFIX}SUMMARY{_RESET_SUFFIX}: {msg}")
+
 
 def print_list(
     msg: str,
@@ -116,6 +120,7 @@ def print_list(
 
     print_continuation("", level=level)
 
+
 def print_info(msg: str):
     """
     Prints a detailed message to the user if verbose output is not disabled.
@@ -123,12 +128,14 @@ def print_info(msg: str):
     if conf.debug_output or not conf.quiet_output:
         print(f"{_DECMAN_MSG_TAG} INFO: {msg}")
 
+
 def print_debug(msg: str):
     """
     Prints a detailed message to the user if debug messages are enabled.
     """
     if conf.debug_output:
         print(f"{_DECMAN_MSG_TAG} {_GRAY_PREFIX}DEBUG{_RESET_SUFFIX}: {msg}")
+
 
 def prompt_number(
     msg: str, min_num: int, max_num: int, default: typing.Optional[int] = None
@@ -412,7 +419,7 @@ class Source:
         directories: dict[str, decman.Directory],
         modules: set[decman.Module],
         flatpak_packages: set[str],
-        flatpak_user_packages: set[tuple[str,str]],
+        flatpak_user_packages: dict[str, set[str]],
         ignored_flatpak_packages: set[str],
     ):
         self.pacman_packages = pacman_packages
@@ -638,7 +645,10 @@ class Source:
         return result
 
     def flatpak_packages_to_install(
-        self, currently_installed_packages: list[str], as_user: bool = False, which_user: str = ""
+        self,
+        currently_installed_packages: list[str],
+        as_user: bool = False,
+        which_user: str = "",
     ) -> list[str]:
         """
         Returns all flatpak packages, that are not installed or ignored
@@ -653,7 +663,10 @@ class Source:
         return result
 
     def flatpak_packages_to_remove(
-        self, currently_installed_packages: list[str], as_user: bool = False, which_user: str = ""
+        self,
+        currently_installed_packages: list[str],
+        as_user: bool = False,
+        which_user: str = "",
     ) -> list[str]:
         """
         This returns a list of flatpak app ids, that need to be removed since they are installed but not found in either the list of ignored packages,
@@ -697,29 +710,24 @@ class Source:
                 result.update(module.pacman_packages())
         return result
 
-    def _all_flatpak_packages(self, as_user: bool = False, which_user: str = "") -> set[str]:
+    def _all_flatpak_packages(
+        self, as_user: bool = False, which_user: str = ""
+    ) -> set[str]:
         # loop through all the user packages and save which ones are owned by the currently selected user
-        current_user_flatpak_packages = []
-        for pkg in self.flatpak_user_packages:
-            if not pkg[0] == which_user: continue
-            current_user_flatpak_packages.append(pkg[1])
+        current_user_flatpak_packages = self.flatpak_user_packages.get(which_user, [])
 
         result = set()
         result.update(
             self.flatpak_packages if not as_user else current_user_flatpak_packages
         )
         for module in self.modules:
-            if module.enabled:
-                module_current_user_flatpak_packages = []
-                for pkg in module.flatpak_user_packages():
-                    if not pkg[0] == which_user: continue
-                    module_current_user_flatpak_packages.append(pkg[1])
-
-                result.update(
-                    module.flatpak_packages()
-                    if not as_user
-                    else module_current_user_flatpak_packages
-                )
+            if not module.enabled:
+                continue
+            result.update(
+                module.flatpak_packages()
+                if not as_user
+                else module.flatpak_user_packages().get(which_user, [])
+            )
 
         return result
 
@@ -956,6 +964,7 @@ def print_highlighted_pacman_messages(output: str):
                 # Break, as to not print the same line again if it contains multiple keywords
                 break
 
+
 def echo_and_capture_command(program: list[str]) -> tuple[int, str]:
     """
     Runs the given CLI program and arguments.
@@ -975,9 +984,11 @@ def echo_and_capture_command(program: list[str]) -> tuple[int, str]:
 
     return (returncode, output)
 
+
 def get_user_info(username: str) -> tuple[int, int]:
     info = pwd.getpwnam(username)
     return (info.pw_uid, info.pw_gid)
+
 
 class Flatpak:
     def __init__(self) -> None:
@@ -988,19 +999,28 @@ class Flatpak:
         Return all of the installed applications. Dependencies and runtimes are exluded since they will not be explicitly installed and thus flatpak will manage them.
         """
         try:
-            uinfo = get_user_info(which_user)
-            packages = (
-                subprocess.run(
-                    conf.commands.list_flatpak_pkgs(as_user),
-                    check=True,
-                    stdout=subprocess.PIPE,
-                    user=uinfo[0] if as_user else 0,
-                    group=uinfo[1] if as_user else 0,
-                )
-                .stdout.decode()
-                .strip()
-                .split("\n")
+            uinfo: tuple[int, int] = (0, 0)
+
+            env = os.environ.copy()
+            user_env = env.copy()
+            user_env["HOME"] = os.path.expanduser(f"~{which_user}")
+
+            if as_user:
+                uinfo = get_user_info(which_user)
+
+            proc = subprocess.run(
+                conf.commands.list_flatpak_pkgs(as_user),
+                check=True,
+                stdout=subprocess.PIPE,
+                user=uinfo[0],
+                group=uinfo[1],
+                env=user_env if as_user else env,
             )
+            packages = proc.stdout.decode().strip().split("\n")
+
+            # print(
+            #     f"as_user: {as_user}, which_user: {which_user}, uinfo: {uinfo}, stdout: {proc.stdout.decode()}, packages: {packages}"
+            # )
 
             # The header might be included. It might also not. This will make sure that it is not present.
             if "Application ID" in packages:
@@ -1015,14 +1035,17 @@ class Flatpak:
                 user_facing_msg=f"Failed to get installed flatpak packages using '{error.cmd}'. Output: {error.stdout}."
             ) from error
 
-    def install(self, packages: list[str], as_user: bool = False, which_user: str =  ""):
+    def install(self, packages: list[str], as_user: bool = False, which_user: str = ""):
         """
         Install the listed flatpak packages.
         """
         if not packages:
             return
 
-        uinfo = get_user_info(which_user)
+        uinfo: tuple[int, int] = (0, 0)
+        if as_user:
+            uinfo = get_user_info(which_user)
+
         env = os.environ.copy()
         user_env = env.copy()
         user_env["HOME"] = os.path.expanduser(f"~{which_user}")
@@ -1031,9 +1054,9 @@ class Flatpak:
             conf.commands.install_flatpak_pkgs(packages, as_user),
             check=True,
             stdout=subprocess.PIPE,
-            user=uinfo[0] if as_user else 0,
-            group=uinfo[1] if as_user else 0,
-            env=user_env if as_user else env
+            user=uinfo[0],
+            group=uinfo[1],
+            env=user_env if as_user else env,
         )
 
         if proc.returncode != 0:
@@ -1045,10 +1068,12 @@ class Flatpak:
         """
         Upgrade all flatpak packages.
         """
-        returncode, _output = echo_and_capture_command(conf.commands.upgrade_flatpak())
-        if not returncode == 0:
+        proc = subprocess.run(
+            conf.commands.upgrade_flatpak(), check=True, stdout=subprocess.PIPE
+        )
+        if not proc.returncode == 0:
             raise err.UserFacingError(
-                f"Failed to upgrade flatpak packages. Process exited with code {returncode}."
+                f"Failed to upgrade flatpak packages. Process exited with code {proc.returncode}."
             )
 
     def remove(self, packages: list[str], as_user: bool = False, which_user: str = ""):
@@ -1058,7 +1083,10 @@ class Flatpak:
         if not packages:
             return
 
-        uinfo = get_user_info(which_user)
+        uinfo: tuple[int, int] = (0, 0)
+        if as_user:
+            uinfo = get_user_info(which_user)
+
         env = os.environ.copy()
         user_env = env.copy()
         user_env["HOME"] = os.path.expanduser(f"~{which_user}")
@@ -1067,9 +1095,9 @@ class Flatpak:
             conf.commands.remove_flatpak(packages, as_user),
             check=True,
             stdout=subprocess.PIPE,
-            user=uinfo[0] if as_user else 0,
-            group=uinfo[1] if as_user else 0,
-            env=user_env if as_user else env
+            user=uinfo[0],
+            group=uinfo[1],
+            env=user_env if as_user else env,
         )
 
         if not proc.returncode == 0:
@@ -1083,13 +1111,14 @@ class Flatpak:
             stdout=subprocess.PIPE,
             user=uinfo[0] if as_user else 0,
             group=uinfo[1] if as_user else 0,
-            env=user_env if as_user else env
+            env=user_env if as_user else env,
         )
 
         if not proc.returncode == 0:
             raise err.UserFacingError(
                 f"Failed to remove unused flatpak packages. Process exited with code {proc.returncode}."
             )
+
 
 class Systemd:
     """

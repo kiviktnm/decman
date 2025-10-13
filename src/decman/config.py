@@ -65,7 +65,7 @@ class Commands:
         """
         Running this command installs all listed packages, and their dependencies/runtimes automatically.
         """
-        return ["flatpak", "install", "--user" if as_user else "--system"] + pkgs
+        return ["flatpak", "install", "-y", "--user" if as_user else "--system"] + pkgs
 
     def install_files(self, pkg_files: list[str]) -> list[str]:
         """
@@ -102,7 +102,7 @@ class Commands:
         """
         Updates all installed flatpak REFs including runtimes and dependencies.
         """
-        return ["flatpak", "update", "--user" if as_user else "--system"]
+        return ["flatpak", "update", "-y", "--user" if as_user else "--system"]
 
     def remove(self, pkgs: list[str]) -> list[str]:
         """
@@ -115,13 +115,19 @@ class Commands:
         """
         Running this command will remove the listed REFs. Unused dependencies might be kept, but to remove them another command needs to be run.
         """
-        return ["flatpak", "remove", "--user" if as_user else "--system"] + pkgs
+        return ["flatpak", "remove", "-y", "--user" if as_user else "--system"] + pkgs
 
     def remove_unused_flatpak(self, as_user: bool = False) -> list[str]:
         """
         This will remove all unused flatpak dependencies and runtimes.
         """
-        return ["flatpak", "remove", "--unused", "--user" if as_user else "--system"]
+        return [
+            "flatpak",
+            "remove",
+            "-y",
+            "--unused",
+            "--user" if as_user else "--system",
+        ]
 
     def enable_units(self, units: list[str]) -> list[str]:
         """
