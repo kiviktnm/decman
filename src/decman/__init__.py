@@ -380,6 +380,20 @@ class Module:
         """
         return []
 
+    def flatpak_packages(self) -> list[str]:
+        """
+        Override this method to return flatpak packages that should be installed to the system installation as a part of this
+        Module.
+        """
+        return []
+
+    def flatpak_user_packages(self) -> dict[str, list[str]]:
+        """
+        Override this method to return flatpak packages that should be installed to the user installation as a part of this
+        Module.
+        """
+        return {}
+
     def systemd_units(self) -> list[str]:
         """
         Override this method to return systemd units that should be enabled as a part of this
@@ -412,3 +426,6 @@ enabled_systemd_user_units: dict[str, list[str]] = {}
 files: dict[str, File] = {}
 directories: dict[str, Directory] = {}
 modules: list[Module] = []
+flatpak_packages: list[str] = []
+flatpak_user_packages: dict[str, list[str]] = {}
+ignored_flatpak_packages: list[str] = []
