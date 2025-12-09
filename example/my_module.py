@@ -89,7 +89,7 @@ class MyModule(Module):
         return [
             UserPackage(
                 pkgname="decman-git",
-                version="0.3.4",
+                version="0.4.0",
                 provides=["decman"],
                 dependencies=[
                     "python",
