@@ -5,11 +5,11 @@ Library module for decman.
 import json
 import os
 import pty
+import pwd
 import shutil
 import subprocess
 import time
 import typing
-import pwd
 
 import decman
 import decman.config as conf
@@ -1035,7 +1035,9 @@ class Flatpak:
                 user_facing_msg=f"Failed to get installed flatpak packages using '{error.cmd}'. Output: {error.stdout}."
             ) from error
 
-    def install(self, packages: list[str], as_user: bool = False, which_user: str = ""):
+    def install(
+        self, packages: list[str], as_user: bool = False, which_user: str = "root"
+    ):
         """
         Install the listed flatpak packages.
         """
@@ -1053,7 +1055,6 @@ class Flatpak:
         proc = subprocess.run(
             conf.commands.install_flatpak_pkgs(packages, as_user),
             check=True,
-            stdout=subprocess.PIPE,
             user=uinfo[0],
             group=uinfo[1],
             env=user_env if as_user else env,
@@ -1064,19 +1065,33 @@ class Flatpak:
                 f"Failed to install flatpak packages. Process exited with code {proc.returncode}."
             )
 
-    def upgrade(self) -> None:
+    def upgrade(self, as_user: bool = False, which_user: str = "root") -> None:
         """
         Upgrade all flatpak packages.
         """
+        uinfo: tuple[int, int] = (0, 0)
+        if as_user:
+            uinfo = get_user_info(which_user)
+
+        env = os.environ.copy()
+        user_env = env.copy()
+        user_env["HOME"] = os.path.expanduser(f"~{which_user}")
+
         proc = subprocess.run(
-            conf.commands.upgrade_flatpak(), check=True, stdout=subprocess.PIPE
+            conf.commands.upgrade_flatpak(as_user=True),
+            check=True,
+            user=uinfo[0],
+            group=uinfo[1],
+            env=user_env if as_user else env,
         )
         if not proc.returncode == 0:
             raise err.UserFacingError(
                 f"Failed to upgrade flatpak packages. Process exited with code {proc.returncode}."
             )
 
-    def remove(self, packages: list[str], as_user: bool = False, which_user: str = ""):
+    def remove(
+        self, packages: list[str], as_user: bool = False, which_user: str = "root"
+    ):
         """
         Remove all the listed packages and their unused dependecies. This has to happen in two steps.
         """
@@ -1094,7 +1109,6 @@ class Flatpak:
         proc = subprocess.run(
             conf.commands.remove_flatpak(packages, as_user),
             check=True,
-            stdout=subprocess.PIPE,
             user=uinfo[0],
             group=uinfo[1],
             env=user_env if as_user else env,
@@ -1108,7 +1122,6 @@ class Flatpak:
         proc = subprocess.run(
             conf.commands.remove_unused_flatpak(as_user),
             check=True,
-            stdout=subprocess.PIPE,
             user=uinfo[0] if as_user else 0,
             group=uinfo[1] if as_user else 0,
             env=user_env if as_user else env,

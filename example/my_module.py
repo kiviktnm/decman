@@ -1,7 +1,7 @@
 # from import is ok for importing classes and functions
 # just remember to not import variables this way
-from typing import override
-from decman import Module, File, Directory, UserPackage, sh, prg
+
+from decman import Directory, File, Module, UserPackage, prg, sh
 
 
 class MyModule(Module):

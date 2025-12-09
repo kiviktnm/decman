@@ -1,16 +1,16 @@
 # Decman
 
-> 🎉 Support for Flatpaks was just added! 🎉
-> By default flatpak management this feature is disabled. Take a look at the example to learn how to use flatpaks. You can install to the user as well as the system installation.
+> 🎉 Early support for Flatpaks was just added! 🎉
+> By default flatpak management is disabled. Support is in early stages so expect bugs.
 
-> 🎉 Decman now has a AUR package! 🎉
->
-> To start using the AUR package simply add `decman` to `decman.aur_packages`. To ensure a smooth change, add decman-git to ignored_packages during the conversion.
->
 > ```py
 > import decman
-> decman.aur_packages += ["decman"]
-> decman.ignored_packages += ["decman-git"]
+> import decman.config
+> decman.config.enable_flatpak = True
+> # You can add system wide packages as well as user packages
+> decman.flatpak_packages += ["org.signal.Signal"]
+> decman.flatpak_user_packages["user"] = decman.flatpak_user_packages.get("user", [])
+> decman.flatpak_user_packages["user"].append("dev.zed.Zed")
 > ```
 
 Decman is a declarative package & configuration manager for Arch Linux. It allows you to manage installed packages, your dotfiles, enabled systemd units, and run commands automatically. Your system is configured using python so your configuration can be very adaptive.

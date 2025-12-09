@@ -1,8 +1,8 @@
 # This example covers all decman features and many useful ways of configuring a system.
 # Configuration can be as simple or as complex as is needed.
 
-import socket
 import os
+import socket
 
 # Note: Do NOT use from imports for global variables
 # BAD: from decman import packages/modules/etc
@@ -10,7 +10,7 @@ import decman
 import decman.config
 
 # This is fine since the thing being imported is a class and not a global variable.
-from decman import UserPackage, File, Directory, UserRaisedError
+from decman import Directory, File, UserPackage, UserRaisedError
 
 # Flatpaks are disabled by default. This way no already installed flatpaks will get suddenly deleted.
 decman.config.enable_flatpak = True

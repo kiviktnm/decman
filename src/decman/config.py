@@ -102,7 +102,13 @@ class Commands:
         """
         Updates all installed flatpak REFs including runtimes and dependencies.
         """
-        return ["flatpak", "update", "-y", "--user" if as_user else "--system"]
+        return [
+            "flatpak",
+            "update",
+            "--noninteractive",
+            "-y",
+            "--user" if as_user else "--system",
+        ]
 
     def remove(self, pkgs: list[str]) -> list[str]:
         """
@@ -115,7 +121,13 @@ class Commands:
         """
         Running this command will remove the listed REFs. Unused dependencies might be kept, but to remove them another command needs to be run.
         """
-        return ["flatpak", "remove", "-y", "--user" if as_user else "--system"] + pkgs
+        return [
+            "flatpak",
+            "remove",
+            "--noninteractive",
+            "-y",
+            "--user" if as_user else "--system",
+        ] + pkgs
 
     def remove_unused_flatpak(self, as_user: bool = False) -> list[str]:
         """
@@ -124,6 +136,7 @@ class Commands:
         return [
             "flatpak",
             "remove",
+            "--noninteractive",
             "-y",
             "--unused",
             "--user" if as_user else "--system",

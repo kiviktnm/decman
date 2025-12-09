@@ -5,11 +5,10 @@ Module containing the CLI Application.
 
 import argparse
 import os
+import pwd
 import shutil
-import subprocess
 import sys
 import traceback
-import pwd
 
 import decman
 import decman.config as conf
@@ -291,7 +290,7 @@ class Core:
 
         l.print_list("Removing pacman packages:", to_remove)
 
-        if conf.enable_flatpak:
+        if conf.enable_flatpak and self.update_flatpaks:
             l.print_list("Removing flatpak packages:", to_remove_flatpak)
             self._remove_user_flatpaks(only_print=True)
 
@@ -306,20 +305,15 @@ class Core:
             self._remove_user_flatpaks()
 
     def _remove_user_flatpaks(self, only_print: bool = False):
-        """
-        # get all users through a command instead of pwd because pwd also lists all 'virtual' users. add root since they can also have user installed packages
-        users = (
-            subprocess.run(["users"], check=True, stdout=subprocess.PIPE)
-            .stdout.decode()
-            .strip()
-            .split("\n")
-        )
-        print()
-        users.append("root")"""
-
-        users = pwd.getpwall()
+        # Get all non system users (users that have uid >= 1000), also ignore nobody
+        users = [
+            u.pw_name
+            for u in pwd.getpwall()
+            if u.pw_uid >= 1000 and u.pw_name not in ("nobody",)
+        ]
+        # Add root to users
+        users.append("root")
         for user in users:
-            user = user.pw_name
             currently_installed_flatpak = self.flatpak.get_installed(
                 as_user=True, which_user=user
             )
@@ -353,7 +347,18 @@ class Core:
 
         # flatpak
         if conf.enable_flatpak and self.update_flatpaks:
+            l.print_summary("Upgrading flatpak packages.")
             self.flatpak.upgrade()
+            users = [
+                u.pw_name
+                for u in pwd.getpwall()
+                if u.pw_uid >= 1000 and u.pw_name not in ("nobody",)
+            ]
+            # Add root to users
+            users.append("root")
+            for user in users:
+                l.print_summary(f"Upgrading flatpak packages for {user}.")
+                self.flatpak.upgrade(True, user)
 
     def _install_pkgs(self):
         """
@@ -373,13 +378,15 @@ class Core:
 
         l.print_list("Installing pacman packages:", to_install_pacman)
 
-        if conf.enable_flatpak:
-            l.print_list("Installing flatpak packages:", to_install_flatpak)
-            self._install_user_flatpaks(only_print=True)
-
         # fpm prints a summary so no need to print it twice
         if self.only_print:
             l.print_list("Installing foreign packages:", to_install_fpm)
+
+        if conf.enable_flatpak and self.update_flatpaks:
+            l.print_list("Installing flatpak packages:", to_install_flatpak)
+
+        if self.only_print:
+            self._install_user_flatpaks(only_print=True)
             return
 
         self.pacman.install(to_install_pacman)
@@ -388,22 +395,20 @@ class Core:
 
         if conf.enable_flatpak and self.update_flatpaks:
             self.flatpak.install(to_install_flatpak)
+            # Print summary before the action
+            self._install_user_flatpaks(only_print=True)
             self._install_user_flatpaks()
 
     def _install_user_flatpaks(self, only_print: bool = False):
-        """# get all users through a command instead of pwd because pwd also lists all 'virtual' users. add root since they can also have user installed packages
-        users = (
-            subprocess.run(["users"], check=True, stdout=subprocess.PIPE)
-            .stdout.decode()
-            .strip()
-            .split("\n")
-        )
-        users.append("root")"""
-
-        users = pwd.getpwall()
-
+        # Get all non system users (users that have uid >= 1000), also ignore nobody
+        users = [
+            u.pw_name
+            for u in pwd.getpwall()
+            if u.pw_uid >= 1000 and u.pw_name not in ("nobody",)
+        ]
+        # Add root to users
+        users.append("root")
         for user in users:
-            user = user.pw_name
             currently_installed_flatpak = self.flatpak.get_installed(
                 as_user=True, which_user=user
             )
