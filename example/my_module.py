@@ -1,6 +1,7 @@
 # from import is ok for importing classes and functions
 # just remember to not import variables this way
-from decman import Module, File, Directory, UserPackage, sh, prg
+
+from decman import Directory, File, Module, UserPackage, prg, sh
 
 
 class MyModule(Module):
@@ -111,6 +112,12 @@ class MyModule(Module):
 
     def aur_packages(self) -> list[str]:
         return ["protonvpn"]
+
+    def flatpak_packages(self) -> list[str]:
+        return ["org.mozilla.firefox"]
+
+    def flatpak_user_packages(self) -> dict[str, list[str]]:
+        return {"username": ["io.github.kolunmi.Bazaar"]}
 
     def systemd_units(self) -> list[str]:
         return ["reflector.timer"]

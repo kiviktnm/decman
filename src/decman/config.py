@@ -34,6 +34,20 @@ class Commands:
         """
         return ["pacman", "-Qeq", "--color=never"]
 
+    def list_flatpak_pkgs(self, as_user: bool = False) -> list[str]:
+        """
+        Running this command outputs a newline separated list of installed flatpak application ids
+        The first line just says 'Application ID' so this one is ignored.
+        """
+        return [
+            "flatpak",
+            "list",
+            "--app",
+            "--user" if as_user else "--system",
+            "--columns",
+            "application",
+        ]
+
     def list_foreign_pkgs_versioned(self) -> list[str]:
         """
         Running this command outputs a newline seperated list of installed packages and their
@@ -46,6 +60,12 @@ class Commands:
         Running this command installs the given packages from pacman repositories.
         """
         return ["pacman", "-S", "--color=always", "--needed"] + pkgs
+
+    def install_flatpak_pkgs(self, pkgs: list[str], as_user: bool = False) -> list[str]:
+        """
+        Running this command installs all listed packages, and their dependencies/runtimes automatically.
+        """
+        return ["flatpak", "install", "-y", "--user" if as_user else "--system"] + pkgs
 
     def install_files(self, pkg_files: list[str]) -> list[str]:
         """
@@ -78,12 +98,49 @@ class Commands:
         """
         return ["pacman", "-Syu", "--color=always"]
 
+    def upgrade_flatpak(self, as_user: bool = False) -> list[str]:
+        """
+        Updates all installed flatpak REFs including runtimes and dependencies.
+        """
+        return [
+            "flatpak",
+            "update",
+            "--noninteractive",
+            "-y",
+            "--user" if as_user else "--system",
+        ]
+
     def remove(self, pkgs: list[str]) -> list[str]:
         """
         Running this command removes the given packages and their dependencies
         (that aren't required by other packages).
         """
         return ["pacman", "-Rs", "--color=always"] + pkgs
+
+    def remove_flatpak(self, pkgs: list[str], as_user: bool = False) -> list[str]:
+        """
+        Running this command will remove the listed REFs. Unused dependencies might be kept, but to remove them another command needs to be run.
+        """
+        return [
+            "flatpak",
+            "remove",
+            "--noninteractive",
+            "-y",
+            "--user" if as_user else "--system",
+        ] + pkgs
+
+    def remove_unused_flatpak(self, as_user: bool = False) -> list[str]:
+        """
+        This will remove all unused flatpak dependencies and runtimes.
+        """
+        return [
+            "flatpak",
+            "remove",
+            "--noninteractive",
+            "-y",
+            "--unused",
+            "--user" if as_user else "--system",
+        ]
 
     def enable_units(self, units: list[str]) -> list[str]:
         """
@@ -234,4 +291,5 @@ build_dir: str = "/tmp/decman/build"
 pkg_cache_dir: str = "/var/cache/decman"
 aur_rpc_timeout: typing.Optional[int] = 30
 enable_fpm: bool = True
+enable_flatpak: bool = False
 number_of_packages_stored_in_cache: int = 3

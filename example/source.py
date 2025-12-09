@@ -1,8 +1,8 @@
 # This example covers all decman features and many useful ways of configuring a system.
 # Configuration can be as simple or as complex as is needed.
 
-import socket
 import os
+import socket
 
 # Note: Do NOT use from imports for global variables
 # BAD: from decman import packages/modules/etc
@@ -10,7 +10,10 @@ import decman
 import decman.config
 
 # This is fine since the thing being imported is a class and not a global variable.
-from decman import UserPackage, File, Directory, UserRaisedError
+from decman import Directory, File, UserPackage, UserRaisedError
+
+# Flatpaks are disabled by default. This way no already installed flatpaks will get suddenly deleted.
+decman.config.enable_flatpak = True
 
 # Configuring what packages are installed is easy.
 # Duplicates are OK, so if you have multiple modules that want to ensure a package is installed,
@@ -27,6 +30,18 @@ decman.ignored_packages += ["rustup", "yay"]
 
 # Installing AUR packages is easy.
 decman.aur_packages += ["decman", "protonvpn"]
+
+# Flatpaks work the same way as all other packages.
+decman.flatpak_packages += ["dev.qwery.AddWater"]
+
+# They too can be ignored of course
+decman.ignored_flatpak_packages += ["org.signal.Signal"]
+
+# You can also install them to your user installation instead of the system installation
+# Ensure that previous user installed flatpak declarations aren't overwritten and they are initialized.
+decman.flatpak_user_packages["kk"] = decman.flatpak_user_packages.get("kk", [])
+# Now add the package.
+decman.flatpak_user_packages["kk"].append("dev.zed.Zed")
 
 # To import GPG keys, set the GNUPGHOME environment variable.
 # It can easily be done with python as well.
