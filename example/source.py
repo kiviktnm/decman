@@ -57,7 +57,7 @@ decman.config.makepkg_user = "kk"
 decman.user_packages.append(
     UserPackage(
         pkgname="decman-git",
-        version="0.4.0",
+        version="0.4.1",
         provides=["decman"],
         dependencies=[
             "python",
