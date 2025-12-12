@@ -12,10 +12,10 @@ sudo uv run decman
 
 ## Testing
 
-Run unit tests:
+Run all unit tests (`-s` disables output capturing):
 
 ```sh
-uv run python -m unittest
+uv run pytest -s
 ```
 
 ## Formatting

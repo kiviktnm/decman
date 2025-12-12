@@ -1,0 +1,244 @@
+"""
+Module for running external commands.
+"""
+
+import errno
+import fcntl
+import os
+import pty
+import pwd
+import select
+import shutil
+import struct
+import subprocess
+import sys
+import termios
+import tty
+import typing
+
+import decman.core.error as errors
+
+
+def get_user_info(user: str) -> tuple[int, int]:
+    """
+    Returns UID and GID of the given user.
+
+    If the user doesn't exist, raises UserNotFoundError.
+    """
+    info = _get_passwd(user)
+    return info.pw_uid, info.pw_gid
+
+
+def pty_run(
+    command: list[str],
+    user: None | str = None,
+    env_overrides: None | dict[str, str] = None,
+    mimic_login: bool = False,
+) -> tuple[int, str]:
+    """
+    Runs a given command with the given arguments in a pseudo TTY. The command can be ran as
+    the given user and environment variables can be overridden manually.
+
+    If mimic_login is True, will set the following environment variables according to the given
+    user's passwd file details. This only happens when user is set.
+        - HOME
+        - USER
+        - LOGNAME
+        - SHELL
+
+    If the given command is empty, returns (0, "").
+
+    Returns the return code of the command and the output as a string.
+
+    If the user doesn't exist, raises UserNotFoundError.
+    If forking the process fails or stdin is not a TTY, raises OSError.
+    """
+    if not command:
+        return 0, ""
+
+    if not sys.stdin.isatty():
+        raise OSError(errno.ENOTTY, "Stdin is not a TTY.")
+
+    env = _build_env(user=user, env_overrides=env_overrides, mimic_login=mimic_login)
+
+    pid, master_fd = pty.fork()
+    if pid == 0:
+        _exec_in_child(command, env, user)
+
+    return _run_parent(master_fd, pid)
+
+
+def run(
+    command: list[str],
+    user: None | str = None,
+    env_overrides: None | dict[str, str] = None,
+    mimic_login: bool = False,
+) -> tuple[int, str]:
+    """
+    Runs a given command with the given arguments. The command can be ran as the given user and
+    environment variables can be overridden manually.
+
+    If mimic_login is True, will set the following environment variables according to the given
+    user's passwd file details. This only happens when user is set.
+        - HOME
+        - USER
+        - LOGNAME
+        - SHELL
+
+    If the given command is empty, returns (0, "").
+
+    Returns the return code of the command and the output as a string.
+
+    If the user doesn't exist, raises UserNotFoundError.
+    """
+    if not command:
+        return 0, ""
+
+    env = _build_env(user=user, env_overrides=env_overrides, mimic_login=mimic_login)
+    uid, gid = None, None
+
+    if user:
+        uid, gid = get_user_info(user)
+
+    try:
+        process = subprocess.Popen(
+            command, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, user=uid, group=gid
+        )
+        stdout, _ = process.communicate()
+    except OSError as error:
+        # Mirror PTY behavior: "<cmd>: <error>\n" and errno-based exit code
+        msg = error.strerror or str(error)
+        output = f"{command[0]}: {msg}\n"
+        code = error.errno if error.errno and error.errno < 128 else 127
+        return code, output
+
+    return process.returncode, stdout.decode("utf-8", errors="replace")
+
+
+def check_run_result(command: list[str], result: tuple[int, str]) -> tuple[int, str]:
+    """
+    Validates the result of a command execution.
+
+    If the command exited with a non-zero return code, raises CommandFailedError
+    containing the original command and its captured output.
+
+    Otherwise, returns the result unchanged.
+    """
+    code, output = result
+    if code != 0:
+        raise errors.CommandFailedError(command, output)
+    return code, output
+
+
+def _build_env(
+    user: None | str,
+    env_overrides: None | dict[str, str],
+    mimic_login: bool,
+) -> dict[str, str]:
+    env = os.environ.copy()
+
+    if mimic_login and user:
+        pw = _get_passwd(user)
+        env.update(
+            {
+                "HOME": pw.pw_dir,
+                "USER": pw.pw_name,
+                "LOGNAME": pw.pw_name,
+                "SHELL": pw.pw_shell,
+            }
+        )
+
+    if env_overrides:
+        env.update(env_overrides)
+
+    return env
+
+
+def _exec_in_child(command: list[str], env: dict[str, str], user: None | str) -> typing.NoReturn:
+    try:
+        if user:
+            uid, gid = get_user_info(user=user)
+            os.setgid(gid)
+            os.setuid(uid)
+
+        os.execve(command[0], command, env)
+    except OSError as error:
+        try:
+            os.write(2, f"{command[0]}: {error.strerror}\n".encode())
+        except OSError:
+            # Not much can be done, if outputting the failure state fails
+            pass
+        code = error.errno if (error.errno and error.errno < 128) else 127
+        os._exit(code)
+
+
+def _run_parent(master_fd: int, pid: int) -> tuple[int, str]:
+    stdin_fd = sys.stdin.fileno()
+    stdout_fd = sys.stdout.fileno()
+
+    # Put stdin into raw mode and save previous termios attributes.
+    old_tattr = termios.tcgetattr(stdin_fd)
+    tty.setraw(stdin_fd)
+
+    # Set PTY window size to match the current terminal size.
+    # We accept that resizing the real terminal causes issues here, it doesn't need to be handeled
+    rows, columns = shutil.get_terminal_size()
+    winsz = struct.pack("HHHH", rows, columns, 0, 0)
+    fcntl.ioctl(master_fd, termios.TIOCSWINSZ, winsz)
+
+    try:
+        output_bytes = _relay_pty(master_fd, stdin_fd, stdout_fd)
+    finally:
+        # Restore stdin termios attributes.
+        termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_tattr)
+        os.close(master_fd)
+
+    _, status = os.waitpid(pid, 0)
+    exitcode = os.waitstatus_to_exitcode(status)
+    output = output_bytes.decode("utf-8", errors="replace").replace("\r\n", "\n")
+    return exitcode, output
+
+
+def _relay_pty(master_fd: int, stdin_fd: int, stdout_fd: int) -> bytes:
+    """
+    Drive interactive I/O between stdin/stdout and the PTY, capturing output.
+    """
+    output_chunks: list[bytes] = []
+
+    while True:
+        # Wait until process or stdin has data
+        rlist, _, _ = select.select([master_fd, stdin_fd], [], [])
+
+        # Capture and echo child process
+        if master_fd in rlist:
+            try:
+                data = os.read(master_fd, 1024)
+            except OSError:
+                # Child process probably exited, EOF
+                break
+
+            output_chunks.append(data)
+            try:
+                os.write(stdout_fd, data)
+            except OSError:
+                # stdout closed, ignore
+                pass
+
+        # Forward stdin
+        if stdin_fd in rlist:
+            try:
+                data = os.read(stdin_fd, 1024)
+                os.write(master_fd, data)
+            except OSError:
+                # Either stdin EOF -> no data to pass
+                # or child died -> wait for master_fd to handle
+                pass
+
+    return b"".join(output_chunks)
+
+
+def _get_passwd(user: str) -> pwd.struct_passwd:
+    try:
+        return pwd.getpwnam(user)
+    except KeyError as error:
+        raise errors.UserNotFoundError(user) from error

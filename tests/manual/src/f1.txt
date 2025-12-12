@@ -1,3 +1,0 @@
-Simple text file with a %variable%
-
-twice: %another_variable%

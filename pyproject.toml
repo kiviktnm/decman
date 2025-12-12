@@ -17,6 +17,7 @@ decman = "decman.app:main"
 [dependency-groups]
 dev = [
     "ruff>=0.14.9",
+    "pytest>=8.4.2",
 ]
 
 [build-system]
