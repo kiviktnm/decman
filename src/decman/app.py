@@ -30,9 +30,7 @@ def main():
         epilog="See more help at: https://github.com/kiviktnm/decman",
     )
 
-    parser.add_argument(
-        "--source", action="store", help="python file containing configuration"
-    )
+    parser.add_argument("--source", action="store", help="python file containing configuration")
     parser.add_argument(
         "--print",
         "--dry-run",
@@ -40,9 +38,7 @@ def main():
         default=False,
         help="print what would happen as a result of running decman",
     )
-    parser.add_argument(
-        "--debug", action="store_true", default=False, help="show debug output"
-    )
+    parser.add_argument("--debug", action="store_true", default=False, help="show debug output")
     parser.add_argument(
         "--no-packages",
         action="store_true",
@@ -174,9 +170,7 @@ def _set_up(store: l.Store, args):
         with open(source_path, "rt", encoding="utf-8") as file:
             content = file.read()
     except OSError as e:
-        raise err.UserFacingError(
-            f"Failed to read source file '{store.source_file}'."
-        ) from e
+        raise err.UserFacingError(f"Failed to read source file '{store.source_file}'.") from e
 
     os.chdir(source_dir)
     sys.path.append(".")
@@ -227,9 +221,7 @@ class Core:
         self.fpkg_search = fpm.ExtendedPackageSearch(self.pacman)
 
         for upkg in self.source.all_user_pkgs():
-            self.fpkg_search.add_user_pkg(
-                fpm.PackageInfo.from_user_package(upkg, self.pacman)
-            )
+            self.fpkg_search.add_user_pkg(fpm.PackageInfo.from_user_package(upkg, self.pacman))
 
         self.fpm = fpm.ForeignPackageManager(store, self.pacman, self.fpkg_search)
 
@@ -284,9 +276,7 @@ class Core:
         to_remove = self.source.packages_to_remove(currently_installed)
 
         currently_installed_flatpak = self.flatpak.get_installed()
-        to_remove_flatpak = self.source.flatpak_packages_to_remove(
-            currently_installed_flatpak
-        )
+        to_remove_flatpak = self.source.flatpak_packages_to_remove(currently_installed_flatpak)
 
         l.print_list("Removing pacman packages:", to_remove)
 
@@ -307,16 +297,12 @@ class Core:
     def _remove_user_flatpaks(self, only_print: bool = False):
         # Get all non system users (users that have uid >= 1000), also ignore nobody
         users = [
-            u.pw_name
-            for u in pwd.getpwall()
-            if u.pw_uid >= 1000 and u.pw_name not in ("nobody",)
+            u.pw_name for u in pwd.getpwall() if u.pw_uid >= 1000 and u.pw_name not in ("nobody",)
         ]
         # Add root to users
         users.append("root")
         for user in users:
-            currently_installed_flatpak = self.flatpak.get_installed(
-                as_user=True, which_user=user
-            )
+            currently_installed_flatpak = self.flatpak.get_installed(as_user=True, which_user=user)
             to_remove_flatpak = self.source.flatpak_packages_to_remove(
                 currently_installed_flatpak, as_user=True, which_user=user
             )
@@ -341,9 +327,7 @@ class Core:
 
         self.pacman.upgrade()
         if conf.enable_fpm and self.update_foreign_packages:
-            self.fpm.upgrade(
-                self.upgrade_devel, self.force_build, self.source.ignored_packages
-            )
+            self.fpm.upgrade(self.upgrade_devel, self.force_build, self.source.ignored_packages)
 
         # flatpak
         if conf.enable_flatpak and self.update_flatpaks:
@@ -372,9 +356,7 @@ class Core:
 
         # flatpak
         currently_installed_flatpak = self.flatpak.get_installed()
-        to_install_flatpak = self.source.flatpak_packages_to_install(
-            currently_installed_flatpak
-        )
+        to_install_flatpak = self.source.flatpak_packages_to_install(currently_installed_flatpak)
 
         l.print_list("Installing pacman packages:", to_install_pacman)
 
@@ -402,16 +384,12 @@ class Core:
     def _install_user_flatpaks(self, only_print: bool = False):
         # Get all non system users (users that have uid >= 1000), also ignore nobody
         users = [
-            u.pw_name
-            for u in pwd.getpwall()
-            if u.pw_uid >= 1000 and u.pw_name not in ("nobody",)
+            u.pw_name for u in pwd.getpwall() if u.pw_uid >= 1000 and u.pw_name not in ("nobody",)
         ]
         # Add root to users
         users.append("root")
         for user in users:
-            currently_installed_flatpak = self.flatpak.get_installed(
-                as_user=True, which_user=user
-            )
+            currently_installed_flatpak = self.flatpak.get_installed(as_user=True, which_user=user)
             to_install_flatpak = self.source.flatpak_packages_to_install(
                 currently_installed_flatpak, as_user=True, which_user=user
             )

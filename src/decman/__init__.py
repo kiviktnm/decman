@@ -52,9 +52,7 @@ def sh(
                 f"Running user defined shell command failed because the user {user} doesn't exist."
             ) from e
 
-        with subprocess.Popen(
-            sh_cmd, shell=True, group=gid, user=uid, env=env
-        ) as process:
+        with subprocess.Popen(sh_cmd, shell=True, group=gid, user=uid, env=env) as process:
             if process.wait() != 0:
                 raise decman.error.UserFacingError(
                     f"Running user shell command '{sh_cmd}' as {user} failed."
@@ -144,9 +142,7 @@ class File:
 
         target_directory = os.path.dirname(target)
 
-        def create_missing_dirs(
-            dirct: str, uid: typing.Optional[int], gid: typing.Optional[int]
-        ):
+        def create_missing_dirs(dirct: str, uid: typing.Optional[int], gid: typing.Optional[int]):
             if not os.path.isdir(dirct):
                 parent_dir = os.path.dirname(dirct)
                 if not os.path.isdir(parent_dir):
@@ -183,9 +179,7 @@ class File:
             with open(target, "wt", encoding=self.encoding) as file:
                 file.write(content)
         else:
-            assert self.content is not None, (
-                "Content should be set since source_file was not set."
-            )
+            assert self.content is not None, "Content should be set since source_file was not set."
             content = self.content
             for var, value in variables.items():
                 content = content.replace(var, value)

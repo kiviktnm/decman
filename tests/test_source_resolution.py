@@ -1,6 +1,5 @@
 # pylint: disable=missing-module-docstring,missing-class-docstring,missing-function-docstring
 
-from typing import override
 import unittest
 
 from decman import Module, UserPackage

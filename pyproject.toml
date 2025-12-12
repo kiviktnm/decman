@@ -1,7 +1,3 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "decman"
 version = "0.4.1"
@@ -10,6 +6,7 @@ license = {file = "LICENSE"}
 authors = [
     {name = "Kivi Kaitaniemi"}
 ]
+requires-python = ">=3.13"
 dependencies = [
     "requests",
 ]
@@ -19,6 +16,26 @@ decman = "decman.app:main"
 
 [dependency-groups]
 dev = [
-    "isort>=5.13.2",
-    "ruff>=0.9.3",
+    "ruff>=0.14.9",
 ]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",  # base style/errors
+    "I",            # import sorting
+    "B",            # bugbear
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+

@@ -115,9 +115,7 @@ decman.enabled_systemd_units += ["NetworkManager.service"]
 # You can manage units for users as well.
 
 # Ensure that previous user unit declarations aren't overwritten and they are initialized.
-decman.enabled_systemd_user_units["kk"] = decman.enabled_systemd_user_units.get(
-    "kk", []
-)
+decman.enabled_systemd_user_units["kk"] = decman.enabled_systemd_user_units.get("kk", [])
 # Add user unit.
 decman.enabled_systemd_user_units["kk"].append("syncthing.service")
 

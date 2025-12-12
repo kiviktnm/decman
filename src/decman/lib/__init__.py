@@ -93,9 +93,7 @@ def print_list(
 
     if limit_to_term_size:
         max_line_width = (
-            shutil.get_terminal_size().columns
-            - len(_SPACING)
-            - len(_CONTINUATION_PREFIX)
+            shutil.get_terminal_size().columns - len(_SPACING) - len(_CONTINUATION_PREFIX)
         )
 
     lines = [f"{l.pop(0)}"]
@@ -144,9 +142,7 @@ def prompt_number(
     Prompts the user for a integer.
     """
     while True:
-        i = input(
-            f"{_DECMAN_MSG_TAG} {_GREEN_PREFIX}PROMPT{_RESET_SUFFIX}: {msg}"
-        ).strip()
+        i = input(f"{_DECMAN_MSG_TAG} {_GREEN_PREFIX}PROMPT{_RESET_SUFFIX}: {msg}").strip()
 
         if default is not None and i == "":
             return default
@@ -268,9 +264,7 @@ class Store:
         if latest_path is None:
             return None
 
-        assert latest_version is not None, (
-            "If latest_path is set, then latest_version is set."
-        )
+        assert latest_version is not None, "If latest_path is set, then latest_version is set."
         return (latest_version, latest_path)
 
     def add_package_to_cache(self, package: str, version: str, path_to_built_pkg: str):
@@ -320,9 +314,7 @@ class Store:
                 os.remove(oldest_path)
             except OSError as e:
                 print_error(f"{e}")
-                print_error(
-                    f"Failed to remove file '{oldest_path}' from the package cache."
-                )
+                print_error(f"Failed to remove file '{oldest_path}' from the package cache.")
                 print_continuation("You'll have to remove the file manually.")
 
         self._package_file_cache[package] = entries
@@ -493,9 +485,7 @@ class Source:
                     file.copy_to(target, variables)
                 except OSError as e:
                     print_error(f"{e}")
-                    raise err.UserFacingError(
-                        f"Failed to install file to {target}."
-                    ) from e
+                    raise err.UserFacingError(f"Failed to install file to {target}.") from e
 
         def install_dirs(
             dirs: dict[str, decman.Directory],
@@ -504,14 +494,10 @@ class Source:
             for target, directory in dirs.items():
                 try:
                     print_debug(f"Installing directory to {target}.")
-                    created_files.extend(
-                        directory.copy_to(target, variables, only_print)
-                    )
+                    created_files.extend(directory.copy_to(target, variables, only_print))
                 except OSError as e:
                     print_error(f"{e}")
-                    raise err.UserFacingError(
-                        f"Failed to install directory to {target}."
-                    ) from e
+                    raise err.UserFacingError(f"Failed to install directory to {target}.") from e
 
         install_files(self.files)
         install_dirs(self.directories)
@@ -616,9 +602,7 @@ class Source:
                 result.append(pkg)
         return result
 
-    def pacman_packages_to_install(
-        self, currently_installed_packages: list[str]
-    ) -> list[str]:
+    def pacman_packages_to_install(self, currently_installed_packages: list[str]) -> list[str]:
         """
         Returns all pacman packages that should be installed.
         """
@@ -630,9 +614,7 @@ class Source:
                 result.append(pkg)
         return result
 
-    def foreign_packages_to_install(
-        self, currently_installed_packages: list[str]
-    ) -> list[str]:
+    def foreign_packages_to_install(self, currently_installed_packages: list[str]) -> list[str]:
         """
         Returns all aur and user packages that should be installed.
         """
@@ -710,16 +692,12 @@ class Source:
                 result.update(module.pacman_packages())
         return result
 
-    def _all_flatpak_packages(
-        self, as_user: bool = False, which_user: str = ""
-    ) -> set[str]:
+    def _all_flatpak_packages(self, as_user: bool = False, which_user: str = "") -> set[str]:
         # loop through all the user packages and save which ones are owned by the currently selected user
         current_user_flatpak_packages = self.flatpak_user_packages.get(which_user, [])
 
         result = set()
-        result.update(
-            self.flatpak_packages if not as_user else current_user_flatpak_packages
-        )
+        result.update(self.flatpak_packages if not as_user else current_user_flatpak_packages)
         for module in self.modules:
             if not module.enabled:
                 continue
@@ -847,9 +825,7 @@ class Pacman:
         if not packages:
             return
 
-        returncode, output = echo_and_capture_command(
-            conf.commands.install_pkgs(packages)
-        )
+        returncode, output = echo_and_capture_command(conf.commands.install_pkgs(packages))
         if returncode != 0:
             raise err.UserFacingError(
                 f"Failed to install packages using pacman. Process exited with code {returncode}."
@@ -891,9 +867,7 @@ class Pacman:
         if not files:
             return
 
-        returncode, output = echo_and_capture_command(
-            conf.commands.install_files(files)
-        )
+        returncode, output = echo_and_capture_command(conf.commands.install_files(files))
         if returncode != 0:
             raise err.UserFacingError(
                 f"Failed to install package files using pacman. Process exited with code {returncode}."
@@ -1035,9 +1009,7 @@ class Flatpak:
                 user_facing_msg=f"Failed to get installed flatpak packages using '{error.cmd}'. Output: {error.stdout}."
             ) from error
 
-    def install(
-        self, packages: list[str], as_user: bool = False, which_user: str = "root"
-    ):
+    def install(self, packages: list[str], as_user: bool = False, which_user: str = "root"):
         """
         Install the listed flatpak packages.
         """
@@ -1089,9 +1061,7 @@ class Flatpak:
                 f"Failed to upgrade flatpak packages. Process exited with code {proc.returncode}."
             )
 
-    def remove(
-        self, packages: list[str], as_user: bool = False, which_user: str = "root"
-    ):
+    def remove(self, packages: list[str], as_user: bool = False, which_user: str = "root"):
         """
         Remove all the listed packages and their unused dependecies. This has to happen in two steps.
         """
@@ -1155,9 +1125,7 @@ class Systemd:
                 capture_output=conf.suppress_command_output,
             )
         except subprocess.CalledProcessError as error:
-            raise err.UserFacingError(
-                f"Failed to enable systemd units: {units}"
-            ) from error
+            raise err.UserFacingError(f"Failed to enable systemd units: {units}") from error
         self.state.enabled_systemd_units += units
 
     def disable_units(self, units: list[str]):
@@ -1174,9 +1142,7 @@ class Systemd:
                 capture_output=conf.suppress_command_output,
             )
         except subprocess.CalledProcessError as error:
-            raise err.UserFacingError(
-                f"Failed to disable systemd units: {units}"
-            ) from error
+            raise err.UserFacingError(f"Failed to disable systemd units: {units}") from error
         for unit in units:
             try:
                 self.state.enabled_systemd_units.remove(unit)

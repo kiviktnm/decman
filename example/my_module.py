@@ -72,9 +72,7 @@ class MyModule(Module):
     def directories(self) -> dict[str, Directory]:
         # Directories are handeled the same way. Variables are substituted in text files.
         return {
-            "/home/kk/.config/mod-app/": Directory(
-                source_directory="files/app-config", owner="kk"
-            )
+            "/home/kk/.config/mod-app/": Directory(source_directory="files/app-config", owner="kk")
         }
 
     # Packages and systemd units are basically the same with modules as without modules.

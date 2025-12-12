@@ -93,17 +93,13 @@ class PackageInfo:
             if pacman.is_installable(make_dep):
                 self.pacman_make_dependencies.append(make_dep)
             else:
-                self.foreign_make_dependencies_stripped.append(
-                    strip_dependency(make_dep)
-                )
+                self.foreign_make_dependencies_stripped.append(strip_dependency(make_dep))
 
         for check_dep in check_dependencies:
             if pacman.is_installable(check_dep):
                 self.pacman_check_dependencies.append(check_dep)
             else:
-                self.foreign_check_dependencies_stripped.append(
-                    strip_dependency(check_dep)
-                )
+                self.foreign_check_dependencies_stripped.append(strip_dependency(check_dep))
 
     def pkg_file_prefix(self) -> str:
         """
@@ -112,9 +108,7 @@ class PackageInfo:
         return f"{self.pkgname}-{self.version}"
 
     @staticmethod
-    def from_user_package(
-        user_package: decman.UserPackage, pacman: l.Pacman
-    ) -> "PackageInfo":
+    def from_user_package(user_package: decman.UserPackage, pacman: l.Pacman) -> "PackageInfo":
         """
         Converts a UserPackage to PackageInfo
         """
@@ -144,8 +138,7 @@ class ForeignPackage:
         if isinstance(value, self.__class__):
             return (
                 self.name == value.name
-                and self._all_recursive_foreign_deps
-                == value._all_recursive_foreign_deps
+                and self._all_recursive_foreign_deps == value._all_recursive_foreign_deps
             )
         return False
 
@@ -206,9 +199,7 @@ class DepGraph:
 
         The parent is the package that requires the child package.
         """
-        child_node = self.package_nodes.get(
-            child_pkgname, DepNode(ForeignPackage(child_pkgname))
-        )
+        child_node = self.package_nodes.get(child_pkgname, DepNode(ForeignPackage(child_pkgname)))
         self.package_nodes[child_pkgname] = child_node
 
         if len(child_node.children) == 0:
@@ -443,16 +434,10 @@ class ExtendedPackageSearch:
             return pkg
 
         if len(known_pkg_results) > 1:
-            return self._choose_provider(
-                stripped_dependency, known_pkg_results, "user packages"
-            )
+            return self._choose_provider(stripped_dependency, known_pkg_results, "user packages")
 
-        url = (
-            f"https://aur.archlinux.org/rpc/v5/search/{stripped_dependency}?by=provides"
-        )
-        l.print_debug(
-            f"Requesting providers for '{stripped_dependency}' from AUR. URL = {url}"
-        )
+        url = f"https://aur.archlinux.org/rpc/v5/search/{stripped_dependency}?by=provides"
+        l.print_debug(f"Requesting providers for '{stripped_dependency}' from AUR. URL = {url}")
         try:
             request = requests.get(url, timeout=conf.aur_rpc_timeout)
             d = request.json()
@@ -486,9 +471,7 @@ class ExtendedPackageSearch:
     ) -> typing.Optional[PackageInfo]:
         min_selection = 1
         max_selection = len(possible_providers)
-        l.print_summary(
-            f"Found {len(possible_providers)} providers for {dep} from {where}."
-        )
+        l.print_summary(f"Found {len(possible_providers)} providers for {dep} from {where}.")
 
         providers = "Providers: "
         for index, name in enumerate(possible_providers):
@@ -606,9 +589,7 @@ class ForeignPackageManager:
                 else:
                     as_deps.append(pkg)
 
-        l.print_debug(
-            f"The following foreign packages will be upgraded: {' '.join(as_explicit)}"
-        )
+        l.print_debug(f"The following foreign packages will be upgraded: {' '.join(as_explicit)}")
 
         self.install(as_explicit, as_deps, force)
 
@@ -628,9 +609,7 @@ class ForeignPackageManager:
         if len(foreign_pkgs) == 0 and len(foreign_dep_pkgs) == 0:
             return
 
-        resolved_dependencies = self.resolve_dependencies(
-            foreign_pkgs, foreign_dep_pkgs
-        )
+        resolved_dependencies = self.resolve_dependencies(foreign_pkgs, foreign_dep_pkgs)
 
         l.print_list(
             "The following foreign packages will be installed explicitly:",
@@ -657,20 +636,15 @@ class ForeignPackageManager:
         self._pacman.install_dependencies(list(resolved_dependencies.pacman_deps))
 
         try:
-            with PackageBuilder(
-                self._search, self._store, resolved_dependencies
-            ) as builder:
+            with PackageBuilder(self._search, self._store, resolved_dependencies) as builder:
                 while resolved_dependencies.build_order:
                     to_build = resolved_dependencies.build_order.pop(0)
 
                     pkgbase = resolved_dependencies.get_pkgbase(to_build)
-                    package_names = resolved_dependencies.get_pkgs_with_common_pkgbase(
-                        to_build
-                    )
+                    package_names = resolved_dependencies.get_pkgs_with_common_pkgbase(to_build)
 
                     packages = [
-                        resolved_dependencies.packages[pkgname]
-                        for pkgname in package_names
+                        resolved_dependencies.packages[pkgname] for pkgname in package_names
                     ]
 
                     builder.build_packages(pkgbase, packages, force)
@@ -756,13 +730,10 @@ class ForeignPackageManager:
             result.add_pkgbase_info(pkgname, info.pkgbase)
 
             build_deps = (
-                info.foreign_make_dependencies_stripped
-                + info.foreign_check_dependencies_stripped
+                info.foreign_make_dependencies_stripped + info.foreign_check_dependencies_stripped
             )
 
-            self._search.try_caching_packages(
-                info.foreign_dependencies_stripped + build_deps
-            )
+            self._search.try_caching_packages(info.foreign_dependencies_stripped + build_deps)
 
             for depname in info.foreign_dependencies_stripped:
                 process_dep(pkgname, depname, result.foreign_dep_pkgs)
@@ -819,9 +790,7 @@ class ForeignPackageManager:
             return should_upgrade
         except (ValueError, subprocess.CalledProcessError) as error:
             l.print_error(f"{error}")
-            raise err.UserFacingError(
-                "Failed to compare versions using vercmp."
-            ) from error
+            raise err.UserFacingError("Failed to compare versions using vercmp.") from error
 
 
 class PackageBuilder:
@@ -926,9 +895,7 @@ class PackageBuilder:
         """
         shutil.rmtree(conf.build_dir)
 
-    def build_packages(
-        self, package_base: str, packages: list[ForeignPackage], force: bool
-    ):
+    def build_packages(self, package_base: str, packages: list[ForeignPackage], force: bool):
         """
         Builds package(s) with the same package base.
 
@@ -940,9 +907,7 @@ class PackageBuilder:
         # Rebuild is only needed if at least one package is not in the cache.
 
         if self._are_all_pkgs_cached(packages) and not force:
-            l.print_info(
-                f"Skipped building '{' '.join(package_names)}'. Already up to date."
-            )
+            l.print_info(f"Skipped building '{' '.join(package_names)}'. Already up to date.")
             return
 
         l.print_info(f"Building '{' '.join(package_names)}'.")
@@ -952,9 +917,7 @@ class PackageBuilder:
         pkgbuild_dir = self.pkgbase_dir_map[package_base]
         os.chdir(pkgbuild_dir)
 
-        l.print_debug(
-            f"Chroot dir is: '{self.chroot_dir}', pkgbuild dir is '{pkgbuild_dir}'."
-        )
+        l.print_debug(f"Chroot dir is: '{self.chroot_dir}', pkgbuild dir is '{pkgbuild_dir}'.")
 
         l.print_info("Installing build dependencies to chroot.")
 
@@ -970,9 +933,7 @@ class PackageBuilder:
         l.print_info("Making package.")
 
         subprocess.run(
-            conf.commands.make_chroot_pkg(
-                self.chroot_wd_dir, conf.makepkg_user, chroot_pkg_files
-            ),
+            conf.commands.make_chroot_pkg(self.chroot_wd_dir, conf.makepkg_user, chroot_pkg_files),
             check=True,
             capture_output=conf.quiet_output,
         )
@@ -989,9 +950,7 @@ class PackageBuilder:
             assert pkg_info is not None
             version = pkg_info.version
 
-            l.print_debug(
-                f"Adding '{pkgname}', version: '{version}' to cache as file '{dest}'."
-            )
+            l.print_debug(f"Adding '{pkgname}', version: '{version}' to cache as file '{dest}'.")
 
             self._store.add_package_to_cache(pkgname, version, dest)
 
@@ -1132,12 +1091,8 @@ before and thus are found in the cache."
                 capture_output=conf.suppress_command_output,
             )
 
-            if l.prompt_confirm(
-                f"Review PKGBUILD or show diff for {pkgbase}?", default=True
-            ):
-                latest_reviewed_commit = (
-                    self._store.pkgbuild_latest_reviewed_commits.get(pkgbase)
-                )
+            if l.prompt_confirm(f"Review PKGBUILD or show diff for {pkgbase}?", default=True):
+                latest_reviewed_commit = self._store.pkgbuild_latest_reviewed_commits.get(pkgbase)
 
                 git_commit_ids = (
                     subprocess.run(
@@ -1150,19 +1105,12 @@ before and thus are found in the cache."
                     .split("\n")
                 )
 
-                if (
-                    latest_reviewed_commit is None
-                    or latest_reviewed_commit not in git_commit_ids
-                ):
+                if latest_reviewed_commit is None or latest_reviewed_commit not in git_commit_ids:
                     for file in os.scandir("."):
                         if file.is_file() and not file.name.startswith("."):
-                            subprocess.run(
-                                conf.commands.review_file(file.path), check=True
-                            )
+                            subprocess.run(conf.commands.review_file(file.path), check=True)
                 else:
-                    subprocess.run(
-                        conf.commands.git_diff(latest_reviewed_commit), check=True
-                    )
+                    subprocess.run(conf.commands.git_diff(latest_reviewed_commit), check=True)
 
             if l.prompt_confirm("Build this package?", default=True):
                 commit_id = (
