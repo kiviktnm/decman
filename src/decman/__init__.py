@@ -4,6 +4,16 @@ import typing
 import decman.core.command as command
 import decman.core.output as output
 
+# Re-export File and Directory
+from decman.core.fs import Directory, File  # noqa: F401
+
+__all__ = [
+    "File",
+    "Directory",
+    "prg",
+    "sh",
+]
+
 
 def prg(
     cmd: list[str],
@@ -16,7 +26,7 @@ def prg(
     """
     Shortcut for running a command. Returns the output of that command.
 
-    Args:
+    Arguments:
         cmd:
             Command to execute.
 
@@ -74,7 +84,7 @@ def sh(
     """
     Shortcut for running a shell command. Returns the output of that command.
 
-    Args:
+    Arguments:
         sh_cmd:
             Shell command to execute. The command is passed to the system shell /bin/sh.
 

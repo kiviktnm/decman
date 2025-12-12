@@ -3,15 +3,15 @@ import stat
 from pathlib import Path
 
 # Adjust this import to match your actual module location
-import decman.core.files as files
+import decman.core.fs as fs
 
-# --- files.File tests --------------------------------------------------------------
+# --- fs.File tests --------------------------------------------------------------
 
 
 def test_file_from_content_creates_and_is_idempotent(tmp_path: Path) -> None:
     target = tmp_path / "file.txt"
 
-    f = files.File(content="hello", permissions=0o600)
+    f = fs.File(content="hello", permissions=0o600)
 
     # First run: file must be created and reported as changed
     changed1 = f.copy_to(str(target))
@@ -31,7 +31,7 @@ def test_file_from_content_creates_and_is_idempotent(tmp_path: Path) -> None:
 def test_file_content_with_variables_and_change_detection(tmp_path: Path) -> None:
     target = tmp_path / "templated.txt"
 
-    f = files.File(content="hello {{NAME}}")
+    f = fs.File(content="hello {{NAME}}")
 
     # First run: NAME=world
     changed1 = f.copy_to(str(target), {"{{NAME}}": "world"})
@@ -55,7 +55,7 @@ def test_file_from_source_text_with_and_without_variables(tmp_path: Path) -> Non
     target = tmp_path / "dst.txt"
 
     # Without variables (raw copy)
-    f_raw = files.File(source_file=str(src))
+    f_raw = fs.File(source_file=str(src))
     changed1 = f_raw.copy_to(str(target), {})
     assert changed1 is True
     assert target.read_text(encoding="utf-8") == "VALUE={{X}}"
@@ -65,7 +65,7 @@ def test_file_from_source_text_with_and_without_variables(tmp_path: Path) -> Non
     assert changed2 is False
 
     # With variables (substitution)
-    f_sub = files.File(source_file=str(src))
+    f_sub = fs.File(source_file=str(src))
     changed3 = f_sub.copy_to(str(target), {"{{X}}": "42"})
     assert changed3 is True
     assert target.read_text(encoding="utf-8") == "VALUE=42"
@@ -79,7 +79,7 @@ def test_file_binary_from_content(tmp_path: Path) -> None:
     target = tmp_path / "bin.dat"
     payload = b"\x00\x01\x02hello"
 
-    f = files.File(content=payload.decode("latin1"), bin_file=True)
+    f = fs.File(content=payload.decode("latin1"), bin_file=True)
 
     changed1 = f.copy_to(str(target))
     assert changed1 is True
@@ -97,7 +97,7 @@ def test_file_binary_copy_from_source(tmp_path: Path) -> None:
     src.write_bytes(payload)
     target = tmp_path / "dst.bin"
 
-    f = files.File(source_file=str(src), bin_file=True)
+    f = fs.File(source_file=str(src), bin_file=True)
 
     changed1 = f.copy_to(str(target), {"IGNORED": "x"})
     assert changed1 is True
@@ -113,7 +113,7 @@ def test_file_creates_parent_directories_and_applies_permissions(tmp_path: Path)
     nested_dir = tmp_path / "a" / "b" / "c"
     target = nested_dir / "file.txt"
 
-    f = files.File(content="data", permissions=0o644)
+    f = fs.File(content="data", permissions=0o644)
 
     changed = f.copy_to(str(target))
     assert changed is True
@@ -127,7 +127,7 @@ def test_file_creates_parent_directories_and_applies_permissions(tmp_path: Path)
     assert mode == 0o644
 
 
-# --- files.Directory tests ---------------------------------------------------------
+# --- fs.Directory tests ---------------------------------------------------------
 
 
 def _create_sample_source_tree(root: Path) -> None:
@@ -143,14 +143,14 @@ def test_directory_copy_to_creates_and_is_idempotent(tmp_path: Path) -> None:
 
     _create_sample_source_tree(src_dir)
 
-    d = files.Directory(
+    d = fs.Directory(
         source_directory=str(src_dir),
         bin_files=False,
         encoding="utf-8",
         permissions=0o644,
     )
 
-    # First run: both files should be created and reported as changed
+    # First run: both fs should be created and reported as changed
     changed1 = d.copy_to(str(dst_dir), variables={"{{X}}": "1"})
     expected_paths = {
         str(dst_dir / "a.txt"),
@@ -161,7 +161,7 @@ def test_directory_copy_to_creates_and_is_idempotent(tmp_path: Path) -> None:
     assert (dst_dir / "a.txt").read_text(encoding="utf-8") == "A=1"
     assert (dst_dir / "sub" / "b.txt").read_text(encoding="utf-8") == "B=1"
 
-    # Second run with same variables: no files should be reported as changed
+    # Second run with same variables: no fs should be reported as changed
     changed2 = d.copy_to(str(dst_dir), variables={"{{X}}": "1"})
     assert changed2 == []
 
@@ -172,7 +172,7 @@ def test_directory_copy_to_detects_changes_via_variables(tmp_path: Path) -> None
     src_dir.mkdir()
     _create_sample_source_tree(src_dir)
 
-    d = files.Directory(source_directory=str(src_dir))
+    d = fs.Directory(source_directory=str(src_dir))
 
     # Initial materialization
     changed1 = d.copy_to(str(dst_dir), variables={"{{X}}": "alpha"})
@@ -181,7 +181,7 @@ def test_directory_copy_to_detects_changes_via_variables(tmp_path: Path) -> None
         str(dst_dir / "sub" / "b.txt"),
     }
 
-    # Change variables -> both files change
+    # Change variables -> both fs change
     changed2 = d.copy_to(str(dst_dir), variables={"{{X}}": "beta"})
     assert set(changed2) == {
         str(dst_dir / "a.txt"),
@@ -198,7 +198,7 @@ def test_directory_copy_to_dry_run(tmp_path: Path) -> None:
     src_dir.mkdir()
     _create_sample_source_tree(src_dir)
 
-    d = files.Directory(source_directory=str(src_dir))
+    d = fs.Directory(source_directory=str(src_dir))
 
     # First, actually materialize once
     d.copy_to(str(dst_dir), variables={"{{X}}": "1"})
@@ -230,7 +230,7 @@ def test_directory_copy_to_restores_working_directory(tmp_path: Path) -> None:
     src_dir.mkdir()
     _create_sample_source_tree(src_dir)
 
-    d = files.Directory(source_directory=str(src_dir))
+    d = fs.Directory(source_directory=str(src_dir))
 
     original_cwd = os.getcwd()
     try:

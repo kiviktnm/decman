@@ -20,45 +20,42 @@ class File:
     Ownership, permissions, and parent directories are enforced on creation. Missing parent
     directories are created recursively and assigned the same ownership as the file when specified.
 
-    Parameters
-    ----------
-    source_file:
-        Path to an existing file to copy from. Mutually exclusive with ``content``.
+    Parameters:
+        source_file:
+            Path to an existing file to copy from. Mutually exclusive with ``content``.
 
-    content:
-        In-memory file contents to write. Mutually exclusive with ``source_file``.
+        content:
+            In-memory file contents to write. Mutually exclusive with ``source_file``.
 
-    bin_file:
-        If ``True``, treat the file as binary. Disables variable substitution and writes bytes
-        verbatim.
+        bin_file:
+            If ``True``, treat the file as binary. Disables variable substitution and writes bytes
+            verbatim.
 
-    encoding:
-        Text encoding used when reading or writing non-binary files.
+        encoding:
+            Text encoding used when reading or writing non-binary files.
 
-    owner:
-        System user name to own the file and created parent directories.
+        owner:
+            System user name to own the file and created parent directories.
 
-    group:
-        System group name to own the file and created parent directories.
+        group:
+            System group name to own the file and created parent directories.
 
-    permissions:
-        File mode applied to the target file (e.g. ``0o644``).
+        permissions:
+            File mode applied to the target file (e.g. ``0o644``).
 
-    Raises
-    ------
-    ValueError
-        If both ``source_file`` and ``content`` are ``None`` or if both are set.
+    Raises:
+        ValueError
+            If both ``source_file`` and ``content`` are ``None`` or if both are set.
 
-    UserNotFoundError
-        If ``owner`` does not exist on the system.
+        UserNotFoundError
+            If ``owner`` does not exist on the system.
 
-    GroupNotFoundError
-        If ``group`` does not exist on the system.
+        GroupNotFoundError
+            If ``group`` does not exist on the system.
 
-    Notes
-    -----
-    Variable substitution is a simple string replacement where each key in ``variables`` is
-    replaced by its corresponding value. No escaping or templating semantics are applied.
+    Notes:
+        Variable substitution is a simple string replacement where each key in ``variables`` is
+        replaced by its corresponding value. No escaping or templating semantics are applied.
     """
 
     def __init__(
@@ -98,35 +95,31 @@ class File:
         """
         Copies the contents of this file to the target file if they differ.
 
-        Parameters
-        ----------
-        target:
-            Path to the target file on disk.
+        Parameters:
+            target:
+                Path to the target file on disk.
 
-        variables:
-            Optional mapping of literal substrings to replace in the text content before writing.
-            Ignored for binary files and when ``bin_file`` is True.
+            variables:
+                Optional mapping of literal substrings to replace in the text content before
+                writing. Ignored for binary files and when ``bin_file`` is True.
 
-        Returns
-        -------
-        bool
+        Returns:
             True if the file contents were created or modified.
             False if the existing file already contained the desired contents.
 
-        Raises
-        ------
-        OSError
-            If directory creation, file I/O, permission changes, or ownership changes fail
-            (e.g. permission denied, missing parent path components, I/O errors).
+        Raises:
+            OSError
+                If directory creation, file I/O, permission changes, or ownership changes fail
+                (e.g. permission denied, missing parent path components, I/O errors).
 
-        FileNotFoundError
-            If ``source_file`` is set and does not exist.
+            FileNotFoundError
+                If ``source_file`` is set and does not exist.
 
-        UnicodeDecodeError
-            If a text file cannot be decoded using ``encoding``.
+            UnicodeDecodeError
+                If a text file cannot be decoded using ``encoding``.
 
-        UnicodeEncodeError
-            If text content cannot be encoded using ``encoding``.
+            UnicodeEncodeError
+                If text content cannot be encoded using ``encoding``.
         """
         if variables is None:
             variables = {}
@@ -220,34 +213,32 @@ class Directory:
     permissions, encoding, and binary/text behavior. Text files can optionally undergo
     variable substitution before being written.
 
-    Parameters
-    ----------
-    source_directory:
-        Path to the directory whose contents will be mirrored into the target.
+    Parameters:
+        source_directory:
+            Path to the directory whose contents will be mirrored into the target.
 
-    bin_files:
-        If ``True``, treat all files as binary; disables variable substitution and copies bytes
-        verbatim.
+        bin_files:
+            If ``True``, treat all files as binary; disables variable substitution and copies bytes
+            verbatim.
 
-    encoding:
-        Text encoding used when reading or writing non-binary files.
+        encoding:
+            Text encoding used when reading or writing non-binary files.
 
-    owner:
-        System user name to own created files and directories.
+        owner:
+            System user name to own created files and directories.
 
-    group:
-        System group name to own created files and directories.
+        group:
+            System group name to own created files and directories.
 
-    permissions:
-        File mode applied to created or updated files (e.g. ``0o644``).
+        permissions:
+            File mode applied to created or updated files (e.g. ``0o644``).
 
-    Raises
-    ------
-    UserNotFoundError
-        If ``owner`` does not exist on the system.
+    Raises:
+        UserNotFoundError
+            If ``owner`` does not exist on the system.
 
-    GroupNotFoundError
-        If ``group`` does not exist on the system.
+        GroupNotFoundError
+            If ``group`` does not exist on the system.
     """
 
     def __init__(
@@ -287,42 +278,39 @@ class Directory:
         """
         Copies the files in this directory to the target directory. Only replaces files that differ.
 
-        Parameters
-        ----------
-        target_directory:
-            Destination directory root. Relative layout from the source is preserved beneath this
-            path.
+        Parameters:
+            target_directory:
+                Destination directory root. Relative layout from the source is preserved beneath
+                this path.
 
-        variables:
-            Optional mapping of literal substrings to replace in text files before writing. Ignored
-            for binary files.
+            variables:
+                Optional mapping of literal substrings to replace in text files before writing.
+                Ignored for binary files.
 
-        dry_run:
-            If ``True``, perform a dry-run: no files are written, but the list of files that *would*
-            be processed is returned.
+            dry_run:
+                If ``True``, perform a dry-run: no files are written, but the list of files that
+                *would* be processed is returned.
 
-        Returns
-        -------
-        list[str]
-            When ``dry_run`` is ``False``, paths of files that were created or whose contents
-            were modified.
+        Returns:
+            list[str]
+                When ``dry_run`` is ``False``, paths of files that were created or whose contents
+                were modified.
 
-            When ``dry_run`` is ``True``, paths of all files that would be considered for
-            creation or modification (no changes are actually performed).
+                When ``dry_run`` is ``True``, paths of all files that would be considered for
+                creation or modification (no changes are actually performed).
 
-        Raises
-        ------
-        OSError
-            If directory traversal or file I/O fails (e.g. permission denied).
+        Raises:
+            OSError
+                If directory traversal or file I/O fails (e.g. permission denied).
 
-        FileNotFoundError
-            If ``source_directory`` does not exist or becomes unavailable.
+            FileNotFoundError
+                If ``source_directory`` does not exist or becomes unavailable.
 
-        UnicodeDecodeError
-            If a text file cannot be decoded using ``encoding``.
+            UnicodeDecodeError
+                If a text file cannot be decoded using ``encoding``.
 
-        UnicodeEncodeError
-            If text content cannot be encoded using ``encoding``.
+            UnicodeEncodeError
+                If text content cannot be encoded using ``encoding``.
         """
         changed_or_created = []
         original_wd = os.getcwd()
