@@ -4,15 +4,52 @@ import typing
 import decman.core.command as command
 import decman.core.output as output
 
-# Re-export File and Directory
-from decman.core.fs import Directory, File  # noqa: F401
+# Re-exports
+from decman.core.error import SourceError
+from decman.core.fs import Directory, File
+from decman.core.module import Module
+from decman.plugins import Plugin, available_plugins
+
+# Plugin types
+from decman.plugins.pacman import Pacman
+from decman.plugins.systemd import Systemd
 
 __all__ = [
+    "SourceError",
     "File",
     "Directory",
+    "Module",
+    "Plugin",
     "prg",
     "sh",
 ]
+
+# -----------------------------------------
+# Global variables for system configuration
+# -----------------------------------------
+files: dict[str, File] = {}
+directories: dict[str, Directory] = {}
+modules: set[Module] = set()
+plugins: dict[str, Plugin] = available_plugins()
+execution_order: list[str] = [
+    "fs",
+    "pacman",
+    "aur",
+    "flatpak",
+    "systemd",
+]
+
+# Default plugins get quick access
+pacman: None | Pacman = None
+systemd: None | Systemd = None
+
+_pacman = plugins.get("pacman", None)
+if isinstance(_pacman, Pacman):
+    pacman = _pacman
+
+_systemd = plugins.get("systemd", None)
+if isinstance(_systemd, Systemd):
+    systemd = _systemd
 
 
 def prg(

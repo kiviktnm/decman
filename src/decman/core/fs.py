@@ -21,36 +21,36 @@ class File:
     directories are created recursively and assigned the same ownership as the file when specified.
 
     Parameters:
-        source_file:
+        ``source_file``:
             Path to an existing file to copy from. Mutually exclusive with ``content``.
 
-        content:
+        ``content``:
             In-memory file contents to write. Mutually exclusive with ``source_file``.
 
-        bin_file:
+        ``bin_file``:
             If ``True``, treat the file as binary. Disables variable substitution and writes bytes
             verbatim.
 
-        encoding:
+        ``encoding``:
             Text encoding used when reading or writing non-binary files.
 
-        owner:
+        ``owner``:
             System user name to own the file and created parent directories.
 
-        group:
+        ``group``:
             System group name to own the file and created parent directories.
 
-        permissions:
+        ``permissions``:
             File mode applied to the target file (e.g. ``0o644``).
 
     Raises:
-        ValueError
+        ``ValueError``
             If both ``source_file`` and ``content`` are ``None`` or if both are set.
 
-        UserNotFoundError
+        ``UserNotFoundError``
             If ``owner`` does not exist on the system.
 
-        GroupNotFoundError
+        ``GroupNotFoundError``
             If ``group`` does not exist on the system.
 
     Notes:
@@ -214,30 +214,30 @@ class Directory:
     variable substitution before being written.
 
     Parameters:
-        source_directory:
+        ``source_directory``:
             Path to the directory whose contents will be mirrored into the target.
 
-        bin_files:
+        ``bin_files``:
             If ``True``, treat all files as binary; disables variable substitution and copies bytes
             verbatim.
 
-        encoding:
+        ``encoding``:
             Text encoding used when reading or writing non-binary files.
 
-        owner:
+        ``owner``:
             System user name to own created files and directories.
 
-        group:
+        ``group``:
             System group name to own created files and directories.
 
-        permissions:
+        ``permissions``:
             File mode applied to created or updated files (e.g. ``0o644``).
 
     Raises:
-        UserNotFoundError
+        ``UserNotFoundError``
             If ``owner`` does not exist on the system.
 
-        GroupNotFoundError
+        ``GroupNotFoundError``
             If ``group`` does not exist on the system.
     """
 

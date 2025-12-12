@@ -39,3 +39,22 @@ Apply fixes:
 ```sh
 uv run ruff check --fix
 ```
+
+## Installing the example plugin
+
+```sh
+uv pip install -e example/plugin/
+```
+
+Uninstalling:
+
+```sh
+uv pip uninstall decman-plugin-example
+```
+
+Making the plugin available/unavailable:
+
+```sh
+touch /tmp/example_plugin_available
+rm /tmp/example_plugin_available
+```

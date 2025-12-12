@@ -3,6 +3,28 @@ Module for decman errors.
 """
 
 
+class SourceError(Exception):
+    """
+    Error raised manually from the user's source.
+    """
+
+    def __init__(self, message):
+        super().__init__(message)
+
+
+class InvalidOnDisableError(Exception):
+    """
+    Error raised when trying to create a Module with an invalid on_disable method.
+    """
+
+    def __init__(self, module: str, reason: str):
+        self.module = module
+        self.reason = reason
+        super().__init__(
+            f"Module '{module}' contains an invalid on_disable method. Reason: {reason}."
+        )
+
+
 class UserNotFoundError(Exception):
     """
     Raised when a specified user cannot be found in the system.

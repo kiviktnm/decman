@@ -14,6 +14,10 @@ dependencies = [
 [project.scripts]
 decman = "decman.app:main"
 
+[project.entry-points."decman.plugins"]
+systemd = "decman.plugins.systemd:Systemd"
+pacman = "decman.plugins.pacman:Pacman"
+
 [dependency-groups]
 dev = [
     "ruff>=0.14.9",
