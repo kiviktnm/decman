@@ -1,7 +1,7 @@
 import importlib.metadata as metadata
 
 import decman.core.module as module
-import decman.core.store as cstore
+import decman.core.store as _store
 
 
 class Plugin:
@@ -25,7 +25,7 @@ class Plugin:
         return True
 
     def apply(
-        self, store: cstore.Store, dry_run: bool = False, params: list[str] | None = None
+        self, store: _store.Store, dry_run: bool = False, params: list[str] | None = None
     ) -> bool:
         """
         Ensures that the state managed by this plugin is present.
@@ -39,7 +39,7 @@ class Plugin:
         """
         return True
 
-    def process_modules(self, store: cstore.Store, modules: set[module.Module]):
+    def process_modules(self, store: _store.Store, modules: set[module.Module]):
         """
         Processes a module.
         """

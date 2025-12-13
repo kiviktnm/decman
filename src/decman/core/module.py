@@ -8,6 +8,7 @@ import typing
 
 import decman.core.error as errors
 import decman.core.fs as fs
+import decman.core.store as _store
 
 
 class Module:
@@ -41,34 +42,42 @@ class Module:
 
         _validate_on_disable(f"{cls.__module__}.{cls.__name__}", func)
 
-    def before_update(self):
+    def before_update(self, store: _store.Store):
         """
         Override this method to run python code before updating the system.
 
+        ``store`` can be used to save persistent data between decman runs.
+
         Handle errors within this function. If an error should abort running decman,
         raise SourceError or CommandFailedError.
         """
 
-    def after_update(self):
+    def after_update(self, store: _store.Store):
         """
         Override this method to run python code after updating the system.
 
+        ``store`` can be used to save persistent data between decman runs.
+
         Handle errors within this function. If an error should abort running decman,
         raise SourceError or CommandFailedError.
         """
 
-    def on_enable(self):
+    def on_enable(self, store: _store.Store):
         """
         Override this method to run python code when this module gets enabled.
 
+        ``store`` can be used to save persistent data between decman runs.
+
         Handle errors within this function. If an error should abort running decman,
         raise SourceError or CommandFailedError.
         """
 
-    def on_change(self):
+    def on_change(self, store: _store.Store):
         """
         Override this method to run python code after the contents of this module have been
         changed in the source.
+
+        ``store`` can be used to save persistent data between decman runs.
 
         Handle errors within this function. If an error should abort running decman,
         raise SourceError or CommandFailedError.

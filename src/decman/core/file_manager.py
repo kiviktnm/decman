@@ -42,8 +42,6 @@ def update_files(
     Returns:
         True if all operations completed successfully, False if installation failed.
     """
-    output.print_summary("Installing files.")
-
     all_checked_files = []
     all_changed_files = []
     store.ensure("all_files", [])

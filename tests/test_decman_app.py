@@ -33,16 +33,16 @@ class DummyModule:
         self.on_change_called = False
         self.after_update_called = False
 
-    def before_update(self):
+    def before_update(self, store):
         self.before_update_called = True
 
-    def on_enable(self):
+    def on_enable(self, store):
         self.on_enable_called = True
 
-    def on_change(self):
+    def on_change(self, store):
         self.on_change_called = True
 
-    def after_update(self):
+    def after_update(self, store):
         self.after_update_called = True
 
     @staticmethod
