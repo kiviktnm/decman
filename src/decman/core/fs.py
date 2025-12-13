@@ -91,7 +91,9 @@ class File:
             except KeyError as error:
                 raise errors.GroupNotFoundError(group) from error
 
-    def copy_to(self, target: str, variables: typing.Optional[dict[str, str]] = None) -> bool:
+    def copy_to(
+        self, target: str, variables: typing.Optional[dict[str, str]] = None, dry_run: bool = False
+    ) -> bool:
         """
         Copies the contents of this file to the target file if they differ.
 
@@ -104,7 +106,7 @@ class File:
                 writing. Ignored for binary files and when ``bin_file`` is True.
 
         Returns:
-            True if the file contents were created or modified.
+            True if the file contents were/would be created or modified.
             False if the existing file already contained the desired contents.
 
         Raises:
@@ -137,25 +139,28 @@ class File:
                     assert gid is not None, "If uid is set, then gid is set."
                     os.chown(dirct, uid, gid)
 
-        create_missing_dirs(target_directory, self.uid, self.gid)
+        if not dry_run:
+            create_missing_dirs(target_directory, self.uid, self.gid)
 
-        changed = self._write_content(target, variables)
+        changed = self._write_content(target, variables, dry_run)
 
-        if self.uid is not None:
+        if self.uid is not None and not dry_run:
             assert self.gid is not None, "If uid is set, then gid is set."
             os.chown(target, self.uid, self.gid)
 
-        os.chmod(target, self.permissions)
+        if not dry_run:
+            os.chmod(target, self.permissions)
         return changed
 
-    def _write_content(self, target: str, variables: dict[str, str]):
+    def _write_content(self, target: str, variables: dict[str, str], dry_run: bool):
         # Case 1: copy from source file directly (binary or no substitutions)
         if self.source_file is not None and (self.bin_file or len(variables) == 0):
             if os.path.exists(target):
                 with open(self.source_file, "rb") as src, open(target, "rb") as dst:
                     if src.read() == dst.read():
                         return False
-            shutil.copy(self.source_file, target)
+            if not dry_run:
+                shutil.copy(self.source_file, target)
             return True
 
         # Case 2: binary content from memory
@@ -165,8 +170,9 @@ class File:
                 with open(target, "rb") as file:
                     if file.read() == desired_bytes:
                         return False
-            with open(target, "wb") as file:
-                file.write(desired_bytes)
+            if not dry_run:
+                with open(target, "wb") as file:
+                    file.write(desired_bytes)
             return True
 
         # From here on: text modes with possible substitutions
@@ -184,8 +190,9 @@ class File:
                     if file.read() == content:
                         return False
 
-            with open(target, "wt", encoding=self.encoding) as file:
-                file.write(content)
+            if not dry_run:
+                with open(target, "wt", encoding=self.encoding) as file:
+                    file.write(content)
             return True
 
         # Case 4: text content from in-memory string with substitutions
@@ -199,8 +206,9 @@ class File:
                 if file.read() == content:
                     return False
 
-        with open(target, "wt", encoding=self.encoding) as file:
-            file.write(content)
+        if not dry_run:
+            with open(target, "wt", encoding=self.encoding) as file:
+                file.write(content)
         return True
 
 
@@ -274,7 +282,7 @@ class Directory:
         target_directory: str,
         variables: typing.Optional[dict[str, str]] = None,
         dry_run: bool = False,
-    ) -> list[str]:
+    ) -> tuple[list[str], list[str]]:
         """
         Copies the files in this directory to the target directory. Only replaces files that differ.
 
@@ -292,12 +300,15 @@ class Directory:
                 *would* be processed is returned.
 
         Returns:
-            list[str]
-                When ``dry_run`` is ``False``, paths of files that were created or whose contents
-                were modified.
+            tuple[list[str], list[str]]
+                The first list contains always every file in the source, the second list depends on
+                ``dry_run``
 
-                When ``dry_run`` is ``True``, paths of all files that would be considered for
-                creation or modification (no changes are actually performed).
+                When ``dry_run`` is ``False``, the second list contains paths of files that were
+                created or whose contents were modified.
+
+                When ``dry_run`` is ``True``, the second list contains paths of all files that would
+                be considered for creation or modification (no changes are actually performed).
 
         Raises:
             OSError
@@ -312,6 +323,7 @@ class Directory:
             UnicodeEncodeError
                 If text content cannot be encoded using ``encoding``.
         """
+        checked = []
         changed_or_created = []
         original_wd = os.getcwd()
         try:
@@ -328,13 +340,11 @@ class Directory:
                         permissions=self.permissions,
                     )
                     target = os.path.normpath(os.path.join(target_directory, src_path))
+                    checked.append(target)
 
-                    if dry_run:
+                    if file.copy_to(target, variables, dry_run):
                         changed_or_created.append(target)
-                    else:
-                        if file.copy_to(target, variables):
-                            changed_or_created.append(target)
 
         finally:
             os.chdir(original_wd)
-        return changed_or_created
+        return checked, changed_or_created

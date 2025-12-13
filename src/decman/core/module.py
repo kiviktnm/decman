@@ -71,6 +71,26 @@ class Module:
         imports. If you must use imports, define them inside this method.
         """
 
+    def files(self) -> dict[str, fs.File]:
+        """
+        Override this method to return files that should be installed as a part of this module.
+        """
+        return {}
+
+    def directories(self) -> dict[str, fs.Directory]:
+        """
+        Override this method to return directories that should be installed as a part of this
+        module.
+        """
+        return {}
+
+    def file_variables(self) -> dict[str, str]:
+        """
+        Override this method to return variables that should replaced with a new value inside
+        this module's text files.
+        """
+        return {}
+
     def __hash__(self) -> int:
         return hash(self.name)
 

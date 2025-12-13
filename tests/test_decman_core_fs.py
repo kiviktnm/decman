@@ -151,19 +151,21 @@ def test_directory_copy_to_creates_and_is_idempotent(tmp_path: Path) -> None:
     )
 
     # First run: both fs should be created and reported as changed
-    changed1 = d.copy_to(str(dst_dir), variables={"{{X}}": "1"})
+    checked1, changed1 = d.copy_to(str(dst_dir), variables={"{{X}}": "1"})
     expected_paths = {
         str(dst_dir / "a.txt"),
         str(dst_dir / "sub" / "b.txt"),
     }
     assert set(changed1) == expected_paths
+    assert set(checked1) == expected_paths
 
     assert (dst_dir / "a.txt").read_text(encoding="utf-8") == "A=1"
     assert (dst_dir / "sub" / "b.txt").read_text(encoding="utf-8") == "B=1"
 
     # Second run with same variables: no fs should be reported as changed
-    changed2 = d.copy_to(str(dst_dir), variables={"{{X}}": "1"})
+    checked2, changed2 = d.copy_to(str(dst_dir), variables={"{{X}}": "1"})
     assert changed2 == []
+    assert set(checked2) == expected_paths
 
 
 def test_directory_copy_to_detects_changes_via_variables(tmp_path: Path) -> None:
@@ -175,14 +177,14 @@ def test_directory_copy_to_detects_changes_via_variables(tmp_path: Path) -> None
     d = fs.Directory(source_directory=str(src_dir))
 
     # Initial materialization
-    changed1 = d.copy_to(str(dst_dir), variables={"{{X}}": "alpha"})
+    _checked, changed1 = d.copy_to(str(dst_dir), variables={"{{X}}": "alpha"})
     assert set(changed1) == {
         str(dst_dir / "a.txt"),
         str(dst_dir / "sub" / "b.txt"),
     }
 
     # Change variables -> both fs change
-    changed2 = d.copy_to(str(dst_dir), variables={"{{X}}": "beta"})
+    _checked, changed2 = d.copy_to(str(dst_dir), variables={"{{X}}": "beta"})
     assert set(changed2) == {
         str(dst_dir / "a.txt"),
         str(dst_dir / "sub" / "b.txt"),
@@ -207,7 +209,7 @@ def test_directory_copy_to_dry_run(tmp_path: Path) -> None:
     before_a = (dst_dir / "a.txt").read_text(encoding="utf-8")
     before_b = (dst_dir / "sub" / "b.txt").read_text(encoding="utf-8")
 
-    changed_dry = d.copy_to(
+    _checked, changed_dry = d.copy_to(
         str(dst_dir),
         variables={"{{X}}": "2"},
         dry_run=True,
@@ -234,7 +236,7 @@ def test_directory_copy_to_restores_working_directory(tmp_path: Path) -> None:
 
     original_cwd = os.getcwd()
     try:
-        changed = d.copy_to(str(dst_dir), variables={"{{X}}": "x"})
+        _checked, changed = d.copy_to(str(dst_dir), variables={"{{X}}": "x"})
         assert set(changed) == {
             str(dst_dir / "a.txt"),
             str(dst_dir / "sub" / "b.txt"),
@@ -242,3 +244,28 @@ def test_directory_copy_to_restores_working_directory(tmp_path: Path) -> None:
     finally:
         # Ensure the implementation restored CWD
         assert os.getcwd() == original_cwd
+
+
+def test_file_copy_to_dry_run(tmp_path):
+    target = tmp_path / "file.txt"
+    f = fs.File(content="hello", permissions=0o600)
+
+    # 1) Dry-run on non-existent file: would create -> returns True, no file written
+    assert not target.exists()
+    changed = f.copy_to(str(target), dry_run=True)
+    assert changed is True
+    assert not target.exists()
+
+    # 2) Actually create the file
+    changed_real = f.copy_to(str(target), dry_run=False)
+    assert changed_real is True
+    assert target.exists()
+    assert target.read_text(encoding="utf-8") == "hello"
+
+    # 3) Dry-run with same desired content: would NOT modify -> returns False, file unchanged
+    mtime_before = target.stat().st_mtime
+    changed_again = f.copy_to(str(target), dry_run=True)
+    assert changed_again is False
+    assert target.read_text(encoding="utf-8") == "hello"
+    # mtime must not change in dry-run
+    assert target.stat().st_mtime == mtime_before

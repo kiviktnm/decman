@@ -12,6 +12,17 @@ class SourceError(Exception):
         super().__init__(message)
 
 
+class FSInstallationFailedError(Exception):
+    """
+    Error raised when trying to install a file/directory to a target.
+    """
+
+    def __init__(self, target: str, source: str, reason: str):
+        self.source = source
+        self.target = target
+        super().__init__(f"Failed to install file from {source} to {target}: {reason}")
+
+
 class InvalidOnDisableError(Exception):
     """
     Error raised when trying to create a Module with an invalid on_disable method.

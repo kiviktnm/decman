@@ -1,6 +1,7 @@
 import os
 import shutil
 import sys
+import traceback
 import typing
 
 import decman.config as config
@@ -92,6 +93,14 @@ def print_error(error_msg: str):
     Prints an error message to the user.
     """
     print(f"{_tag()} {_red('ERROR')}: {error_msg}")
+
+
+def print_traceback():
+    """
+    Prints the traceback to debug output.
+    """
+    for line in traceback.format_exc().splitlines():
+        print_debug(line)
 
 
 def print_warning(msg: str):

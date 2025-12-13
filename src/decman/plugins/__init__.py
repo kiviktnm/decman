@@ -1,6 +1,7 @@
 import importlib.metadata as metadata
 
 import decman.core.module as module
+import decman.core.store as cstore
 
 
 class Plugin:
@@ -23,14 +24,20 @@ class Plugin:
         """
         return True
 
-    def apply(self, dry_run: bool = False):
+    def apply(self, store: cstore.Store, dry_run: bool = False) -> bool:
         """
         Ensures that the state managed by this plugin is present.
 
         Set ``dry_run`` to only print changes applying this plugin would cause.
-        """
 
-    def process_module(self, module: module.Module):
+        This method must not raise exceptions. Instead it should return False to indicate a
+        failure. The method should handle it's exceptions and print them to the user.
+
+        Returns ``True`` when applying was successful, ``False`` when it failed.
+        """
+        return True
+
+    def process_module(self, store: cstore.Store, module: module.Module):
         """
         Processes a module.
         """
