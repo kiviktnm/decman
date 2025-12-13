@@ -101,3 +101,29 @@ def test_repr_matches_underlying_dict(tmp_path: Path) -> None:
 
     expected = repr({"foo": "bar", "number": 123})
     assert repr(store) == expected
+
+
+def test_store_persists_sets(tmp_path: Path) -> None:
+    path = tmp_path / "store.json"
+
+    # initial write with sets
+    store = Store(path)
+    store["units"] = {"a.service", "b.service"}
+    store["user_units"] = {"alice": {"u1.service", "u2.service"}}
+    store.save()
+
+    # raw JSON should be set-encoded, not fail json.dump
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    assert raw["units"]["__type__"] == "set"
+    assert set(raw["units"]["items"]) == {"a.service", "b.service"}
+
+    assert raw["user_units"]["alice"]["__type__"] == "set"
+    assert set(raw["user_units"]["alice"]["items"]) == {"u1.service", "u2.service"}
+
+    # reloading via Store must restore actual set objects
+    reloaded = Store(path)
+    assert reloaded["units"] == {"a.service", "b.service"}
+    assert isinstance(reloaded["units"], set)
+
+    assert reloaded["user_units"]["alice"] == {"u1.service", "u2.service"}
+    assert isinstance(reloaded["user_units"]["alice"], set)

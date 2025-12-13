@@ -17,7 +17,7 @@ class Store:
 
         if self._path.exists():
             with self._path.open("rt", encoding="utf-8") as file:
-                self._store = json.load(file)
+                self._store = json.load(file, object_hook=_decode_sets)
 
     def __getitem__(self, key: str) -> typing.Any:
         return self._store[key]
@@ -30,7 +30,7 @@ class Store:
 
     def ensure(self, key: str, default: typing.Any = None):
         if key not in self._store:
-            self._store = default
+            self._store[key] = default
 
     def __enter__(self) -> "Store":
         return self
@@ -54,7 +54,7 @@ class Store:
             dir=self._path.parent,
             delete=False,
         ) as tmp:
-            json.dump(self._store, tmp, indent=2)
+            json.dump(self._store, tmp, cls=_SetJSONEncoder, indent=2)
             tmp.flush()
             os.fsync(tmp.fileno())
 
@@ -62,3 +62,17 @@ class Store:
 
     def __repr__(self) -> str:
         return repr(self._store)
+
+
+class _SetJSONEncoder(json.JSONEncoder):
+    def default(self, obj: typing.Any) -> typing.Any:
+        if isinstance(obj, set):
+            # generic, works for any set value
+            return {"__type__": "set", "items": list(obj)}
+        return super().default(obj)
+
+
+def _decode_sets(obj: typing.Any) -> typing.Any:
+    if isinstance(obj, dict) and obj.get("__type__") == "set" and "items" in obj:
+        return set(obj["items"])
+    return obj
