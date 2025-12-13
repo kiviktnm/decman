@@ -297,7 +297,7 @@ def test_update_files_propagates_fsinstallation_error_and_does_not_modify_store(
 
     # Fake failing _install_files
     def failing_install_files(*args, **kwargs):
-        raise errors.FSInstallationFailedError("/etc/app/broken.conf", "content", "fail")
+        raise errors.FSInstallationFailedError("content", "/etc/app/broken.conf", "fail")
 
     # Capture deletes
     removed = []

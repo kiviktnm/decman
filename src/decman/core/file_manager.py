@@ -101,19 +101,19 @@ def _install_files(
                 changed_files.append(target_filename)
         except FileNotFoundError as error:
             raise errors.FSInstallationFailedError(
-                target_filename, file.source_file or "content", "Source file doesn't exist."
+                file.source_file or "content", target_filename, "Source file doesn't exist."
             ) from error
         except OSError as error:
             raise errors.FSInstallationFailedError(
-                target_filename, file.source_file or "content", error.strerror or str(error)
+                file.source_file or "content", target_filename, error.strerror or str(error)
             ) from error
         except UnicodeEncodeError as error:
             raise errors.FSInstallationFailedError(
-                target_filename, file.source_file or "content", "Unicode encoding failed."
+                file.source_file or "content", target_filename, "Unicode encoding failed."
             ) from error
         except UnicodeDecodeError as error:
             raise errors.FSInstallationFailedError(
-                target_filename, file.source_file or "content", "Unicode decoding failed."
+                file.source_file or "content", target_filename, "Unicode decoding failed."
             ) from error
 
     return checked_files, changed_files
@@ -135,21 +135,21 @@ def _install_directories(
             )
         except FileNotFoundError as error:
             raise errors.FSInstallationFailedError(
-                target_dirname,
                 directory.source_directory,
+                target_dirname,
                 "Source directory doesn't exist.",
             ) from error
         except OSError as error:
             raise errors.FSInstallationFailedError(
-                target_dirname, directory.source_directory, error.strerror or str(error)
+                directory.source_directory, target_dirname, error.strerror or str(error)
             ) from error
         except UnicodeEncodeError as error:
             raise errors.FSInstallationFailedError(
-                target_dirname, directory.source_directory, "Unicode encoding failed."
+                directory.source_directory, target_dirname, "Unicode encoding failed."
             ) from error
         except UnicodeDecodeError as error:
             raise errors.FSInstallationFailedError(
-                target_dirname, directory.source_directory, "Unicode decoding failed."
+                directory.source_directory, target_dirname, "Unicode decoding failed."
             ) from error
 
         checked_files += checked
