@@ -133,6 +133,14 @@ def print_debug(msg: str):
         print(f"{_tag()} {_gray('DEBUG')}: {msg}")
 
 
+def print_command_output(msg: str):
+    """
+    Prints command output without a DECMAN tag if debug messages are enabled.
+    """
+    if config.debug_output:
+        print(msg)
+
+
 # ─────────────────────────────
 # List printing
 # ─────────────────────────────

@@ -1,4 +1,5 @@
 import importlib.metadata as metadata
+import typing
 
 import decman.core.module as module
 import decman.core.store as _store
@@ -43,6 +44,24 @@ class Plugin:
         """
         Processes a module.
         """
+
+
+def run_method_with_attribute(mod: module.Module, attribute: str) -> typing.Any:
+    """
+    Runs the method with the given attribute in the module and returns its returned value.
+    Returns none if no such method is found.
+
+    Only the first found method with the attribute is ran.
+    """
+    for name in dir(mod):
+        attr = getattr(mod, name)
+        if not callable(attr):
+            continue
+        func = getattr(attr, "__func__", attr)
+        if getattr(func, attribute, False):
+            return attr()
+
+    return None
 
 
 def available_plugins() -> dict[str, Plugin]:

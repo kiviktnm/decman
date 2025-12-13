@@ -4,6 +4,7 @@ import os
 import pty
 import pwd
 import select
+import shlex
 import shutil
 import struct
 import subprocess
@@ -13,6 +14,7 @@ import tty
 import typing
 
 import decman.core.error as errors
+import decman.core.output as output
 
 
 def get_user_info(user: str) -> tuple[int, int]:
@@ -55,6 +57,8 @@ def pty_run(
     if not sys.stdin.isatty():
         raise OSError(errno.ENOTTY, "Stdin is not a TTY.")
 
+    output.print_debug(f"Running command '{shlex.join(command)}'")
+
     env = _build_env(user=user, env_overrides=env_overrides, mimic_login=mimic_login)
 
     pid, master_fd = pty.fork()
@@ -90,6 +94,8 @@ def run(
     if not command:
         return 0, ""
 
+    output.print_debug(f"Running command '{shlex.join(command)}'")
+
     env = _build_env(user=user, env_overrides=env_overrides, mimic_login=mimic_login)
     uid, gid = None, None
 
@@ -104,9 +110,9 @@ def run(
     except OSError as error:
         # Mirror PTY behavior: "<cmd>: <error>\n" and errno-based exit code
         msg = error.strerror or str(error)
-        output = f"{command[0]}: {msg}\n"
+        text_output = f"{command[0]}: {msg}\n"
         code = error.errno if error.errno and error.errno < 128 else 127
-        return code, output
+        return code, text_output
 
     return process.returncode, stdout.decode("utf-8", errors="replace")
 
