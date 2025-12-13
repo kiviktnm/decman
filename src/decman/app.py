@@ -282,11 +282,12 @@ class Core:
         # pacman
         currently_installed = self.pacman.get_installed()
         to_remove = self.source.packages_to_remove(currently_installed)
-
-        currently_installed_flatpak = self.flatpak.get_installed()
-        to_remove_flatpak = self.source.flatpak_packages_to_remove(
-            currently_installed_flatpak
-        )
+        
+        if conf.enable_flatpak and self.update_flatpaks:
+            currently_installed_flatpak = self.flatpak.get_installed()
+            to_remove_flatpak = self.source.flatpak_packages_to_remove(
+                currently_installed_flatpak
+            )
 
         l.print_list("Removing pacman packages:", to_remove)
 
@@ -371,10 +372,11 @@ class Core:
         to_install_fpm = self.source.foreign_packages_to_install(currently_installed)
 
         # flatpak
-        currently_installed_flatpak = self.flatpak.get_installed()
-        to_install_flatpak = self.source.flatpak_packages_to_install(
-            currently_installed_flatpak
-        )
+        if conf.enable_flatpak and self.update_flatpaks:
+            currently_installed_flatpak = self.flatpak.get_installed()
+            to_install_flatpak = self.source.flatpak_packages_to_install(
+                currently_installed_flatpak
+            )
 
         l.print_list("Installing pacman packages:", to_install_pacman)
 
