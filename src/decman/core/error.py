@@ -1,8 +1,3 @@
-"""
-Module for decman errors.
-"""
-
-
 class SourceError(Exception):
     """
     Error raised manually from the user's source.

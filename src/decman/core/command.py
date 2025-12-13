@@ -1,7 +1,3 @@
-"""
-Module for running external commands.
-"""
-
 import errno
 import fcntl
 import os

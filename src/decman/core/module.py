@@ -44,22 +44,34 @@ class Module:
     def before_update(self):
         """
         Override this method to run python code before updating the system.
+
+        Handle errors within this function. If an error should abort running decman,
+        raise SourceError or CommandFailedError.
         """
 
     def after_update(self):
         """
         Override this method to run python code after updating the system.
+
+        Handle errors within this function. If an error should abort running decman,
+        raise SourceError or CommandFailedError.
         """
 
     def on_enable(self):
         """
         Override this method to run python code when this module gets enabled.
+
+        Handle errors within this function. If an error should abort running decman,
+        raise SourceError or CommandFailedError.
         """
 
     def on_change(self):
         """
         Override this method to run python code after the contents of this module have been
         changed in the source.
+
+        Handle errors within this function. If an error should abort running decman,
+        raise SourceError or CommandFailedError.
         """
 
     @staticmethod

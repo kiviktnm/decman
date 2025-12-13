@@ -32,7 +32,7 @@ directories: dict[str, Directory] = {}
 modules: set[Module] = set()
 plugins: dict[str, Plugin] = available_plugins()
 execution_order: list[str] = [
-    "fs",
+    "files",
     "pacman",
     "aur",
     "flatpak",

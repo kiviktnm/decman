@@ -24,7 +24,9 @@ class Plugin:
         """
         return True
 
-    def apply(self, store: cstore.Store, dry_run: bool = False) -> bool:
+    def apply(
+        self, store: cstore.Store, dry_run: bool = False, params: list[str] | None = None
+    ) -> bool:
         """
         Ensures that the state managed by this plugin is present.
 
@@ -37,7 +39,7 @@ class Plugin:
         """
         return True
 
-    def process_module(self, store: cstore.Store, module: module.Module):
+    def process_modules(self, store: cstore.Store, modules: set[module.Module]):
         """
         Processes a module.
         """

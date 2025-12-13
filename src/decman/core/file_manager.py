@@ -15,6 +15,33 @@ def update_files(
     directories: dict[str, fs.Directory],
     dry_run: bool = False,
 ) -> bool:
+    """
+    Apply the desired file and directory state.
+
+    Installs common and module-provided files and directories, tracks all checked paths, detects
+    changes, removes files no longer managed, and updates the store.
+
+    On failure, no removals are performed and the store is left unchanged.
+
+    Arguments:
+        store:
+            Persistent store used to track managed file paths.
+
+        modules:
+            Enabled modules providing additional files and directories.
+
+        files:
+            Common files to install (target path -> File).
+
+        directories:
+            Common directories to install (target path -> Directory).
+
+        dry_run:
+            If True, perform change detection only without modifying the filesystem.
+
+    Returns:
+        True if all operations completed successfully, False if installation failed.
+    """
     output.print_summary("Installing files.")
 
     all_checked_files = []
