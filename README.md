@@ -171,7 +171,7 @@ decman.user_packages.append(
     decman.UserPackage(
         pkgname="decman-git",
         provides=["decman"],
-        version="0.4.1",
+        version="0.4.2",
         dependencies=["python", "python-requests", "devtools", "pacman", "systemd", "git"],
         make_dependencies=[
             "python-setuptools", "python-build", "python-installer", "python-wheel"
@@ -303,7 +303,7 @@ user_packages = [{
     # Also, this example may be out of date
     pkgname="decman-git",
     provides=["decman"],
-    version="0.4.1",
+    version="0.4.2",
     dependencies=["python", "python-requests", "devtools", "pacman", "systemd", "git"],
     make_dependencies=[
         "python-setuptools", "python-build", "python-installer", "python-wheel"
