@@ -25,3 +25,5 @@ quiet_output: bool = False
 color_output: bool = True
 
 module_on_disable_scripts_dir: str = "/var/lib/decman/scripts/"
+
+arch: str = "x86_64"

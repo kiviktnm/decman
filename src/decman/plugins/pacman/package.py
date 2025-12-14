@@ -1,11 +1,17 @@
 import dataclasses
+import os
+import pathlib
 import re
+import tempfile
 
 import requests  # type: ignore
 
+import decman.config as config
+import decman.core.command as command
+import decman.core.error as errors
 import decman.core.output as output
-from decman.plugins.pacman.commands import PacmanInterface
-from decman.plugins.pacman.error import AurRPCError
+from decman.plugins.pacman.commands import PacmanCommands, PacmanInterface
+from decman.plugins.pacman.error import AurRPCError, PKGBUILDParseError
 
 
 def strip_dependency(dep: str) -> str:
@@ -138,9 +144,14 @@ class CustomPackage:
     """
     Custom package installed from some other location than the official repos or the AUR.
 
+    ``pkgname`` is required because the PKGBUILD might be for split packages.
+
     Exactly one of ``git_url`` or ``pkgbuild_directory`` must be provided.
 
     Parameters:
+        ``pkgname``:
+            Name of the package.
+
         ``git_url``:
             URL to a git repository containing the PKGBUILD.
 
@@ -148,23 +159,237 @@ class CustomPackage:
             Path to the directory containing the PKGBUILD.
     """
 
-    def __init__(self, git_url: str | None, pkgbuild_directory: str | None) -> None:
+    def __init__(self, pkgname: str, git_url: str | None, pkgbuild_directory: str | None) -> None:
         if git_url is None and pkgbuild_directory is None:
             raise ValueError("Both git_url and pkgbuild_directory cannot be None.")
 
         if git_url is not None and pkgbuild_directory is not None:
             raise ValueError("Both git_url and pkgbuild_directory cannot be set.")
 
+        self.pkgname = pkgname
         self.git_url = git_url
         self.pkgbuild_directory = pkgbuild_directory
 
-    def parse(self) -> PackageInfo:
+    def parse(self, commands: PacmanCommands) -> PackageInfo:
         """
         Parses this package's PKGBUILD to ``PackageInfo``.
 
         If this fails, raises a ``PKGBUILDParseError``.
         """
-        raise NotImplementedError
+        if self.pkgbuild_directory is not None:
+            srcinfo = self._srcinfo_from_pkgbuild_directory(commands)
+        else:
+            srcinfo = self._srcinfo_from_git(commands)
+
+        return self._parse_srcinfo(srcinfo)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, CustomPackage):
+            return False
+        return (
+            self.git_url == other.git_url
+            and self.pkgbuild_directory == other.pkgbuild_directory
+            and self.pkgname == other.pkgname
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.pkgname, self.git_url, self.pkgbuild_directory))
+
+    def __str__(self) -> str:
+        if self.git_url is not None:
+            return f"CustomPackage(pkgname={self.pkgname}, git_url={self.git_url})"
+        return (
+            f"CustomPackage(pkgname={self.pkgname}, pkgbuild_directory={self.pkgbuild_directory})"
+        )
+
+    def _srcinfo_from_pkgbuild_directory(self, commands: PacmanCommands) -> str:
+        assert self.pkgbuild_directory is not None, (
+            "This will not get called if pkgbuild_directory is unset."
+        )
+
+        path = pathlib.Path(self.pkgbuild_directory)
+        if not path.is_dir():
+            raise PKGBUILDParseError(
+                self.git_url,
+                self.pkgbuild_directory,
+                f"pkgbuild_directory '{path}' does not exist or is not a directory.",
+            )
+
+        if not (path / "PKGBUILD").exists():
+            raise PKGBUILDParseError(
+                self.git_url, self.pkgbuild_directory, f"No PKGBUILD found in '{path}'."
+            )
+
+        return self._run_makepkg_printsrcinfo(path, commands)
+
+    def _srcinfo_from_git(self, commands: PacmanCommands) -> str:
+        assert self.git_url is not None, "This will not get called if git_url is unset."
+        with tempfile.TemporaryDirectory(prefix="decman-pkgbuild-") as tmpdir:
+            tmp_path = pathlib.Path(tmpdir)
+            try:
+                cmd = commands.git_clone(self.git_url, tmpdir)
+                command.check_run_result(cmd, command.run(cmd))
+            except errors.CommandFailedError as error:
+                raise PKGBUILDParseError(
+                    self.git_url, self.pkgbuild_directory, "Failed to clone PKGBUILD repository."
+                ) from error
+
+            if not (tmp_path / "PKGBUILD").exists():
+                raise PKGBUILDParseError(
+                    self.git_url,
+                    self.pkgbuild_directory,
+                    f"Cloned repository '{self.git_url}' does not contain a PKGBUILD.",
+                )
+
+            return self._run_makepkg_printsrcinfo(tmp_path, commands)
+
+    def _run_makepkg_printsrcinfo(self, path: pathlib.Path, commands: PacmanCommands) -> str:
+        orig_wd = os.getcwd()
+        try:
+            os.chdir(path)
+            cmd = commands.print_srcinfo()
+            _, srcinfo = command.check_run_result(cmd, command.run(cmd))
+        except errors.CommandFailedError as error:
+            raise PKGBUILDParseError(
+                self.git_url, self.pkgbuild_directory, "Failed to generate SRCINFO using makepkg."
+            ) from error
+        finally:
+            os.chdir(orig_wd)
+
+        return srcinfo
+
+    def _parse_srcinfo(self, srcinfo: str) -> PackageInfo:
+        pkgbase: str | None = None
+        pkgver: str | None = None
+        pkgrel: str | None = None
+        epoch: str | None = None
+        provides: list[str] = []
+
+        # I'm not sure if split packages can have dependencies listed in the base.
+        # Easy to handle regardless
+        base_depends: list[str] = []
+        base_makedepends: list[str] = []
+        base_checkdepends: list[str] = []
+
+        pkg_depends: list[str] = []
+        pkg_makedepends: list[str] = []
+        pkg_checkdepends: list[str] = []
+
+        current_pkg: str | None = None
+        found_pkgnames = set()
+
+        for raw in srcinfo.splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+
+            key, value = (part.strip() for part in line.split("=", 1))
+
+            is_base = current_pkg is None
+            is_target_pkg = current_pkg == self.pkgname
+
+            match key:
+                case "pkgbase":
+                    pkgbase = value
+                    current_pkg = None
+
+                case "pkgname":
+                    current_pkg = value
+                    found_pkgnames.add(value)
+
+                case "pkgver":
+                    if pkgver is None or current_pkg == self.pkgname:
+                        pkgver = value
+
+                case "pkgrel":
+                    if pkgrel is None or current_pkg == self.pkgname:
+                        pkgrel = value
+
+                case "epoch":
+                    if epoch is None or current_pkg == self.pkgname:
+                        epoch = value
+
+                case "provides":
+                    if is_target_pkg:
+                        provides.append(value)
+
+                case "depends":
+                    if is_base:
+                        base_depends.append(value)
+                    elif is_target_pkg:
+                        pkg_depends.append(value)
+
+                case "makedepends":
+                    if is_base:
+                        base_makedepends.append(value)
+                    elif is_target_pkg:
+                        pkg_makedepends.append(value)
+
+                case "checkdepends":
+                    if is_base:
+                        base_checkdepends.append(value)
+                    elif is_target_pkg:
+                        pkg_checkdepends.append(value)
+
+                case _ if key.startswith("depends") and key.removeprefix("depends_") == config.arch:
+                    if is_base:
+                        base_depends.append(value)
+                    elif is_target_pkg:
+                        pkg_depends.append(value)
+
+                case _ if (
+                    key.startswith("makedepends")
+                    and key.removeprefix("makedepends_") == config.arch
+                ):
+                    if is_base:
+                        base_makedepends.append(value)
+                    elif is_target_pkg:
+                        pkg_makedepends.append(value)
+
+                case _ if (
+                    key.startswith("checkdepends")
+                    and key.removeprefix("checkdepends_") == config.arch
+                ):
+                    if is_base:
+                        base_checkdepends.append(value)
+                    elif is_target_pkg:
+                        pkg_checkdepends.append(value)
+
+        if pkgbase is None or pkgver is None:
+            raise PKGBUILDParseError(
+                self.git_url,
+                self.pkgbuild_directory,
+                "Missing required fields (pkgbase/pkgver) in SRCINFO.",
+            )
+
+        if self.pkgname not in found_pkgnames:
+            raise PKGBUILDParseError(
+                self.git_url,
+                self.pkgbuild_directory,
+                f"Package {self.pkgname} not found in SRCINFO.\
+                Packages present: {' '.join(found_pkgnames)}.",
+            )
+
+        version_core = pkgver
+        if pkgrel is not None:
+            version_core = f"{version_core}-{pkgrel}"
+
+        if epoch is not None:
+            version = f"{epoch}:{version_core}"
+        else:
+            version = version_core
+
+        return PackageInfo(
+            pkgname=self.pkgname,
+            pkgbase=pkgbase,
+            version=version,
+            git_url=self.git_url,
+            pkgbuild_directory=self.pkgbuild_directory,
+            provides=tuple(provides),
+            dependencies=tuple(base_depends + pkg_depends),
+            make_dependencies=tuple(base_makedepends + pkg_makedepends),
+            check_dependencies=tuple(base_checkdepends + pkg_checkdepends),
+        )
 
 
 class PackageSearch:

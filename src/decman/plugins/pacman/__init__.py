@@ -48,17 +48,47 @@ def custom_packages(fn):
     return fn
 
 
+class AUR(plugins.Plugin):
+    """
+    Plugin that manages additional pacman packages installed outside the pacman repos.
+
+    AUR packages are added directly to ``packages`` or declared by modules via ``@aur_packages``.
+
+    Custom packages are added directly to ``custom_packages`` or declared by modules via
+    ``@custom_packages``.
+    """
+
+    NAME = "aur"
+
+    def __init__(self) -> None:
+        self.packages: set[str] = set()
+        self.custom_packages: set[CustomPackage] = set()
+        self.commands = PacmanCommands()
+
+    def available(self) -> bool:
+        return shutil.which("pacman") is not None
+
+    def process_modules(self, store: _store.Store, modules: set[module.Module]):
+        # This is used to track changes in modules.
+        store.ensure("aur_packages_for_module", {})
+        store.ensure("custom_packages_for_module", {})
+
+    def apply(
+        self, store: _store.Store, dry_run: bool = False, params: list[str] | None = None
+    ) -> bool:
+        return True
+
+
 class Pacman(plugins.Plugin):
     """
     Plugin that manages pacman packages added directly to ``packages`` or declared by modules via
-    @packages.
+    ``@packages``.
     """
 
     NAME = "pacman"
 
     def __init__(self) -> None:
         self.packages: set[str] = set()
-        self.aur_packages: set[str] = set()
         self.commands = PacmanCommands()
 
     def available(self) -> bool:

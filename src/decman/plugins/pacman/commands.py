@@ -173,6 +173,13 @@ class PacmanCommands:
 
         return makechrootpkg_cmd
 
+    def print_srcinfo(self) -> list[str]:
+        """
+        Running this command prints SRCINFO generated from the package in the current
+        working directory.
+        """
+        return ["makepkg", "--printsrcinfo"]
+
 
 class PacmanInterface:
     """

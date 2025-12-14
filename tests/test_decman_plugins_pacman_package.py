@@ -1,8 +1,9 @@
+import pathlib
 
 import pytest
 
 from decman.plugins.pacman import package as pkg_mod
-from decman.plugins.pacman.error import AurRPCError
+from decman.plugins.pacman.error import AurRPCError, PKGBUILDParseError
 from decman.plugins.pacman.package import (
     CustomPackage,
     PackageInfo,
@@ -102,10 +103,252 @@ def test_packageinfo_foreign_and_native_dependencies_are_split_and_stripped():
 
 def test_custompackage_requires_exactly_one_source():
     with pytest.raises(ValueError, match="cannot be None"):
-        CustomPackage(git_url=None, pkgbuild_directory=None)
+        CustomPackage("pkg", git_url=None, pkgbuild_directory=None)
 
     with pytest.raises(ValueError, match="cannot be set"):
-        CustomPackage(git_url="git://example", pkgbuild_directory="/tmp")
+        CustomPackage("pkg", git_url="git://example", pkgbuild_directory="/tmp")
+
+
+class DummyCommands:
+    """Minimal stub; only here so type checks pass where needed."""
+
+    pass
+
+
+@pytest.mark.parametrize(
+    "srcinfo, expected_version",
+    [
+        (
+            """
+            pkgbase = foo
+                pkgver = 1.2.3
+                pkgrel = 4
+            pkgname = foo
+            """,
+            "1.2.3-4",
+        ),
+        (
+            """
+            pkgbase = foo
+                pkgver = 1.2.3
+                pkgrel = 4
+                epoch = 2
+            pkgname = foo
+            """,
+            "2:1.2.3-4",
+        ),
+        (
+            """
+            pkgbase = foo
+                pkgver = 1.2.3
+            pkgname = foo
+            """,
+            "1.2.3",
+        ),
+    ],
+)
+def test_parse_srcinfo_version_handling(srcinfo: str, expected_version: str) -> None:
+    pkg = CustomPackage(pkgname="foo", git_url=None, pkgbuild_directory="/dummy")
+
+    info = pkg._parse_srcinfo(srcinfo)
+
+    assert info.pkgname == "foo"
+    assert info.pkgbase == "foo"
+    assert info.version == expected_version
+
+
+def test_parse_srcinfo_single_package_dependencies() -> None:
+    srcinfo = """
+    pkgbase = foo
+        pkgver = 1.2.3
+        pkgrel = 1
+        depends = bar>=1.0
+        makedepends = baz
+        checkdepends = qux
+
+    pkgname = foo
+    """
+
+    pkg = CustomPackage(pkgname="foo", git_url=None, pkgbuild_directory="/dummy")
+
+    info = pkg._parse_srcinfo(srcinfo)
+
+    assert info.dependencies == ("bar>=1.0",)
+    assert info.make_dependencies == ("baz",)
+    assert info.check_dependencies == ("qux",)
+
+
+def test_parse_srcinfo_split_package_uses_only_target_pkg_dependencies(monkeypatch) -> None:
+    # Ensure arch-specific keys match
+    monkeypatch.setattr(pkg_mod.config, "arch", "x86_64", raising=False)
+
+    srcinfo = """
+    pkgbase = clion
+        pkgver = 2025.3
+        pkgrel = 1
+        makedepends = rsync
+        depends = base-dep
+        depends_x86_64 = base-arch-dep
+
+    pkgname = clion
+        depends = libdbusmenu-glib
+        depends_x86_64 = clion-arch-dep
+        checkdepends = clion-check
+
+    pkgname = clion-jre
+        depends = jre-dep
+        makedepends = jre-make
+
+    pkgname = clion-cmake
+        depends = cmake-dep
+    """
+
+    pkg = CustomPackage(pkgname="clion", git_url=None, pkgbuild_directory="/dummy")
+
+    info = pkg._parse_srcinfo(srcinfo)
+
+    # version
+    assert info.pkgbase == "clion"
+    assert info.version == "2025.3-1"
+
+    # base deps + target pkg deps (including arch-specific)
+    assert info.dependencies == (
+        "base-dep",
+        "base-arch-dep",
+        "libdbusmenu-glib",
+        "clion-arch-dep",
+    )
+
+    # only base and target pkg makedepends
+    assert info.make_dependencies == ("rsync",)
+
+    # base + target pkg checkdepends
+    assert info.check_dependencies == ("clion-check",)
+
+
+def test_parse_srcinfo_arch_specific_ignored_for_other_arch(monkeypatch) -> None:
+    # Different arch → *_x86_64 keys should be ignored
+    monkeypatch.setattr(pkg_mod.config, "arch", "aarch64", raising=False)
+
+    srcinfo = """
+    pkgbase = foo
+        pkgver = 1.0
+        pkgrel = 1
+        depends_x86_64 = base-arch-dep
+
+    pkgname = foo
+        depends = common-dep
+        depends_x86_64 = pkg-arch-dep
+    """
+
+    pkg = CustomPackage(pkgname="foo", git_url=None, pkgbuild_directory="/dummy")
+
+    info = pkg._parse_srcinfo(srcinfo)
+
+    # Only common deps, no *_x86_64 because arch != x86_64
+    assert info.dependencies == ("common-dep",)
+
+
+def test_parse_srcinfo_missing_required_fields_raises() -> None:
+    # Missing pkgbase
+    srcinfo_no_pkgbase = """
+        pkgver = 1.0
+        pkgrel = 1
+        pkgname = foo
+    """
+    pkg = CustomPackage(pkgname="foo", git_url=None, pkgbuild_directory="/dummy")
+
+    with pytest.raises(PKGBUILDParseError) as excinfo:
+        pkg._parse_srcinfo(srcinfo_no_pkgbase)
+    assert "pkgbase/pkgver" in str(excinfo.value)
+
+    # Missing pkgver
+    srcinfo_no_pkgver = """
+        pkgbase = foo
+        pkgname = foo
+    """
+
+    with pytest.raises(PKGBUILDParseError) as excinfo2:
+        pkg._parse_srcinfo(srcinfo_no_pkgver)
+    assert "pkgbase/pkgver" in str(excinfo2.value)
+
+
+def test_parse_srcinfo_missing_target_pkg_raises() -> None:
+    srcinfo = """
+    pkgbase = foo
+        pkgver = 1.0
+        pkgrel = 1
+    pkgname = other
+    """
+
+    pkg = CustomPackage(pkgname="foo", git_url=None, pkgbuild_directory="/dummy")
+
+    with pytest.raises(PKGBUILDParseError) as excinfo:
+        pkg._parse_srcinfo(srcinfo)
+
+    msg = str(excinfo.value)
+    assert "Package foo not found in SRCINFO" in msg
+    assert "other" in msg  # listed in present packages
+
+
+def test_srcinfo_from_pkgbuild_directory_missing_dir_raises(tmp_path: pathlib.Path) -> None:
+    missing = tmp_path / "does-not-exist"
+
+    pkg = CustomPackage(pkgname="foo", git_url=None, pkgbuild_directory=str(missing))
+
+    with pytest.raises(PKGBUILDParseError) as excinfo:
+        pkg._srcinfo_from_pkgbuild_directory(DummyCommands())
+
+    msg = str(excinfo.value)
+    assert "does not exist or is not a directory" in msg
+
+
+def test_srcinfo_from_pkgbuild_directory_missing_pkgbuild_raises(tmp_path: pathlib.Path) -> None:
+    path = tmp_path / "pkgdir"
+    path.mkdir()
+
+    pkg = CustomPackage(pkgname="foo", git_url=None, pkgbuild_directory=str(path))
+
+    with pytest.raises(PKGBUILDParseError) as excinfo:
+        pkg._srcinfo_from_pkgbuild_directory(DummyCommands())
+
+    msg = str(excinfo.value)
+    assert "No PKGBUILD found" in msg
+
+
+def test_custom_package_equality_and_hash() -> None:
+    a1 = CustomPackage(
+        pkgname="foo", git_url="https://example.com/repo.git", pkgbuild_directory=None
+    )
+    a2 = CustomPackage(
+        pkgname="foo", git_url="https://example.com/repo.git", pkgbuild_directory=None
+    )
+    b = CustomPackage(pkgname="foo", git_url=None, pkgbuild_directory="/some/path")
+
+    assert a1 == a2
+    assert hash(a1) == hash(a2)
+
+    assert a1 != b
+    assert hash(a1) != hash(b)
+
+
+def test_custom_package_str_git_and_directory() -> None:
+    git_pkg = CustomPackage(
+        pkgname="foo",
+        git_url="https://example.com/repo.git",
+        pkgbuild_directory=None,
+    )
+    dir_pkg = CustomPackage(
+        pkgname="foo",
+        git_url=None,
+        pkgbuild_directory="/some/path",
+    )
+
+    assert "pkgname=foo" in str(git_pkg)
+    assert "git_url=https://example.com/repo.git" in str(git_pkg)
+
+    assert "pkgname=foo" in str(dir_pkg)
+    assert "pkgbuild_directory=/some/path" in str(dir_pkg)
 
 
 # --- PackageSearch: caching ------------------------------------------------
