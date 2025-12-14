@@ -17,7 +17,7 @@ decman = "decman.app:main"
 [project.entry-points."decman.plugins"]
 systemd = "decman.plugins.systemd:Systemd"
 pacman = "decman.plugins.pacman:Pacman"
-aur = "decman.plugins.pacman:AUR"
+aur = "decman.plugins.aur:AUR"
 
 [dependency-groups]
 dev = [

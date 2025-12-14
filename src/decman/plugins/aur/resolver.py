@@ -1,6 +1,6 @@
 import typing
 
-from decman.plugins.pacman.error import DependencyCycleError
+from decman.plugins.aur.error import DependencyCycleError
 
 
 class ForeignPackage:

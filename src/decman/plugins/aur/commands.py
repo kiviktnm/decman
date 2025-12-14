@@ -1,28 +1,14 @@
 import decman.core.command as command
 import decman.core.error as errors
-import decman.core.output as output
+import decman.plugins.pacman as pacman
 
 
-class PacmanCommands:
-    def list_explicit(self) -> list[str]:
+class AurCommands(pacman.PacmanCommands):
+    def list_orphans_foreign(self) -> list[str]:
         """
-        Running this command outputs a newline seperated list of explicitly installed native
-        packages.
+        Running this command outputs a newline seperated list of orphaned foreign packages.
         """
-        return ["pacman", "-Qeq", "--color=never"]
-
-    def list_orphans(self) -> list[str]:
-        """
-        Running this command outputs a newline seperated list of orphaned packages.
-        """
-        return ["pacman", "-Qdtq", "--color=never"]
-
-    def list_dependants(self, pkg: str) -> list[str]:
-        """
-        Running this command outputs a newline seperated list of packages that depend on the given
-        package.
-        """
-        return ["pacman", "-Rc", "--print", "--print-format", "%n", pkg]
+        return ["pacman", "-Qmdtq", "--color=never"]
 
     def list_foreign_versioned(self) -> list[str]:
         """
@@ -37,12 +23,6 @@ class PacmanCommands:
         """
         return ["pacman", "-Sddp", pkg]
 
-    def install(self, pkgs: set[str]) -> list[str]:
-        """
-        Running this command installs the given packages from pacman repositories.
-        """
-        return ["pacman", "-S", "--needed"] + list(pkgs)
-
     def install_as_dependencies(self, pkgs: set[str]) -> list[str]:
         """
         Running this command installs the given packages from pacman repositories.
@@ -55,31 +35,6 @@ class PacmanCommands:
         Running this command installs the given packages files as dependencies.
         """
         return ["pacman", "-U", "--asdeps"] + pkg_files
-
-    def upgrade(self) -> list[str]:
-        """
-        Running this command upgrades all pacman packages.
-        """
-        return ["pacman", "-Syu"]
-
-    def set_as_dependencies(self, pkgs: set[str]) -> list[str]:
-        """
-        Running this command installs sets the given packages as dependencies.
-        """
-        return ["pacman", "-D", "--asdeps"] + list(pkgs)
-
-    def set_as_explicit(self, pkgs: set[str]) -> list[str]:
-        """
-        Running this command installs sets the given as explicitly installed.
-        """
-        return ["pacman", "-D", "--asexplicit"] + list(pkgs)
-
-    def remove(self, pkgs: set[str]) -> list[str]:
-        """
-        Running this command removes the given packages and their dependencies
-        (that aren't required by other packages).
-        """
-        return ["pacman", "-Rs"] + list(pkgs)
 
     def compare_versions(self, installed_version: str, new_version: str) -> list[str]:
         """
@@ -181,31 +136,32 @@ class PacmanCommands:
         return ["makepkg", "--printsrcinfo"]
 
 
-class PacmanInterface:
+class AurPacmanInterface(pacman.PacmanInterface):
     """
     High level interface for running pacman commands.
 
     On failure methods raise a ``CommandFailedError``.
     """
 
-    def __init__(
-        self, commands: PacmanCommands, print_highlights: bool, keywords: set[str]
-    ) -> None:
+    def __init__(self, commands: AurCommands, print_highlights: bool, keywords: set[str]) -> None:
+        super().__init__(commands, print_highlights, keywords)
         self._installable: dict[str, bool] = {}
-        self._commands = commands
-        self._print_highlights = print_highlights
-        self._keywords = keywords
+        self._aur_commands = commands
 
-    def get_installed(self) -> list[str]:
+    def get_foreign_orphans(self) -> set[str]:
         """
-        Returns a list of installed packages.
+        Returns a set of orphaned foreign packages.
         """
 
-        returncode, packages_text = command.run(self._commands.list_explicit())
-        packages = packages_text.strip().split("\n")
+        cmd = self._aur_commands.list_orphans_foreign()
+        rc, packages_text = command.run(cmd)
+        # returncode 1 means no packages exist
+        if rc == 1:
+            return set()
+        if rc != 0:
+            raise errors.CommandFailedError(cmd, packages_text)
 
-        if returncode != 0:
-            raise errors.CommandFailedError(self._commands.list_explicit(), packages_text)
+        packages = set(packages_text.strip().split("\n"))
 
         return packages
 
@@ -216,7 +172,7 @@ class PacmanInterface:
         if pkg in self._installable:
             return self._installable[pkg]
 
-        returncode, _ = command.run(self._commands.is_installable(pkg))
+        returncode, _ = command.run(self._aur_commands.is_installable(pkg))
         result = returncode == 0
 
         self._installable[pkg] = result
@@ -227,38 +183,20 @@ class PacmanInterface:
         Returns a list of installed packages and their versions that aren't from pacman databases,
         basically AUR packages.
         """
-        cmd = self._commands.list_foreign_versioned()
+        cmd = self._aur_commands.list_foreign_versioned()
         returncode, packages_text = command.run(cmd)
         packages = [
             (line.split(" ")[0], line.split(" ")[1]) for line in packages_text.strip().split("\n")
         ]
 
+        # returncode 1 means no packages exist
+        if returncode == 1:
+            return []
+
         if returncode != 0:
             raise errors.CommandFailedError(cmd, packages_text)
 
         return packages
-
-    def install(self, packages: set[str]):
-        """
-        Installs the given packages. If the packages are already installed, marks them as
-        explicitly installed.
-        """
-        if not packages:
-            return
-
-        cmd = self._commands.install(packages)
-
-        returncode, pacman_output = command.pty_run(cmd)
-        if returncode != 0:
-            raise errors.CommandFailedError(cmd, pacman_output)
-
-        self.print_highlighted_pacman_messages(pacman_output)
-
-        cmd = self._commands.set_as_explicit(packages)
-
-        returncode, pacman_output = command.run(cmd)
-        if returncode != 0:
-            raise errors.CommandFailedError(cmd, pacman_output)
 
     def install_dependencies(self, deps: set[str]):
         """
@@ -267,12 +205,8 @@ class PacmanInterface:
         if not deps:
             return
 
-        cmd = self._commands.install_as_dependencies(deps)
-
-        returncode, pacman_output = command.pty_run(cmd)
-        if returncode != 0:
-            raise errors.CommandFailedError(cmd, pacman_output)
-
+        cmd = self._aur_commands.install_as_dependencies(deps)
+        _, pacman_output = command.check_run_result(cmd, command.pty_run(cmd))
         self.print_highlighted_pacman_messages(pacman_output)
 
     def install_files(self, files: list[str], as_explicit: set[str]):
@@ -283,69 +217,12 @@ class PacmanInterface:
         if not files:
             return
 
-        cmd = self._commands.install_files_as_dependencies(files)
-
-        returncode, pacman_output = command.pty_run(cmd)
-        if returncode != 0:
-            raise errors.CommandFailedError(cmd, pacman_output)
-
+        cmd = self._aur_commands.install_files_as_dependencies(files)
+        _, pacman_output = command.check_run_result(cmd, command.pty_run(cmd))
         self.print_highlighted_pacman_messages(pacman_output)
 
         if not as_explicit:
             return
 
         cmd = self._commands.set_as_explicit(as_explicit)
-
-        returncode, pacman_output = command.run(cmd)
-        if returncode != 0:
-            raise errors.CommandFailedError(cmd, pacman_output)
-
-    def upgrade(self):
-        """
-        Upgrades all packages.
-        """
-        cmd = self._commands.upgrade()
-
-        returncode, pacman_output = command.pty_run(cmd)
-        if returncode != 0:
-            raise errors.CommandFailedError(cmd, pacman_output)
-
-        self.print_highlighted_pacman_messages(pacman_output)
-
-    def remove(self, packages: set[str]):
-        """
-        Removes the given packages.
-        """
-        if not packages:
-            return
-
-        cmd = self._commands.remove(packages)
-
-        returncode, pacman_output = command.pty_run(cmd)
-        if returncode != 0:
-            raise errors.CommandFailedError(cmd, pacman_output)
-
-        self.print_highlighted_pacman_messages(pacman_output)
-
-    def print_highlighted_pacman_messages(self, pacman_output: str):
-        """
-        Prints lines that contain pacman output keywords.
-        """
-        if not self._print_highlights:
-            return
-
-        output.print_summary("Pacman output highlights:")
-        lines = pacman_output.split("\n")
-        for index, line in enumerate(lines):
-            for keyword in self._keywords:
-                if keyword.lower() in line.lower():
-                    output.print_summary(f"lines: {index}-{index + 2}")
-                    if index >= 1:
-                        output.print_continuation(lines[index - 1])
-                    output.print_continuation(line)
-                    if index + 1 < len(lines):
-                        output.print_continuation(lines[index + 1])
-                    output.print_continuation("")
-
-                    # Break, as to not print the same line again if it contains multiple keywords
-                    break
+        _, pacman_output = command.check_run_result(cmd, command.run(cmd))

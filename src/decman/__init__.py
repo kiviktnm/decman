@@ -9,6 +9,7 @@ from decman.core.error import SourceError
 from decman.core.fs import Directory, File
 from decman.core.module import Module
 from decman.plugins import Plugin, available_plugins
+from decman.plugins.aur import AUR
 
 # Plugin types
 from decman.plugins.pacman import Pacman
@@ -41,11 +42,16 @@ execution_order: list[str] = [
 
 # Default plugins get quick access
 pacman: None | Pacman = None
+aur: None | AUR = None
 systemd: None | Systemd = None
 
 _pacman = plugins.get("pacman", None)
 if isinstance(_pacman, Pacman):
     pacman = _pacman
+
+_aur = plugins.get("aur", None)
+if isinstance(_aur, AUR):
+    aur = _aur
 
 _systemd = plugins.get("systemd", None)
 if isinstance(_systemd, Systemd):

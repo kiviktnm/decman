@@ -7,10 +7,10 @@ import decman.core.command as command
 import decman.core.error as errors
 import decman.core.output as output
 import decman.core.store as _store
-from decman.plugins.pacman.commands import PacmanCommands
-from decman.plugins.pacman.error import ForeignPackageManagerError
-from decman.plugins.pacman.package import PackageSearch, PacmanInterface
-from decman.plugins.pacman.resolver import DepGraph, ForeignPackage
+from decman.plugins.aur.commands import AurCommands
+from decman.plugins.aur.error import ForeignPackageManagerError
+from decman.plugins.aur.package import AurPacmanInterface, PackageSearch
+from decman.plugins.aur.resolver import DepGraph, ForeignPackage
 
 
 def find_latest_cached_package(store: _store.Store, package: str) -> tuple[str, str] | None:
@@ -179,9 +179,9 @@ class ForeignPackageManager:
     def __init__(
         self,
         store: _store.Store,
-        pacman: PacmanInterface,
+        pacman: AurPacmanInterface,
         search: PackageSearch,
-        commands: PacmanCommands,
+        commands: AurCommands,
         pkg_cache_dir: str,
         build_dir: str,
         makepkg_user: str,
@@ -209,7 +209,7 @@ class ForeignPackageManager:
         output.print_summary("Determining foreign packages to upgrade.")
 
         all_foreign_pkgs = self._pacman.get_versioned_foreign_packages()
-        all_explicit_pkgs = set(self._pacman.get_installed())
+        all_explicit_foreign_pkgs = set(self._pacman.get_foreign_explicit())
         output.print_debug(f"Foreign packages to check for upgrades: {all_foreign_pkgs}")
 
         self._search.try_caching_packages(list(map(lambda p: p[0], all_foreign_pkgs)))
@@ -227,7 +227,7 @@ class ForeignPackageManager:
                 )
 
             if self.should_upgrade_package(pkg, ver, info.version, upgrade_devel):
-                if pkg in all_explicit_pkgs:
+                if pkg in all_explicit_foreign_pkgs:
                     as_explicit.append(pkg)
                 else:
                     as_deps.append(pkg)
@@ -458,9 +458,9 @@ class PackageBuilder:
         self,
         search: PackageSearch,
         store: _store.Store,
-        pacman: PacmanInterface,
+        pacman: AurPacmanInterface,
         resolved_deps: ResolvedDependencies,
-        commands: PacmanCommands,
+        commands: AurCommands,
         pkg_cache_dir: str,
         build_dir: str,
         makepkg_user: str,

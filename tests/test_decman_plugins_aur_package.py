@@ -2,9 +2,9 @@ import pathlib
 
 import pytest
 
-from decman.plugins.pacman import package as pkg_mod
-from decman.plugins.pacman.error import AurRPCError, PKGBUILDParseError
-from decman.plugins.pacman.package import (
+from decman.plugins.aur import package as pkg_mod
+from decman.plugins.aur.error import AurRPCError, PKGBUILDParseError
+from decman.plugins.aur.package import (
     CustomPackage,
     PackageInfo,
     PackageSearch,

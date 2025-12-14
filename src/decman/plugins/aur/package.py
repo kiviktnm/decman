@@ -10,8 +10,8 @@ import decman.config as config
 import decman.core.command as command
 import decman.core.error as errors
 import decman.core.output as output
-from decman.plugins.pacman.commands import PacmanCommands, PacmanInterface
-from decman.plugins.pacman.error import AurRPCError, PKGBUILDParseError
+from decman.plugins.aur.commands import AurCommands, AurPacmanInterface
+from decman.plugins.aur.error import AurRPCError, PKGBUILDParseError
 
 
 def strip_dependency(dep: str) -> str:
@@ -91,7 +91,7 @@ class PackageInfo:
 
     # --- public API ---------------------------------------------------------
 
-    def foreign_dependencies(self, pacman: PacmanInterface) -> list[str]:
+    def foreign_dependencies(self, pacman: AurPacmanInterface) -> list[str]:
         """
         Returns a list of foreign dependencies of this package.
 
@@ -101,7 +101,7 @@ class PackageInfo:
         assert self._foreign_dependencies is not None
         return list(self._foreign_dependencies)
 
-    def foreign_make_dependencies(self, pacman: PacmanInterface) -> list[str]:
+    def foreign_make_dependencies(self, pacman: AurPacmanInterface) -> list[str]:
         """
         Returns a list of foreign make dependencies of this package.
 
@@ -111,7 +111,7 @@ class PackageInfo:
         assert self._foreign_make_dependencies is not None
         return list(self._foreign_make_dependencies)
 
-    def foreign_check_dependencies(self, pacman: PacmanInterface) -> list[str]:
+    def foreign_check_dependencies(self, pacman: AurPacmanInterface) -> list[str]:
         """
         Returns a list of foreign check dependencies of this package.
 
@@ -121,7 +121,7 @@ class PackageInfo:
         assert self._foreign_check_dependencies is not None
         return list(self._foreign_check_dependencies)
 
-    def native_dependencies(self, pacman: PacmanInterface) -> list[str]:
+    def native_dependencies(self, pacman: AurPacmanInterface) -> list[str]:
         """
         Returns a list of native dependencies of this package.
 
@@ -131,7 +131,7 @@ class PackageInfo:
         assert self._native_dependencies is not None
         return list(self._native_dependencies)
 
-    def native_make_dependencies(self, pacman: PacmanInterface) -> list[str]:
+    def native_make_dependencies(self, pacman: AurPacmanInterface) -> list[str]:
         """
         Returns a list of native make dependencies of this package.
 
@@ -141,7 +141,7 @@ class PackageInfo:
         assert self._native_make_dependencies is not None
         return list(self._native_make_dependencies)
 
-    def native_check_dependencies(self, pacman: PacmanInterface) -> list[str]:
+    def native_check_dependencies(self, pacman: AurPacmanInterface) -> list[str]:
         """
         Returns a list of native check dependencies of this package.
 
@@ -155,7 +155,7 @@ class PackageInfo:
 
     @staticmethod
     def _classify_dependencies(
-        deps: tuple[str, ...], pacman: PacmanInterface
+        deps: tuple[str, ...], pacman: AurPacmanInterface
     ) -> tuple[tuple[str, ...], tuple[str, ...]]:
         native: list[str] = []
         foreign: list[str] = []
@@ -169,7 +169,7 @@ class PackageInfo:
 
         return tuple(native), tuple(foreign)
 
-    def _ensure_dependencies_cached(self, pacman: PacmanInterface) -> None:
+    def _ensure_dependencies_cached(self, pacman: AurPacmanInterface) -> None:
         if self._native_dependencies is not None:
             return
 
@@ -177,7 +177,7 @@ class PackageInfo:
         object.__setattr__(self, "_native_dependencies", native)
         object.__setattr__(self, "_foreign_dependencies", foreign)
 
-    def _ensure_make_dependencies_cached(self, pacman: PacmanInterface) -> None:
+    def _ensure_make_dependencies_cached(self, pacman: AurPacmanInterface) -> None:
         if self._native_make_dependencies is not None:
             return
 
@@ -185,7 +185,7 @@ class PackageInfo:
         object.__setattr__(self, "_native_make_dependencies", native)
         object.__setattr__(self, "_foreign_make_dependencies", foreign)
 
-    def _ensure_check_dependencies_cached(self, pacman: PacmanInterface) -> None:
+    def _ensure_check_dependencies_cached(self, pacman: AurPacmanInterface) -> None:
         if self._native_check_dependencies is not None:
             return
 
@@ -224,7 +224,7 @@ class CustomPackage:
         self.git_url = git_url
         self.pkgbuild_directory = pkgbuild_directory
 
-    def parse(self, commands: PacmanCommands) -> PackageInfo:
+    def parse(self, commands: AurCommands) -> PackageInfo:
         """
         Parses this package's PKGBUILD to ``PackageInfo``.
 
@@ -256,7 +256,7 @@ class CustomPackage:
             f"CustomPackage(pkgname={self.pkgname}, pkgbuild_directory={self.pkgbuild_directory})"
         )
 
-    def _srcinfo_from_pkgbuild_directory(self, commands: PacmanCommands) -> str:
+    def _srcinfo_from_pkgbuild_directory(self, commands: AurCommands) -> str:
         assert self.pkgbuild_directory is not None, (
             "This will not get called if pkgbuild_directory is unset."
         )
@@ -276,7 +276,7 @@ class CustomPackage:
 
         return self._run_makepkg_printsrcinfo(path, commands)
 
-    def _srcinfo_from_git(self, commands: PacmanCommands) -> str:
+    def _srcinfo_from_git(self, commands: AurCommands) -> str:
         assert self.git_url is not None, "This will not get called if git_url is unset."
         with tempfile.TemporaryDirectory(prefix="decman-pkgbuild-") as tmpdir:
             tmp_path = pathlib.Path(tmpdir)
@@ -297,7 +297,7 @@ class CustomPackage:
 
             return self._run_makepkg_printsrcinfo(tmp_path, commands)
 
-    def _run_makepkg_printsrcinfo(self, path: pathlib.Path, commands: PacmanCommands) -> str:
+    def _run_makepkg_printsrcinfo(self, path: pathlib.Path, commands: AurCommands) -> str:
         orig_wd = os.getcwd()
         try:
             os.chdir(path)

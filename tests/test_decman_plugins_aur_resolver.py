@@ -1,7 +1,7 @@
 import pytest
 
-from decman.plugins.pacman.error import DependencyCycleError
-from decman.plugins.pacman.resolver import DepGraph, ForeignPackage
+from decman.plugins.aur.error import DependencyCycleError
+from decman.plugins.aur.resolver import DepGraph, ForeignPackage
 
 
 def test_add_dependency():
