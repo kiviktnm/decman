@@ -24,5 +24,4 @@ debug_output: bool = False
 quiet_output: bool = False
 color_output: bool = True
 
-pkg_cache_dir: str = "/var/cache/decman"
 module_on_disable_scripts_dir: str = "/var/lib/decman/scripts/"

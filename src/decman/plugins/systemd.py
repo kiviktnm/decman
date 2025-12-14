@@ -10,6 +10,8 @@ import decman.plugins as plugins
 def units(fn):
     """
     Annotate that this function returns a set of systemd unit names that should be enabled.
+
+    Return type of ``fn``: ``set[str]``
     """
     fn.__systemd__units__ = True
     return fn
@@ -19,6 +21,8 @@ def user_units(fn):
     """
     Annotate that this function returns a dict of users and systemd user unit names that should be
     enabled.
+
+    Return type of ``fn``: ``dict[str, set[str]]``
     """
     fn.__systemd__user__units__ = True
     return fn

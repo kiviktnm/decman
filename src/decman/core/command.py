@@ -32,12 +32,16 @@ def pty_run(
     user: None | str = None,
     env_overrides: None | dict[str, str] = None,
     mimic_login: bool = False,
+    pass_environment: bool = True,
 ) -> tuple[int, str]:
     """
     Runs a given command with the given arguments in a pseudo TTY. The command can be ran as
     the given user and environment variables can be overridden manually.
 
-    If mimic_login is True, will set the following environment variables according to the given
+    By default this will copy the current environment and pass it to the process. To prevent this
+    set ``pass_environment`` to ``False``.
+
+    If ``mimic_login`` is True, will set the following environment variables according to the given
     user's passwd file details. This only happens when user is set.
         - HOME
         - USER
@@ -57,9 +61,11 @@ def pty_run(
     if not sys.stdin.isatty():
         raise OSError(errno.ENOTTY, "Stdin is not a TTY.")
 
+    command[0] = shutil.which(command[0]) or command[0]
+
     output.print_debug(f"Running command '{shlex.join(command)}'")
 
-    env = _build_env(user=user, env_overrides=env_overrides, mimic_login=mimic_login)
+    env = _build_env(user, env_overrides, mimic_login, pass_environment)
 
     pid, master_fd = pty.fork()
     if pid == 0:
@@ -73,10 +79,14 @@ def run(
     user: None | str = None,
     env_overrides: None | dict[str, str] = None,
     mimic_login: bool = False,
+    pass_environment: bool = False,
 ) -> tuple[int, str]:
     """
     Runs a given command with the given arguments. The command can be ran as the given user and
     environment variables can be overridden manually.
+
+    By default this will copy the current environment and pass it to the process. To prevent this
+    set ``pass_environment`` to ``False``.
 
     If mimic_login is True, will set the following environment variables according to the given
     user's passwd file details. This only happens when user is set.
@@ -94,9 +104,11 @@ def run(
     if not command:
         return 0, ""
 
+    command[0] = shutil.which(command[0]) or command[0]
+
     output.print_debug(f"Running command '{shlex.join(command)}'")
 
-    env = _build_env(user=user, env_overrides=env_overrides, mimic_login=mimic_login)
+    env = _build_env(user, env_overrides, mimic_login, pass_environment)
     uid, gid = None, None
 
     if user:
@@ -136,8 +148,12 @@ def _build_env(
     user: None | str,
     env_overrides: None | dict[str, str],
     mimic_login: bool,
+    pass_environment: bool,
 ) -> dict[str, str]:
-    env = os.environ.copy()
+    env = {}
+
+    if pass_environment:
+        env = os.environ.copy()
 
     if mimic_login and user:
         pw = _get_passwd(user)
@@ -184,6 +200,7 @@ def _run_parent(master_fd: int, pid: int) -> tuple[int, str]:
 
     # Set PTY window size to match the current terminal size.
     # We accept that resizing the real terminal causes issues here, it doesn't need to be handeled
+    # TODO: No actually, it's better to do resizing
     rows, columns = shutil.get_terminal_size()
     winsz = struct.pack("HHHH", rows, columns, 0, 0)
     fcntl.ioctl(master_fd, termios.TIOCSWINSZ, winsz)
