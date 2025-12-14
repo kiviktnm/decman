@@ -22,12 +22,12 @@ __all__ = [
     "AUR",
     "AurCommands",
     "CustomPackage",
-    "aur_packages",
+    "packages",
     "custom_packages",
 ]
 
 
-def aur_packages(fn):
+def packages(fn):
     """
     Annotate that this function returns a set of AUR package names that should be installed.
 
@@ -51,10 +51,10 @@ class AUR(plugins.Plugin):
     """
     Plugin that manages additional pacman packages installed outside the pacman repos.
 
-    AUR packages are added directly to ``packages`` or declared by modules via ``@aur_packages``.
+    AUR packages are added directly to ``packages`` or declared by modules via ``@aur.packages``.
 
     Custom packages are added directly to ``custom_packages`` or declared by modules via
-    ``@custom_packages``.
+    ``@aur.custom_packages``.
     """
 
     NAME = "aur"

@@ -9,9 +9,10 @@ from decman.core.error import SourceError
 from decman.core.fs import Directory, File
 from decman.core.module import Module
 from decman.plugins import Plugin, available_plugins
-from decman.plugins.aur import AUR
 
 # Plugin types
+from decman.plugins.aur import AUR
+from decman.plugins.flatpak import Flatpak
 from decman.plugins.pacman import Pacman
 from decman.plugins.systemd import Systemd
 
@@ -44,6 +45,7 @@ execution_order: list[str] = [
 pacman: None | Pacman = None
 aur: None | AUR = None
 systemd: None | Systemd = None
+flatpak: None | Flatpak = None
 
 _pacman = plugins.get("pacman", None)
 if isinstance(_pacman, Pacman):
@@ -56,6 +58,10 @@ if isinstance(_aur, AUR):
 _systemd = plugins.get("systemd", None)
 if isinstance(_systemd, Systemd):
     systemd = _systemd
+
+_flatpak = plugins.get("flatpak", None)
+if isinstance(_flatpak, Flatpak):
+    flatpak = _flatpak
 
 
 def prg(

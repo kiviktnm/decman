@@ -79,7 +79,7 @@ def run(
     user: None | str = None,
     env_overrides: None | dict[str, str] = None,
     mimic_login: bool = False,
-    pass_environment: bool = False,
+    pass_environment: bool = True,
 ) -> tuple[int, str]:
     """
     Runs a given command with the given arguments. The command can be ran as the given user and

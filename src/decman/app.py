@@ -46,7 +46,7 @@ def main():
         help="don't run hook methods for modules",
     )
     parser.add_argument(
-        "--params", nargs="*", type=str, help="additional parameters passed to pluging"
+        "--params", nargs="*", type=str, help="additional parameters passed to plugins"
     )
 
     args = parser.parse_args()
