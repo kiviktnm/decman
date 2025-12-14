@@ -54,6 +54,28 @@ class PackageInfo:
     make_dependencies: tuple[str, ...] = dataclasses.field(default_factory=tuple)
     check_dependencies: tuple[str, ...] = dataclasses.field(default_factory=tuple)
 
+    # Caches (excluded from eq/hash)
+    _native_dependencies: tuple[str, ...] | None = dataclasses.field(
+        default=None, init=False, repr=False, compare=False
+    )
+    _foreign_dependencies: tuple[str, ...] | None = dataclasses.field(
+        default=None, init=False, repr=False, compare=False
+    )
+
+    _native_make_dependencies: tuple[str, ...] | None = dataclasses.field(
+        default=None, init=False, repr=False, compare=False
+    )
+    _foreign_make_dependencies: tuple[str, ...] | None = dataclasses.field(
+        default=None, init=False, repr=False, compare=False
+    )
+
+    _native_check_dependencies: tuple[str, ...] | None = dataclasses.field(
+        default=None, init=False, repr=False, compare=False
+    )
+    _foreign_check_dependencies: tuple[str, ...] | None = dataclasses.field(
+        default=None, init=False, repr=False, compare=False
+    )
+
     def __post_init__(self) -> None:
         if self.git_url is None and self.pkgbuild_directory is None:
             raise ValueError("Both git_url and pkgbuild_directory cannot be None.")
@@ -67,77 +89,109 @@ class PackageInfo:
         """
         return f"{self.pkgname}-{self.version}"
 
+    # --- public API ---------------------------------------------------------
+
     def foreign_dependencies(self, pacman: PacmanInterface) -> list[str]:
         """
         Returns a list of foreign dependencies of this package.
 
-        The dependencies are stripped of their version constrainst if there are any.
+        The dependencies are stripped of their version constraints if there are any.
         """
-        result = []
-        for dependency in self.dependencies:
-            if not pacman.is_installable(dependency):
-                result.append(strip_dependency(dependency))
-        return result
+        self._ensure_dependencies_cached(pacman)
+        assert self._foreign_dependencies is not None
+        return list(self._foreign_dependencies)
 
     def foreign_make_dependencies(self, pacman: PacmanInterface) -> list[str]:
         """
         Returns a list of foreign make dependencies of this package.
 
-        The dependencies are stripped of their version constrainst if there are any.
+        The dependencies are stripped of their version constraints if there are any.
         """
-        result = []
-        for dependency in self.make_dependencies:
-            if not pacman.is_installable(dependency):
-                result.append(strip_dependency(dependency))
-        return result
+        self._ensure_make_dependencies_cached(pacman)
+        assert self._foreign_make_dependencies is not None
+        return list(self._foreign_make_dependencies)
 
     def foreign_check_dependencies(self, pacman: PacmanInterface) -> list[str]:
         """
         Returns a list of foreign check dependencies of this package.
 
-        The dependencies are stripped of their version constrainst if there are any.
+        The dependencies are stripped of their version constraints if there are any.
         """
-        result = []
-        for dependency in self.check_dependencies:
-            if not pacman.is_installable(dependency):
-                result.append(strip_dependency(dependency))
-        return result
+        self._ensure_check_dependencies_cached(pacman)
+        assert self._foreign_check_dependencies is not None
+        return list(self._foreign_check_dependencies)
 
     def native_dependencies(self, pacman: PacmanInterface) -> list[str]:
         """
         Returns a list of native dependencies of this package.
 
-        The dependencies are stripped of their version constrainst if there are any.
+        The dependencies are stripped of their version constraints if there are any.
         """
-        result = []
-        for dependency in self.dependencies:
-            if pacman.is_installable(dependency):
-                result.append(strip_dependency(dependency))
-        return result
+        self._ensure_dependencies_cached(pacman)
+        assert self._native_dependencies is not None
+        return list(self._native_dependencies)
 
     def native_make_dependencies(self, pacman: PacmanInterface) -> list[str]:
         """
         Returns a list of native make dependencies of this package.
 
-        The dependencies are stripped of their version constrainst if there are any.
+        The dependencies are stripped of their version constraints if there are any.
         """
-        result = []
-        for dependency in self.make_dependencies:
-            if pacman.is_installable(dependency):
-                result.append(strip_dependency(dependency))
-        return result
+        self._ensure_make_dependencies_cached(pacman)
+        assert self._native_make_dependencies is not None
+        return list(self._native_make_dependencies)
 
     def native_check_dependencies(self, pacman: PacmanInterface) -> list[str]:
         """
         Returns a list of native check dependencies of this package.
 
-        The dependencies are stripped of their version constrainst if there are any.
+        The dependencies are stripped of their version constraints if there are any.
         """
-        result = []
-        for dependency in self.check_dependencies:
+        self._ensure_check_dependencies_cached(pacman)
+        assert self._native_check_dependencies is not None
+        return list(self._native_check_dependencies)
+
+    # --- internal helpers ---------------------------------------------------
+
+    @staticmethod
+    def _classify_dependencies(
+        deps: tuple[str, ...], pacman: PacmanInterface
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        native: list[str] = []
+        foreign: list[str] = []
+
+        for dependency in deps:
+            stripped = strip_dependency(dependency)
             if pacman.is_installable(dependency):
-                result.append(strip_dependency(dependency))
-        return result
+                native.append(stripped)
+            else:
+                foreign.append(stripped)
+
+        return tuple(native), tuple(foreign)
+
+    def _ensure_dependencies_cached(self, pacman: PacmanInterface) -> None:
+        if self._native_dependencies is not None:
+            return
+
+        native, foreign = self._classify_dependencies(self.dependencies, pacman)
+        object.__setattr__(self, "_native_dependencies", native)
+        object.__setattr__(self, "_foreign_dependencies", foreign)
+
+    def _ensure_make_dependencies_cached(self, pacman: PacmanInterface) -> None:
+        if self._native_make_dependencies is not None:
+            return
+
+        native, foreign = self._classify_dependencies(self.make_dependencies, pacman)
+        object.__setattr__(self, "_native_make_dependencies", native)
+        object.__setattr__(self, "_foreign_make_dependencies", foreign)
+
+    def _ensure_check_dependencies_cached(self, pacman: PacmanInterface) -> None:
+        if self._native_check_dependencies is not None:
+            return
+
+        native, foreign = self._classify_dependencies(self.check_dependencies, pacman)
+        object.__setattr__(self, "_native_check_dependencies", native)
+        object.__setattr__(self, "_foreign_check_dependencies", foreign)
 
 
 class CustomPackage:
