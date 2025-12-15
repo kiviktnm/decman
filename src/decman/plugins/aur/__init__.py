@@ -98,18 +98,19 @@ class AUR(plugins.Plugin):
             custom_packages = (
                 plugins.run_method_with_attribute(mod, "__custom__packages__") or set()
             )
+            custom_package_strs = set(map(str, custom_packages))
 
             if store["aur_packages_for_module"][mod.name] != aur_packages:
                 mod._changed = True
 
-            if store["custom_packages_for_module"][mod.name] != custom_packages:
+            if store["custom_packages_for_module"][mod.name] != custom_package_strs:
                 mod._changed = True
 
             self.packages |= aur_packages
             self.custom_packages |= custom_packages
 
             store["aur_packages_for_module"][mod.name] = aur_packages
-            store["custom_packages_for_module"][mod.name] = custom_packages
+            store["custom_packages_for_module"][mod.name] = custom_package_strs
 
     def apply(
         self, store: _store.Store, dry_run: bool = False, params: list[str] | None = None

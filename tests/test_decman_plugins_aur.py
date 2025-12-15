@@ -66,8 +66,8 @@ def test_process_modules_collects_aur_and_custom_packages_and_marks_changed(
     # stored per-module
     assert store["aur_packages_for_module"]["mod1"] == {"aur1", "aur2"}
     assert store["aur_packages_for_module"]["mod2"] == {"aur3"}
-    assert store["custom_packages_for_module"]["mod1"] == {cp1}
-    assert store["custom_packages_for_module"]["mod2"] == {cp2}
+    assert store["custom_packages_for_module"]["mod1"] == {str(cp1)}
+    assert store["custom_packages_for_module"]["mod2"] == {str(cp2)}
 
     # first run: modules marked changed
     assert mod1._changed is True

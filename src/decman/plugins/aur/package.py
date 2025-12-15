@@ -213,7 +213,9 @@ class CustomPackage:
             Path to the directory containing the PKGBUILD.
     """
 
-    def __init__(self, pkgname: str, git_url: str | None, pkgbuild_directory: str | None) -> None:
+    def __init__(
+        self, pkgname: str, git_url: str | None = None, pkgbuild_directory: str | None = None
+    ) -> None:
         if git_url is None and pkgbuild_directory is None:
             raise ValueError("Both git_url and pkgbuild_directory cannot be None.")
 

@@ -74,8 +74,8 @@ class Systemd(plugins.Plugin):
     NAME = "systemd"
 
     def __init__(self) -> None:
-        self.enabled_systemd_units: set[str] = set()
-        self.enabled_systemd_user_units: dict[str, set[str]] = {}
+        self.enabled_units: set[str] = set()
+        self.enabled_user_units: dict[str, set[str]] = {}
         self.commands = SystemdCommands()
 
     def available(self) -> bool:
@@ -100,9 +100,9 @@ class Systemd(plugins.Plugin):
             if store["systemd_user_units_for_module"][mod.name] != user_units:
                 mod._changed = True
 
-            self.enabled_systemd_units |= units
+            self.enabled_units |= units
             for user, u_units in user_units.items():
-                self.enabled_systemd_user_units.setdefault(user, set()).update(u_units)
+                self.enabled_user_units.setdefault(user, set()).update(u_units)
 
             store["systemd_units_for_module"][mod.name] = units
             store["systemd_user_units_for_module"][mod.name] = user_units
@@ -118,15 +118,15 @@ class Systemd(plugins.Plugin):
         user_units_to_enable: dict[str, set[str]] = {}
         user_units_to_disable: dict[str, set[str]] = {}
 
-        for unit in self.enabled_systemd_units:
+        for unit in self.enabled_units:
             if unit not in store["systemd_units"]:
                 units_to_enable.add(unit)
 
         for unit in store["systemd_units"]:
-            if unit not in self.enabled_systemd_units:
+            if unit not in self.enabled_units:
                 units_to_disable.add(unit)
 
-        for user, units in self.enabled_systemd_user_units.items():
+        for user, units in self.enabled_user_units.items():
             store["systemd_user_units"].setdefault(user, set())
             user_units_to_enable.setdefault(user, set())
 
@@ -135,11 +135,11 @@ class Systemd(plugins.Plugin):
                     user_units_to_enable[user].add(unit)
 
         for user, units in store["systemd_user_units"].items():
-            self.enabled_systemd_user_units.setdefault(user, set())
+            self.enabled_user_units.setdefault(user, set())
             user_units_to_disable.setdefault(user, set())
 
             for unit in units:
-                if unit not in self.enabled_systemd_user_units[user]:
+                if unit not in self.enabled_user_units[user]:
                     user_units_to_disable[user].add(unit)
 
         output.print_info("Reloading systemd daemon.")

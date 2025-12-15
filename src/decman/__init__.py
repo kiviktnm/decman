@@ -8,6 +8,7 @@ import decman.core.output as output
 from decman.core.error import SourceError
 from decman.core.fs import Directory, File
 from decman.core.module import Module
+from decman.core.store import Store
 from decman.plugins import Plugin, available_plugins
 
 # Plugin types
@@ -21,6 +22,7 @@ __all__ = [
     "File",
     "Directory",
     "Module",
+    "Store",
     "Plugin",
     "prg",
     "sh",
@@ -37,7 +39,6 @@ execution_order: list[str] = [
     "files",
     "pacman",
     "aur",
-    "flatpak",
     "systemd",
 ]
 

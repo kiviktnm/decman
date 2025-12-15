@@ -81,8 +81,8 @@ def test_process_modules_marks_changed_and_updates_store(monkeypatch, store, sys
     assert m2._changed is False
 
     # enabled units aggregated
-    assert systemd.enabled_systemd_units == {"a.service"}
-    assert systemd.enabled_systemd_user_units == {"alice": {"u1.service"}}
+    assert systemd.enabled_units == {"a.service"}
+    assert systemd.enabled_user_units == {"alice": {"u1.service"}}
 
     # store updated per module
     assert store["systemd_units_for_module"]["mod1"] == {"a.service"}
@@ -121,8 +121,8 @@ def test_apply_enables_and_disables_units_and_user_units(store):
     s = systemd_mod.Systemd()
 
     # Current enabled according to modules
-    s.enabled_systemd_units = {"new.service"}
-    s.enabled_systemd_user_units = {"alice": {"newuser.service"}}
+    s.enabled_units = {"new.service"}
+    s.enabled_user_units = {"alice": {"newuser.service"}}
 
     # Store says we had an old unit enabled before
     store["systemd_units"] = {"old.service"}
@@ -186,8 +186,8 @@ def test_apply_enables_and_disables_units_and_user_units(store):
 
 def test_apply_dry_run_does_not_mutate_store_or_call_commands(store):
     s = systemd_mod.Systemd()
-    s.enabled_systemd_units = {"new.service"}
-    s.enabled_systemd_user_units = {"alice": {"newuser.service"}}
+    s.enabled_units = {"new.service"}
+    s.enabled_user_units = {"alice": {"newuser.service"}}
 
     store["systemd_units"] = {"old.service"}
     store["systemd_user_units"] = {"alice": {"olduser.service"}}

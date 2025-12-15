@@ -46,10 +46,23 @@ def main():
         help="don't run hook methods for modules",
     )
     parser.add_argument(
+        "--no-color",
+        action="store_true",
+        default=False,
+        help="don't print messages with color",
+    )
+    parser.add_argument(
         "--params", nargs="*", type=str, help="additional parameters passed to plugins"
     )
 
     args = parser.parse_args()
+
+    conf.debug_output = args.debug
+
+    if args.no_color:
+        conf.color_output = False
+    else:
+        conf.color_output = output.has_ansi_support()
 
     if os.getuid() != 0:
         output.print_error("Not running as root. Please run decman as root.")

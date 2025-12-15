@@ -3,9 +3,6 @@ class SourceError(Exception):
     Error raised manually from the user's source.
     """
 
-    def __init__(self, message):
-        super().__init__(message)
-
 
 class FSInstallationFailedError(Exception):
     """
