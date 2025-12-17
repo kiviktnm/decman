@@ -100,7 +100,8 @@ decman.user_packages.append(
 User packages were renamed to custom packages. Sets are used instead of lists. PKGBUILDs are now parsed by decman so defining them is simpler. They are managed by the aur plugin.
 
 ```py
-decman.aur.custom_packages |= {CustomPackage("decman", git_url="https://github.com/kiviktnm/decman-pkgbuild.git")}
+from decman.plugins import aur
+decman.aur.custom_packages |= {aur.CustomPackage("decman", git_url="https://github.com/kiviktnm/decman-pkgbuild.git")}
 ```
 
 ### Systemd services
@@ -118,7 +119,7 @@ Units are now defined with the plugin. Sets are used instead of lists.
 
 ```py
 decman.systemd.enabled_units |= {"NetworkManager.service"}
-decman.systemd.enabled_user_units.setdefault("user", set()).update({"syncthing.service"})
+decman.systemd.enabled_user_units.setdefault("user", set()).add("syncthing.service")
 ```
 
 ### Flatpaks
@@ -223,13 +224,15 @@ class MyModule(Module):
 
 `decman.modules` is now a set instead of a list. If you wish to have multiple instances of the same module class, just name them differently. Name needs to be unique accross modules.
 
-Modules no longer have `version`s or `enabled` values. A module is enabled when it gets added to `decman.modules` and disabled when it gets removed from `decman.modules`. Versions are no longer needed because `after_version_change` has been removed and `on_change` has been added. `on_change` is executed automatically after the content of the module changes.
+Modules no longer have `version`s or `enabled` values. A module is enabled when it gets added to `decman.modules` and disabled when it gets removed from `decman.modules`. Versions are no longer needed because `after_version_change` has been removed and `on_change` has been added. `on_change` is executed automatically after the content of the module changes. `on_disable` will be executed automatically when the module is removed from `decman.modules`. It is no longer a instance method. Instead it must be a self-contained method with no references outside it. Not even imports.
 
-Files and directories work the same way as before. Pacman, aur and flatpak packages as well as systemd units have been changed.
+Module methods will get a `Store` instance passed to them as an argument. It can be used to store key-value pairs between decman runs.
+
+Files and directories work the same way as before. Pacman, aur and flatpak packages as well as systemd units have been changed. You'll no longer override methods on the `Module`-class. Instead you'll decorate any method with the appropriate decorator and return desired values from that method.
 
 ```py
 import decman
-from decman import Module, prg, sh
+from decman import Module, Store, prg, sh
 from decman.plugins import pacman, aur, systemd, flatpak
 
 decman.modules |= {MyModule()}
@@ -245,19 +248,22 @@ class MyModule(Module):
             self.pkgs = {"rustup"}
             self.update_rustup = True
 
-    def on_enable(self):
+    def on_enable(self, store: Store):
         sh("groupadd mygroup")
         prg(["usermod", "--append", "--groups", "mygroup", "kk"])
+        store["value"] = True
 
-    def on_disable(self):
+    @staticmethod
+    def on_disable():
+        from decman import sh
         sh("whoami", user="kk")
         sh("echo $HI", env_overrides={"HI": "Hello!"})
 
-    def after_update(self):
+    def after_update(self, store: Store):
         if self.update_rustup:
             prg(["rustup", "update"], user="kk")
 
-    def on_change(self):
+    def on_change(self, store: Store):
         prg(["mkinitcpio", "-P"])
 
     def file_variables(self) -> dict[str, str]:
