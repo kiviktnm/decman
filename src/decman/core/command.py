@@ -6,6 +6,7 @@ import pwd
 import select
 import shlex
 import shutil
+import signal
 import struct
 import subprocess
 import sys
@@ -151,6 +152,10 @@ def _build_env(
     pass_environment: bool,
 ) -> dict[str, str]:
     env = {}
+    output.print_debug(
+        f"Command environment is: user={user}, env_overrides={env_overrides},"
+        f"mimic_login={mimic_login}, pass_environment={pass_environment}"
+    )
 
     if pass_environment:
         env = os.environ.copy()
@@ -198,18 +203,30 @@ def _run_parent(master_fd: int, pid: int) -> tuple[int, str]:
     old_tattr = termios.tcgetattr(stdin_fd)
     tty.setraw(stdin_fd)
 
+    # Helper function to set PTY window size to the current terminal size
+    def resize_pty(*args):
+        try:
+            rows, cols = shutil.get_terminal_size()
+            winsz = struct.pack("HHHH", rows, cols, 0, 0)
+            fcntl.ioctl(master_fd, termios.TIOCSWINSZ, winsz)
+        except OSError:
+            # In case the child has exited before the signal handled was de-registered
+            pass
+
     # Set PTY window size to match the current terminal size.
-    # We accept that resizing the real terminal causes issues here, it doesn't need to be handeled
-    # TODO: No actually, it's better to do resizing
-    rows, columns = shutil.get_terminal_size()
-    winsz = struct.pack("HHHH", rows, columns, 0, 0)
-    fcntl.ioctl(master_fd, termios.TIOCSWINSZ, winsz)
+    resize_pty()
+
+    # Handle terminal resizes automatically
+    old_winch = signal.getsignal(signal.SIGWINCH)
+    signal.signal(signal.SIGWINCH, resize_pty)
 
     try:
         output_bytes = _relay_pty(master_fd, stdin_fd, stdout_fd)
     finally:
         # Restore stdin termios attributes.
         termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_tattr)
+        # Restore previous handler
+        signal.signal(signal.SIGWINCH, old_winch)
         os.close(master_fd)
 
     _, status = os.waitpid(pid, 0)

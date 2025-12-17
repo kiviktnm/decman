@@ -102,9 +102,15 @@ class AUR(plugins.Plugin):
 
             if store["aur_packages_for_module"][mod.name] != aur_packages:
                 mod._changed = True
+                output.print_debug(
+                    f"Module '{mod.name}' set to changed due to modified aur packages."
+                )
 
             if store["custom_packages_for_module"][mod.name] != custom_package_strs:
                 mod._changed = True
+                output.print_debug(
+                    f"Module '{mod.name}' set to changed due to modified custom packages."
+                )
 
             self.packages |= aur_packages
             self.custom_packages |= custom_packages
@@ -124,8 +130,10 @@ class AUR(plugins.Plugin):
             try:
                 os.makedirs(pkg_cache_dir, exist_ok=True)
             except OSError as error:
-                output.print_error("Failed to ensure AUR package cache directory exists.")
-                output.print_continuation(f"{error.strerror or error}")
+                output.print_error(
+                    "Failed to ensure AUR package cache directory exists: "
+                    f"{error.strerror or error}"
+                )
                 output.print_traceback()
 
                 return False
@@ -202,27 +210,27 @@ class AUR(plugins.Plugin):
                 fpm.install(list(to_install), force=force)
         except AurRPCError as error:
             output.print_error("Failed to fetch data from AUR RPC.")
-            output.print_continuation(f"{error}")
+            output.print_error(str(error))
             output.print_traceback()
             return False
         except DependencyCycleError as error:
             output.print_error("Foreign package dependency cycle detected.")
-            output.print_continuation(f"{error}")
+            output.print_error(str(error))
             output.print_traceback()
             return False
         except PKGBUILDParseError as error:
             output.print_error("Failed to parse a CustomPackage PKGBUILD.")
-            output.print_continuation(f"{error}")
+            output.print_error(str(error))
             output.print_traceback()
             return False
         except ForeignPackageManagerError as error:
             output.print_error("Foreign package manager failed.")
-            output.print_continuation(f"{error}")
+            output.print_error(str(error))
             output.print_traceback()
             return False
         except errors.CommandFailedError as error:
-            output.print_error("Running a command failed.")
-            output.print_continuation(f"{error}")
+            output.print_error("Running a AUR command failed.")
+            output.print_error(str(error))
             output.print_traceback()
             return False
 

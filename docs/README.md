@@ -523,7 +523,7 @@ decman.sh(
 
 ### Errors
 
-When your source needs to raise an error, decman provides `SourceError`s. These are the errors that should be raised when decman runs your `source.py` file.
+When your source needs to raise an error, decman provides `SourceError`s. Running commands with `prg` and `sh` may raise `decman.core.error.CommandFailedError`s if `check` is set to `True`. These are the errors that should be raised when decman runs your `source.py` file.
 
 ```py
 import decman

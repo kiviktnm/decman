@@ -46,6 +46,8 @@ def update_files(
     all_changed_files = []
     store.ensure("all_files", [])
 
+    output.print_summary("Updating files.")
+
     try:
         output.print_debug("Applying common files.")
         checked, changed = _install_files(files, dry_run=dry_run)
@@ -80,8 +82,8 @@ def update_files(
 
             if len(module_changed_files) > 0:
                 output.print_debug(
-                    f"Module '{mod.name}' set to changed due to modified \
-                    files: {', '.join(module_changed_files)}"
+                    f"Module '{mod.name}' set to changed due to modified "
+                    f"files: '{"', '".join(module_changed_files)}'."
                 )
                 mod._changed = True
             all_changed_files += module_changed_files
@@ -96,7 +98,6 @@ def update_files(
             to_remove.append(file)
 
     output.print_list("Updated files:", all_changed_files, elements_per_line=1)
-    output.print_list("Removing files:", to_remove, elements_per_line=1)
 
     if not dry_run:
         for file in to_remove:
@@ -105,6 +106,8 @@ def update_files(
             except OSError as error:
                 output.print_warning(f"Failed to remove file: '{file}': {error.strerror}.")
         store["all_files"] = all_checked_files
+
+    output.print_list("Removed files:", to_remove, elements_per_line=1)
 
     return True
 

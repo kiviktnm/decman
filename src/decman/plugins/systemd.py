@@ -1,6 +1,7 @@
 import shutil
 
 import decman.core.command as command
+import decman.core.error as errors
 import decman.core.module as module
 import decman.core.output as output
 import decman.core.store as _store
@@ -96,9 +97,15 @@ class Systemd(plugins.Plugin):
 
             if store["systemd_units_for_module"][mod.name] != units:
                 mod._changed = True
+                output.print_debug(
+                    f"Module '{mod.name}' set to changed due to modified systemd units."
+                )
 
             if store["systemd_user_units_for_module"][mod.name] != user_units:
                 mod._changed = True
+                output.print_debug(
+                    f"Module '{mod.name}' set to changed due to modified systemd user units."
+                )
 
             self.enabled_units |= units
             for user, u_units in user_units.items():
@@ -142,159 +149,102 @@ class Systemd(plugins.Plugin):
                 if unit not in self.enabled_user_units[user]:
                     user_units_to_disable[user].add(unit)
 
-        output.print_info("Reloading systemd daemon.")
-        if not dry_run:
-            if not self.reload_daemon():
-                return False
-
-        output.print_info("Reloading systemd daemon for users.")
-        if not dry_run:
-            for user in user_units_to_enable.keys() | user_units_to_disable.keys():
-                if not self.reload_user_daemon(user):
-                    return False
-
-        output.print_list("Enabling systemd units:", list(units_to_enable))
-        if not dry_run:
-            if not self.enable_units(store, units_to_enable):
-                return False
-
-        output.print_list("Disabling systemd units:", list(units_to_disable))
-        if not dry_run:
-            if not self.disable_units(store, units_to_disable):
-                return False
-
-        for user, units in user_units_to_enable.items():
-            output.print_list(f"Enabling systemd units for {user}:", list(units))
+        try:
+            output.print_info("Reloading systemd daemon.")
             if not dry_run:
-                if not self.enable_user_units(store, units, user):
-                    return False
+                self.reload_daemon()
 
-        for user, units in user_units_to_disable.items():
-            output.print_list(f"Disabling systemd units for {user}:", list(units))
+            output.print_info("Reloading systemd daemon for users.")
             if not dry_run:
-                if not self.disable_user_units(store, units, user):
-                    return False
+                for user in user_units_to_enable.keys() | user_units_to_disable.keys():
+                    self.reload_user_daemon(user)
 
+            output.print_list("Enabling systemd units:", list(units_to_enable))
+            if not dry_run:
+                self.enable_units(store, units_to_enable)
+
+            output.print_list("Disabling systemd units:", list(units_to_disable))
+            if not dry_run:
+                self.disable_units(store, units_to_disable)
+
+            for user, units in user_units_to_enable.items():
+                output.print_list(f"Enabling systemd units for {user}:", list(units))
+                if not dry_run:
+                    self.enable_user_units(store, units, user)
+
+            for user, units in user_units_to_disable.items():
+                output.print_list(f"Disabling systemd units for {user}:", list(units))
+                if not dry_run:
+                    self.disable_user_units(store, units, user)
+        except errors.CommandFailedError as error:
+            output.print_error("Running a systemd command failed.")
+            output.print_error(str(error))
+            output.print_traceback()
+            return False
         return True
 
-    def enable_units(self, store: _store.Store, units: set[str]) -> bool:
+    def enable_units(self, store: _store.Store, units: set[str]):
         """
         Enables the given units.
-
-        Returns ``True`` if the operation was successful.
         """
         if not units:
-            return True
+            return
 
-        code, text = command.run(self.commands.enable_units(units))
-        output.print_command_output(text)
-        if code != 0:
-            output.print_error(f"Failed to enable systemd units '{' '.join(units)}'.")
-            output.print_error(f"Command exited with code: {code}")
-            output.print_error(f"{text}")
-            return False
+        cmd = self.commands.enable_units(units)
+        command.check_run_result(cmd, command.run(cmd))
 
         store["systemd_units"] |= units
 
-        return True
-
-    def disable_units(self, store: _store.Store, units: set[str]) -> bool:
+    def disable_units(self, store: _store.Store, units: set[str]):
         """
         Disables the given units.
-
-        Returns ``True`` if the operation was successful.
         """
         if not units:
-            return True
+            return
 
-        code, text = command.run(self.commands.disable_units(units))
-        output.print_command_output(text)
-        if code != 0:
-            output.print_error(f"Failed to disable systemd units '{' '.join(units)}'.")
-            output.print_error(f"Command exited with code: {code}")
-            output.print_error(f"{text}")
-            return False
+        cmd = self.commands.disable_units(units)
+        command.check_run_result(cmd, command.run(cmd))
 
         store["systemd_units"] -= units
 
-        return True
-
-    def enable_user_units(self, store: _store.Store, units: set[str], user: str) -> bool:
+    def enable_user_units(self, store: _store.Store, units: set[str], user: str):
         """
         Enables the given units for the given user.
-
-        Returns ``True`` if the operation was successful.
         """
         if not units:
-            return True
+            return
 
-        code, text = command.run(self.commands.enable_user_units(units, user))
-        output.print_command_output(text)
-        if code != 0:
-            output.print_error(
-                f"Failed to enable systemd units '{' '.join(units)}' for user {user}."
-            )
-            output.print_error(f"Command exited with code: {code}")
-            output.print_error(f"{text}")
-            return False
+        cmd = self.commands.enable_user_units(units, user)
+        command.check_run_result(cmd, command.run(cmd))
 
         store["systemd_user_units"].setdefault(user, set())
         store["systemd_user_units"][user] |= units
 
-        return True
-
-    def disable_user_units(self, store: _store.Store, units: set[str], user: str) -> bool:
+    def disable_user_units(self, store: _store.Store, units: set[str], user: str):
         """
         Disables the given units for the given user.
-
-        Returns ``True`` if the operation was successful.
         """
         if not units:
-            return True
+            return
 
-        code, text = command.run(self.commands.disable_user_units(units, user))
-        output.print_command_output(text)
-        if code != 0:
-            output.print_error(
-                f"Failed to disable systemd units '{' '.join(units)}' for user {user}."
-            )
-            output.print_error(f"Command exited with code: {code}")
-            output.print_error(f"{text}")
-            return False
+        cmd = self.commands.disable_user_units(units, user)
+        command.check_run_result(cmd, command.run(cmd))
 
         store["systemd_user_units"].setdefault(user, set())
         store["systemd_user_units"][user] -= units
 
-        return True
-
-    def reload_user_daemon(self, user: str) -> bool:
+    def reload_user_daemon(self, user: str):
         """
         Reloads the user's systemd daemon.
-
-        Returns ``True`` if the operation was successful.
         """
 
-        code, text = command.run(self.commands.user_daemon_reload(user))
-        output.print_command_output(text)
-        if code != 0:
-            output.print_error(f"Failed to reload systemd daemon for {user}.")
-            output.print_error(f"Command exited with code: {code}")
-            output.print_error(f"{text}")
-            return False
-        return True
+        cmd = self.commands.user_daemon_reload(user)
+        _, text = command.check_run_result(cmd, command.run(cmd))
 
-    def reload_daemon(self) -> bool:
+    def reload_daemon(self):
         """
         Reloads the systemd daemon.
-
-        Returns ``True`` if the operation was successful.
         """
 
-        code, text = command.run(self.commands.daemon_reload())
-        output.print_command_output(text)
-        if code != 0:
-            output.print_error("Failed to reload systemd daemon.")
-            output.print_error(f"Command exited with code: {code}")
-            output.print_error(f"{text}")
-            return False
-        return True
+        cmd = self.commands.daemon_reload()
+        command.check_run_result(cmd, command.run(cmd))

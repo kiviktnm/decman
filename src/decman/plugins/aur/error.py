@@ -11,9 +11,9 @@ class DependencyCycleError(Exception):
 
     def __init__(self, package1: str, package2: str):
         super().__init__(
-            f"Foreign package dependency cycle detected involving '{package1}' \
-            and '{package2}'. Foreign package dependencies are also required \
-            during package building and therefore dependency cycles cannot be handled."
+            f"Foreign package dependency cycle detected involving '{package1}' "
+            f"and '{package2}'. Foreign package dependencies are also required "
+            "during package building and therefore dependency cycles cannot be handled."
         )
 
 

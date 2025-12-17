@@ -63,9 +63,15 @@ class Flatpak(plugins.Plugin):
 
             if store["flatpaks_for_module"][mod.name] != packages:
                 mod._changed = True
+                output.print_debug(
+                    f"Module '{mod.name}' set to changed due to modified system flatpaks."
+                )
 
             if store["user_flatpaks_for_module"][mod.name] != user_packages:
                 mod._changed = True
+                output.print_debug(
+                    f"Module '{mod.name}' set to changed due to modified user flatpaks."
+                )
 
             self.packages |= packages
             for user, flatpaks in user_packages.items():
@@ -86,7 +92,7 @@ class Flatpak(plugins.Plugin):
                 self.apply_packages(pm, user, packages, self.ignored_packages, dry_run)
         except errors.CommandFailedError as error:
             output.print_error("Running a flatpak command failed.")
-            output.print_continuation(f"{error}")
+            output.print_error(str(error))
             output.print_traceback()
             return False
         return True

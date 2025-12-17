@@ -284,19 +284,15 @@ def test_apply_returns_false_on_aur_rpc_error(monkeypatch: pytest.MonkeyPatch) -
     def fake_print_error(msg: str) -> None:
         errors_logged.append(msg)
 
-    def fake_print_continuation(msg: str) -> None:
-        continuations.append(msg)
-
     def fake_print_traceback() -> None:
         traceback_called.append(True)
 
     monkeypatch.setattr(aur_plugin.output, "print_error", fake_print_error)
-    monkeypatch.setattr(aur_plugin.output, "print_continuation", fake_print_continuation)
     monkeypatch.setattr(aur_plugin.output, "print_traceback", fake_print_traceback)
 
     ok = aur.apply(store, dry_run=False)
 
     assert ok is False
     assert any("AUR RPC" in msg or "fetch data from AUR RPC" in msg for msg in errors_logged)
-    assert any("RPC down" in msg for msg in continuations)
+    assert any("RPC down" in msg for msg in errors_logged)
     assert traceback_called

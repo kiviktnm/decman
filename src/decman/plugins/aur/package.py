@@ -422,8 +422,8 @@ class CustomPackage:
             raise PKGBUILDParseError(
                 self.git_url,
                 self.pkgbuild_directory,
-                f"Package {self.pkgname} not found in SRCINFO.\
-                Packages present: {' '.join(found_pkgnames)}.",
+                f"Package {self.pkgname} not found in SRCINFO. "
+                f"Packages present: {' '.join(found_pkgnames)}.",
             )
 
         version_core = pkgver

@@ -54,8 +54,8 @@ def add_package_to_cache(store: _store.Store, package: str, version: str, path_t
     for _, already_cached_path, __ in entries:
         if already_cached_path == path_to_built_pkg:
             output.print_debug(
-                f"Trying to cache {package} version {version}, but the version is already cached:\
-                {already_cached_path}"
+                f"Trying to cache {package} version {version}, but the version is already cached: "
+                f"{already_cached_path}"
             )
             return
     entries.append(new_entry)
@@ -97,8 +97,8 @@ def clean_package_cache(store: _store.Store, package: str):
             os.remove(oldest_path)
         except OSError as e:
             output.print_error(f"Failed to remove file '{oldest_path}' from the package cache.")
-            output.print_error(f"{e.strerror or e}")
-            output.print_continuation("You'll have to remove the file manually.")
+            output.print_error(e.strerror or str(e))
+            output.print_error("You'll have to remove the file manually.")
 
     store["package_file_cache"][package] = entries
 
@@ -206,7 +206,7 @@ class ForeignPackageManager:
         if ignored_pkgs is None:
             ignored_pkgs = set()
 
-        output.print_summary("Determining foreign packages to upgrade.")
+        output.print_info("Determining foreign packages to upgrade.")
 
         all_foreign_pkgs = self._pacman.get_versioned_foreign_packages()
         all_explicit_foreign_pkgs = set(self._pacman.get_foreign_explicit())
@@ -258,25 +258,22 @@ class ForeignPackageManager:
 
         output.print_list(
             "The following foreign packages will be installed explicitly:",
-            list(resolved_dependencies.foreign_pkgs),
-            level=output.SUMMARY,
+            sorted(resolved_dependencies.foreign_pkgs),
         )
 
         output.print_list(
             "The following foreign packages will be installed as dependencies:",
-            list(resolved_dependencies.foreign_dep_pkgs),
-            level=output.SUMMARY,
+            sorted(resolved_dependencies.foreign_dep_pkgs),
         )
 
         output.print_list(
-            "The following foreign packages will be built in order to install other packages.\
-            They will not be installed:",
-            list(resolved_dependencies.foreign_build_dep_pkgs),
-            level=output.SUMMARY,
+            "The following foreign packages will be built in order to install other packages. "
+            "They will not be installed:",
+            sorted(resolved_dependencies.foreign_build_dep_pkgs),
         )
 
         if not output.prompt_confirm("Proceed?", default=True):
-            raise ForeignPackageManagerError("Installing aborted.")
+            raise ForeignPackageManagerError("Installing aborted by the user.")
 
         output.print_summary("Installing foreign package dependencies from pacman.")
         self._pacman.install_dependencies(resolved_dependencies.pacman_deps)
@@ -438,8 +435,8 @@ class ForeignPackageManager:
             should_upgrade = int(vercmp_output) < 0
 
             output.print_debug(
-                f"Installed version is: {installed_version}. \
-                Available version is {fetched_version}. Should upgrade: {should_upgrade}"
+                f"Installed version is: {installed_version}. "
+                f"Available version is {fetched_version}. Should upgrade: {should_upgrade}."
             )
             return should_upgrade
         except (ValueError, errors.CommandFailedError) as error:
@@ -538,8 +535,8 @@ class PackageBuilder:
             )
 
             assert pkgbase_info is not None, (
-                "All dependencies and packages should be resolved \
-                during the creation of ResolvedDependencies."
+                "All dependencies and packages should be resolved "
+                "during the creation of ResolvedDependencies."
             )
 
             output.print_debug(f"Git URL for '{pkgbase}' is '{pkgbase_info.git_url}'")
@@ -710,8 +707,8 @@ class PackageBuilder:
         for foreign_pkg in chroot_foreign_pkgs:
             entry = find_latest_cached_package(self._store, foreign_pkg)
             assert entry is not None, (
-                "Build order determines that the dependencies are built \
-before and thus are found in the cache."
+                "Build order determines that the dependencies are built "
+                "before and thus are found in the cache."
             )
 
             _, file = entry
@@ -739,8 +736,8 @@ before and thus are found in the cache."
 
         if len(matches) != 1:
             raise ForeignPackageManagerError(
-                f"Failed to build package '{pkgname}', because the pkg file cannot be determined.\
-                Possible files are: {matches}"
+                f"Failed to build package '{pkgname}', because the pkg file cannot be determined. "
+                f"Possible files are: {matches}"
             )
 
         return matches[0]

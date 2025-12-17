@@ -54,6 +54,9 @@ class Pacman(plugins.Plugin):
 
             if store["packages_for_module"][mod.name] != packages:
                 mod._changed = True
+                output.print_debug(
+                    f"Module '{mod.name}' set to changed due to modified pacman packages."
+                )
 
             self.packages |= packages
 
@@ -107,7 +110,7 @@ class Pacman(plugins.Plugin):
                 pm.install(to_install)
         except errors.CommandFailedError as error:
             output.print_error("Running a pacman command failed.")
-            output.print_continuation(f"{error}")
+            output.print_error(str(error))
             output.print_traceback()
             return False
         return True

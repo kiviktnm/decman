@@ -188,21 +188,17 @@ def test_apply_returns_false_on_command_failure(monkeypatch: pytest.MonkeyPatch)
     def fake_print_error(msg: str) -> None:
         errors_logged.append(msg)
 
-    def fake_print_continuation(msg: str) -> None:
-        continuations.append(msg)
-
     def fake_print_traceback() -> None:
         traceback_called.append(True)
 
     monkeypatch.setattr(pacman_plugin.output, "print_error", fake_print_error)
-    monkeypatch.setattr(pacman_plugin.output, "print_continuation", fake_print_continuation)
     monkeypatch.setattr(pacman_plugin.output, "print_traceback", fake_print_traceback)
 
     ok = pacman.apply(store, dry_run=False)
 
     assert ok is False
     assert any("pacman command failed" in msg for msg in errors_logged)
-    assert any("boom" in msg for msg in continuations)
+    assert any("boom" in msg for msg in errors_logged)
     assert traceback_called  # at least once
 
 

@@ -132,31 +132,25 @@ def test_apply_enables_and_disables_units_and_user_units(store):
 
     def fake_reload_daemon():
         calls.append(("reload_daemon",))
-        return True
 
     def fake_reload_user_daemon(user):
         calls.append(("reload_user_daemon", user))
-        return True
 
     def fake_enable_units(store_arg, units_arg):
         calls.append(("enable_units", frozenset(units_arg)))
         store_arg["systemd_units"] |= units_arg
-        return True
 
     def fake_disable_units(store_arg, units_arg):
         calls.append(("disable_units", frozenset(units_arg)))
         store_arg["systemd_units"] -= units_arg
-        return True
 
     def fake_enable_user_units(store_arg, units_arg, user):
         calls.append(("enable_user_units", user, frozenset(units_arg)))
         store_arg["systemd_user_units"].setdefault(user, set()).update(units_arg)
-        return True
 
     def fake_disable_user_units(store_arg, units_arg, user):
         calls.append(("disable_user_units", user, frozenset(units_arg)))
         store_arg["systemd_user_units"].setdefault(user, set()).difference_update(units_arg)
-        return True
 
     # patch instance methods (no self parameter expected)
     s.reload_daemon = fake_reload_daemon
@@ -167,7 +161,6 @@ def test_apply_enables_and_disables_units_and_user_units(store):
     s.disable_user_units = fake_disable_user_units
 
     result = s.apply(store, dry_run=False, params=None)
-    assert result is True
 
     # reloads called once
     assert ("reload_daemon",) in calls
@@ -223,8 +216,7 @@ def test_enable_units_success(monkeypatch, store, systemd):
 
     monkeypatch.setattr(systemd_mod.command, "run", fake_run)
 
-    result = systemd.enable_units(store, {"new.service"})
-    assert result is True
+    systemd.enable_units(store, {"new.service"})
     assert store["systemd_units"] == {"old.service", "new.service"}
 
 
@@ -236,8 +228,8 @@ def test_enable_units_failure_does_not_update_store(monkeypatch, store, systemd)
 
     monkeypatch.setattr(systemd_mod.command, "run", fake_run)
 
-    result = systemd.enable_units(store, {"new.service"})
-    assert result is False
+    with pytest.raises(systemd_mod.errors.CommandFailedError):
+        systemd.enable_units(store, {"new.service"})
     # unchanged
     assert store["systemd_units"] == {"old.service"}
 
@@ -253,8 +245,7 @@ def test_disable_units_success(monkeypatch, store, systemd):
 
     monkeypatch.setattr(systemd_mod.command, "run", fake_run)
 
-    result = systemd.disable_units(store, {"new.service"})
-    assert result is True
+    systemd.disable_units(store, {"new.service"})
     assert store["systemd_units"] == {"old.service"}
 
 
@@ -266,8 +257,8 @@ def test_disable_units_failure_does_not_update_store(monkeypatch, store, systemd
 
     monkeypatch.setattr(systemd_mod.command, "run", fake_run)
 
-    result = systemd.disable_units(store, {"new.service"})
-    assert result is False
+    with pytest.raises(systemd_mod.errors.CommandFailedError):
+        systemd.disable_units(store, {"new.service"})
     assert store["systemd_units"] == {"old.service", "new.service"}
 
 
@@ -283,8 +274,7 @@ def test_enable_user_units_success(monkeypatch, store, systemd):
 
     monkeypatch.setattr(systemd_mod.command, "run", fake_run)
 
-    result = systemd.enable_user_units(store, {"newuser.service"}, "alice")
-    assert result is True
+    systemd.enable_user_units(store, {"newuser.service"}, "alice")
     assert store["systemd_user_units"]["alice"] == {
         "olduser.service",
         "newuser.service",
@@ -299,8 +289,8 @@ def test_enable_user_units_failure_does_not_update_store(monkeypatch, store, sys
 
     monkeypatch.setattr(systemd_mod.command, "run", fake_run)
 
-    result = systemd.enable_user_units(store, {"newuser.service"}, "alice")
-    assert result is False
+    with pytest.raises(systemd_mod.errors.CommandFailedError):
+        systemd.enable_user_units(store, {"newuser.service"}, "alice")
     assert store["systemd_user_units"]["alice"] == {"olduser.service"}
 
 
@@ -316,8 +306,7 @@ def test_disable_user_units_success(monkeypatch, store, systemd):
 
     monkeypatch.setattr(systemd_mod.command, "run", fake_run)
 
-    result = systemd.disable_user_units(store, {"newuser.service"}, "alice")
-    assert result is True
+    systemd.disable_user_units(store, {"newuser.service"}, "alice")
     assert store["systemd_user_units"]["alice"] == {"olduser.service"}
 
 
@@ -329,8 +318,9 @@ def test_disable_user_units_failure_does_not_update_store(monkeypatch, store, sy
 
     monkeypatch.setattr(systemd_mod.command, "run", fake_run)
 
-    result = systemd.disable_user_units(store, {"newuser.service"}, "alice")
-    assert result is False
+    with pytest.raises(systemd_mod.errors.CommandFailedError):
+        systemd.disable_user_units(store, {"newuser.service"}, "alice")
+
     assert store["systemd_user_units"]["alice"] == {
         "olduser.service",
         "newuser.service",
@@ -345,8 +335,7 @@ def test_reload_daemon_uses_command_run(monkeypatch, systemd):
         return 0, "ok"
 
     monkeypatch.setattr(systemd_mod.command, "run", fake_run)
-    result = systemd.reload_daemon()
-    assert result is True
+    systemd.reload_daemon()
     assert called["cmd"][:2] == ["systemctl", "daemon-reload"]
 
 
@@ -358,8 +347,7 @@ def test_reload_user_daemon_uses_command_run(monkeypatch, systemd):
         return 0, "ok"
 
     monkeypatch.setattr(systemd_mod.command, "run", fake_run)
-    result = systemd.reload_user_daemon("alice")
-    assert result is True
+    systemd.reload_user_daemon("alice")
     cmd = called["cmd"]
     assert cmd[0] == "systemctl"
     assert "--user" in cmd

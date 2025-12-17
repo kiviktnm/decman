@@ -5,6 +5,7 @@ import typing
 
 import decman.core.command as command
 import decman.core.error as errors
+import decman.core.output as output
 
 
 class File:
@@ -133,6 +134,10 @@ class File:
                 parent_dir = os.path.dirname(dirct)
                 if not os.path.isdir(parent_dir):
                     create_missing_dirs(parent_dir, uid, gid)
+
+                output.print_debug(
+                    f"While installing file '{target}' creating directory '{dirct}'."
+                )
                 os.mkdir(dirct)
 
                 if uid is not None:
@@ -143,6 +148,8 @@ class File:
             create_missing_dirs(target_directory, self.uid, self.gid)
 
         changed = self._write_content(target, variables, dry_run)
+        if changed:
+            output.print_debug(f"File '{target}' changed.")
 
         if self.uid is not None and not dry_run:
             assert self.gid is not None, "If uid is set, then gid is set."

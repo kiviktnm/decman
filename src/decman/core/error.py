@@ -1,3 +1,6 @@
+import shlex
+
+
 class SourceError(Exception):
     """
     Error raised manually from the user's source.
@@ -12,7 +15,7 @@ class FSInstallationFailedError(Exception):
     def __init__(self, target: str, source: str, reason: str):
         self.source = source
         self.target = target
-        super().__init__(f"Failed to install file from {source} to {target}: {reason}")
+        super().__init__(f"Failed to install file from {source} to {target}: {reason}.")
 
 
 class InvalidOnDisableError(Exception):
@@ -63,6 +66,6 @@ class CommandFailedError(Exception):
     """
 
     def __init__(self, command: list[str], output: str) -> None:
-        self.command = command
-        self.output = output
-        super().__init__(f"Running a command '{' '.join(command)}' failed. Output: '{output}'.")
+        self.command = shlex.join(command)
+        self.output = output.strip()
+        super().__init__(f"Running a command '{self.command}' failed. Output:\n{self.output}")

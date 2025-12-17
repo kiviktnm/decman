@@ -81,11 +81,16 @@ def main():
                 output.print_traceback()
                 failed = True
             except errors.CommandFailedError as error:
-                output.print_error(f"{error}")
+                output.print_error(str(error))
+                output.print_traceback()
+                failed = True
+            except ValueError as error:
+                output.print_error("ValueError raised from the source.")
+                output.print_error(str(error))
                 output.print_traceback()
                 failed = True
             except errors.InvalidOnDisableError as error:
-                output.print_error(f"Invalid source. {error}")
+                output.print_error(str(error))
                 output.print_traceback()
                 failed = True
             except Exception as error:
@@ -93,7 +98,9 @@ def main():
                 output.print_traceback()
                 failed = True
     except OSError as error:
-        output.print_error(f"Failed to access decman store file '{_STORE_FILE}': {error.strerror}.")
+        output.print_error(
+            f"Failed to access decman store file '{_STORE_FILE}': {error.strerror or str(error)}."
+        )
         output.print_error("This may cause already completed operations to run again.")
         output.print_traceback()
     finally:
@@ -186,7 +193,7 @@ def run_decman(store: _store.Store, args: argparse.Namespace) -> bool:
 
     # Run main execution order
     for step in execution_order:
-        output.print_debug(f"Running step '{step}'.")
+        output.print_info(f"Running step '{step}'.")
         match step:
             case "files":
                 if not file_manager.update_files(
@@ -201,8 +208,8 @@ def run_decman(store: _store.Store, args: argparse.Namespace) -> bool:
                         return False
                 else:
                     output.print_warning(
-                        f"Plugin '{plugin_name}' configured in execution_order\
-                         but not found in available plugins."
+                        f"Plugin '{plugin_name}' configured in execution_order, "
+                        "but not found in available plugins."
                     )
 
     # On enable and on change should be ran last since they might depend on effects caused by
@@ -254,9 +261,9 @@ def _find_disabled_modules(store: _store.Store):
 
 
 def _run_before_update(store: _store.Store, args: argparse.Namespace):
-    output.print_summary("Running 'before update' -hooks.")
+    output.print_summary("Running before_update -hooks.")
     for module in decman.modules:
-        output.print_info(f"Running 'before update' for {module.name}.")
+        output.print_info(f"Running before_update for {module.name}.")
         if not args.dry_run:
             module.before_update(store)
 
@@ -265,12 +272,12 @@ def _run_on_disable(store: _store.Store, args: argparse.Namespace, disabled_modu
     if not disabled_modules:
         return
 
-    output.print_summary("Running 'on disable' -scripts.")
+    output.print_summary("Running on_disable -scripts.")
 
     for disabled_module in disabled_modules:
         on_disable_script = store["module_on_disable_scripts"].get(disabled_module, None)
         if on_disable_script:
-            output.print_info(f"Running 'on disable' for {disabled_module}.")
+            output.print_info(f"Running on_disable for {disabled_module}.")
 
             if not args.dry_run:
                 decman.prg([on_disable_script])
@@ -279,10 +286,13 @@ def _run_on_disable(store: _store.Store, args: argparse.Namespace, disabled_modu
 
 
 def _run_on_enable(store: _store.Store, args: argparse.Namespace, new_modules: list[str]):
-    output.print_summary("Running 'on enable' -hooks.")
+    if not new_modules:
+        return
+
+    output.print_summary("Running on_enable -hooks.")
     for module in decman.modules:
         if module.name in new_modules:
-            output.print_info(f"Running 'on enable' for {module.name}.")
+            output.print_info(f"Running on_enable for {module.name}.")
 
             if not args.dry_run:
                 module.on_enable(store)
@@ -295,30 +305,33 @@ def _run_on_enable(store: _store.Store, args: argparse.Namespace, new_modules: l
                         store["module_on_disable_scripts"][module.name] = script
                 except OSError as error:
                     output.print_error(
-                        f"Failed to create 'on disable' script for module {module.name}:\
-                        {error.strerror or str(error)}."
+                        f"Failed to create on_disable script for module {module.name}: "
                     )
+                    output.print_error(f"{error.strerror or str(error)}.")
+                    output.print_traceback()
                     output.print_warning(
                         "This script will NOT be created when decman runs the next time."
                     )
                     output.print_warning(
-                        "You should probably investigate the reason for the error. \
-                        Try to fix it, and re-enable this module."
+                        "You should investigate the reason for the error and try to fix it."
+                    )
+                    output.print_warning(
+                        "Then disable and re-enable this module to create the script."
                     )
 
 
 def _run_on_change(store: _store.Store, args: argparse.Namespace):
-    output.print_summary("Running 'on change' -hooks.")
+    output.print_summary("Running on_change -hooks.")
     for module in decman.modules:
         if module._changed:
-            output.print_info(f"Running 'on change' for {module.name}.")
+            output.print_info(f"Running on_change for {module.name}.")
             if not args.dry_run:
                 module.on_change(store)
 
 
 def _run_after_update(store: _store.Store, args: argparse.Namespace):
-    output.print_summary("Running 'after update' -hooks.")
+    output.print_summary("Running after_update -hooks.")
     for module in decman.modules:
-        output.print_info(f"Running 'after update' for {module.name}.")
+        output.print_info(f"Running after_update for {module.name}.")
         if not args.dry_run:
             module.after_update(store)
