@@ -50,7 +50,9 @@ If units or user units change, this plugin will flag the module as changed. The 
 It's possible to override the commands this plugin uses. Create your own `SystemdCommands` class and override methods returning commands. These are the defaults.
 
 ```py
-class MyCommands(SystemdCommands):
+from decman.plugins import systemd
+
+class MyCommands(systemd.SystemdCommands):
     """
     Default commands for the Systemd plugin.
     """

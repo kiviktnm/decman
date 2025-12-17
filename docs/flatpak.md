@@ -52,7 +52,9 @@ If packages or user packages change, this plugin will flag the module as changed
 It's possible to override the commands this plugin uses. Create your own `FlatpakCommands` class and override methods returning commands. These are the defaults.
 
 ```py
-class MyCommands(FlatpakCommands):
+from decman.plugins import flatpak
+
+class MyCommands(flatpak.FlatpakCommands):
     def list_apps(self, as_user: bool) -> list[str]:
         """
         Running this command outputs a newline separated list of installed flatpak application IDs.
