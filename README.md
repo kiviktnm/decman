@@ -1,7 +1,9 @@
 # Decman
 
+> THIS README IS FOR AN UNRELEASED VERSION!
+>
 > There are going to be breaking changes!
-> Decman has undergone an architecture rewrite! The new architecture makes decman more expandable and maintainable.
+> Decman has undergone an architecture rewrite. The new architecture makes decman more expandable and maintainable.
 >
 > The AUR package will receive this update after I have tested it enough.
 > See this [tag](https://github.com/kiviktnm/decman/tree/0.4.2) for the current version of decman available in the AUR.
@@ -11,8 +13,6 @@
 Decman is a declarative package & configuration manager for Arch Linux. It allows you to manage installed packages, your dotfiles, enabled systemd units, and run commands automatically. Your system is configured using Python so your configuration can be very adaptive.
 
 ## Overview
-
-[See the complete documentation for using decman.](/docs/README.md)
 
 To use decman, you need a source file that declares your system installation. I recommend you put this file in source control, for example in a git repository.
 
@@ -124,6 +124,8 @@ Decman has some CLI options, to see them all run:
 decman --help
 ```
 
+[See the complete documentation for using decman.](/docs/README.md)
+
 ## Installation
 
 Clone the decman PKGBUILD:
@@ -213,7 +215,7 @@ import decman
 decman.systemd.enabled_units |= {"NetworkManager.service"}
 
 # User specific units
-decman.systemd.enabled_user_units.setdefault("user", {}).update({"syncthing.service"})
+decman.systemd.enabled_user_units.setdefault("user", set()).update({"syncthing.service"})
 ```
 
 ### Flatpak
@@ -263,15 +265,23 @@ Note that `files` is not a plugin, but is defined here anyways.
 Before the core execution order, decman will run hook methods from `Module`s.
 
 1. `before_update`
-1. `on_disable`
+2. `on_disable`
 
 After the plugin execution, decman will run the following hook methods.
 
 1. `on_enable`
-1. `on_change`
-1. `atfer_update`
+2. `on_change`
+3. `atfer_update`
 
 Operations and hooks may be skipped with command line options.
+
+```sh
+# Skip the aur plugin
+sudo decman --skip aur
+
+# Only apply file operations
+sudo decman --no-hooks --only files
+```
 
 ## Why use decman?
 

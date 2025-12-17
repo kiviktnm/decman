@@ -1,11 +1,52 @@
 # Decman documentation
 
-This contains the core documentation for decman. Each plugin has its own documentation.
+This contains the documentation for decman. Each plugin has its own documentation. For a quick overview of decman, see the [README](/README.md).
 
 - [pacman](/docs/pacman.md)
 - [systemd](/docs/systemd.md)
 - [aur](/docs/aur.md)
 - [flatpak](/docs/flatpak.md)
+
+## Quick notes
+
+"Decman source" or "source" refers to your system configuration. It is set using the `--source` command line argument with decman.
+
+```sh
+sudo decman --source /this/is/your/source.py
+```
+
+Decman and decman plugins use sets for most collections to avoid duplicates. Remember to add values to sets instead of reassigning it.
+
+```py
+import decman
+
+# GOOD
+decman.pacman.packages |= {"vim"}
+
+# BAD, now there is only "vim" in the packages, all previous operations were overridden.
+decman.pacman.packages = {"vim"}
+```
+
+In Python you should not use from imports with global variables. It can lead to issues.
+
+```py
+# DO THIS:
+import decman
+decman.pacman.packages |= {"vim"}
+
+# THIS MAY NOT WORK
+from decman import pacman
+pacman.packages |= {"vim"}
+```
+
+You can still import classes and functions with from imports safely.
+
+```py
+from decman import File
+# pacman here refers to the pacman module containing the plugin
+# not the plugin instance
+from decman.plugins import pacman
+```
 
 ## Decman Store
 
@@ -168,6 +209,13 @@ Modules allow grouping related functionality together.
 A **Module** is the primary unit for grouping related files, directories, packages, and executable logic in decman. Create your own modules by subclassing `Module`. Then override the methods documented below.
 
 Each module is uniquely identified by its `name`.
+
+Remember to add modules to decman.
+
+```py
+import decman
+decman.modules |= {MyModule()}
+```
 
 ### Basic Structure
 
@@ -354,6 +402,8 @@ Checks if this plugin can be enabled. For example, this could check if a require
 
 This is not useful if the plugin is directly added to `decman.plugins`. However, if using the Python package method for installing plugins, this check is used before adding the plugin automatically to `decman.plugins`.
 
+Please note that this availibility check is executed before **any** decman steps. If a plugin depends on a pacman package, and that package is defined in the source but not yet installed, the plugin will not be available during the first run of decman.
+
 ```py
 def available(self) -> bool:
     return True
@@ -480,6 +530,6 @@ import decman
 raise decman.SourceError("boom")
 ```
 
-#### Decman Core
+### Decman Core
 
-Additionally, you can import the modules used by decman. They should be relatively stable and not change too much between decman versions. The module `decman.core.output` is probably the most relevant one, as it provides methods for printing output that decman uses.
+Additionally, you can import the modules used by decman. They should be relatively stable and not change too much between decman versions. The module `decman.core.output` is probably the most relevant one, as it provides methods for printing output.
