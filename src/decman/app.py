@@ -23,7 +23,7 @@ def main():
     parser = argparse.ArgumentParser(
         prog="decman",
         description="Declarative package & configuration manager for Arch Linux",
-        epilog="See more help at: https://github.com/kiviktnm/decman",
+        epilog="See the documentation: https://github.com/kiviktnm/decman",
     )
 
     parser.add_argument("--source", action="store", help="python file containing configuration")
@@ -54,7 +54,7 @@ def main():
         help="don't print messages with color",
     )
     parser.add_argument(
-        "--params", nargs="*", type=str, help="additional parameters passed to plugins"
+        "--params", nargs="*", default=[], type=str, help="additional parameters passed to plugins"
     )
 
     args = parser.parse_args()

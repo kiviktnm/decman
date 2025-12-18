@@ -14,6 +14,8 @@ Decman is a declarative package & configuration manager for Arch Linux. It allow
 
 ## Overview
 
+[See the example for a quick tutorial.](/example/README.md)
+
 To use decman, you need a source file that declares your system installation. I recommend you put this file in source control, for example in a git repository.
 
 `/home/user/config/source.py`:

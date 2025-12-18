@@ -218,8 +218,6 @@ class FlatpakInterface:
             cmd, command.run(cmd, user=user, mimic_login=as_user)
         )
         packages = packages_text.strip().split("\n")
-        # Remove header "Application ID"
-        packages.pop(0)
 
         return set(packages)
 

@@ -43,6 +43,18 @@ decman.aur.custom_packages |= {
 
 This plugin's execution order step name is `aur`.
 
+### Command line
+
+This plugin accepts params via the command line.
+
+```sh
+sudo decman --params aur-upgrade-devel aur-force
+```
+
+`aur-upgrade-devel` causes devel packages (packages from version control, such as `*-git` packages) to be upgraded.
+
+`aur-force` causes decman to rebuild packages that were already cached.
+
 ### Within modules
 
 Modules can also define AUR packages and custom packages. Decorate a module's method with `@decman.plugins.aur.packages` or `@decman.plugins.aur.custom_packages`. For AUR packages return a `set[str]` of package names from that module. Custom packages should return a `set[CustomPackage]`.

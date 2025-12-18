@@ -375,10 +375,10 @@ For conveniance, decman provides some plugins with quick access.
 ```py
 import decman
 
-decman.pacman = decman.plugins.get("pacman")
-decman.aur = decman.plugins.get("aur")
-decman.systemd = decman.plugins.get("systemd")
-decman.flatpak = decman.plugins.get("flatpak")
+assert decman.pacman == decman.plugins.get("pacman")
+assert decman.aur == decman.plugins.get("aur")
+assert decman.systemd == decman.plugins.get("systemd")
+assert decman.flatpak == decman.plugins.get("flatpak")
 ```
 
 ### Creating custom plugins
@@ -457,6 +457,7 @@ In `pyproject.toml` set:
 systemd = "decman.plugins.systemd:Systemd"
 pacman = "decman.plugins.pacman:Pacman"
 aur = "decman.plugins.aur:AUR"
+flatpak = "decman.plugins.flatpak:Flatpak"
 ```
 
 ## Useful utilities
