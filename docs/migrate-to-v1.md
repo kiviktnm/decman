@@ -15,6 +15,15 @@ This change is mostly architectural and doesn't change decman's behavior, but th
 
 Since there are changes in the internal logic, it is possible that there are more breaking changes, but I haven't thought about them yet.
 
+## After upgrading decman
+
+After upgrading decman, the store and cache must be deleted. This will cause some `on_enable` -hooks to run again, but the store has had many internal changes, and should be recreated.
+
+```sh
+sudo rm /var/lib/decman/store.json
+sudo rm -r /var/cache/decman/
+```
+
 ## Changes
 
 One notable change is replacing lists with sets. Sets make more sense for most things decman manages since duplicates and order are meaningless. With Python you'll want to use `|=` when adding two sets together instead of `+=` which is for lists.

@@ -1,6 +1,6 @@
 # Decman documentation
 
-This contains the documentation for decman. Each plugin has its own documentation. For a quick overview of decman, see the [README](/README.md).
+This contains the documentation for decman. Each plugin has its own documentation. For a quick overview of decman, see the [README](/README.md). For a tutorial, see the [example](/example/README.md).
 
 - [pacman](/docs/pacman.md)
 - [systemd](/docs/systemd.md)
