@@ -1,0 +1,14 @@
+[project]
+name = "decman-plugin-example"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "decman",
+]
+
+[project.entry-points."decman.plugins"]
+example = "decman_plugin_example:Example"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

@@ -1,431 +1,171 @@
-"""
-Module for writing system configurations for decman.
-"""
-
-import grp
-import os
-import pwd
-import shutil
-import subprocess
+import shlex
 import typing
 
-import decman.error
+import decman.core.command as command
+import decman.core.output as output
+
+# Re-exports
+from decman.core.error import SourceError
+from decman.core.fs import Directory, File
+from decman.core.module import Module
+from decman.core.store import Store
+from decman.plugins import Plugin, available_plugins
+
+# Plugin types
+from decman.plugins.aur import AUR
+from decman.plugins.flatpak import Flatpak
+from decman.plugins.pacman import Pacman
+from decman.plugins.systemd import Systemd
+
+__all__ = [
+    "SourceError",
+    "File",
+    "Directory",
+    "Module",
+    "Store",
+    "Plugin",
+    "prg",
+    "sh",
+]
+
+# -----------------------------------------
+# Global variables for system configuration
+# -----------------------------------------
+files: dict[str, File] = {}
+directories: dict[str, Directory] = {}
+modules: set[Module] = set()
+plugins: dict[str, Plugin] = available_plugins()
+execution_order: list[str] = [
+    "files",
+    "pacman",
+    "aur",
+    "systemd",
+]
+
+# Default plugins get quick access
+pacman: None | Pacman = None
+aur: None | AUR = None
+systemd: None | Systemd = None
+flatpak: None | Flatpak = None
+
+_pacman = plugins.get("pacman", None)
+if isinstance(_pacman, Pacman):
+    pacman = _pacman
+
+_aur = plugins.get("aur", None)
+if isinstance(_aur, AUR):
+    aur = _aur
+
+_systemd = plugins.get("systemd", None)
+if isinstance(_systemd, Systemd):
+    systemd = _systemd
+
+_flatpak = plugins.get("flatpak", None)
+if isinstance(_flatpak, Flatpak):
+    flatpak = _flatpak
 
 
-class UserRaisedError(Exception):
+def prg(
+    cmd: list[str],
+    user: typing.Optional[str] = None,
+    env_overrides: typing.Optional[dict[str, str]] = None,
+    mimic_login: bool = False,
+    pty: bool = True,
+    check: bool = True,
+) -> str:
     """
-    Error raised by running source
-    """
+    Shortcut for running a command. Returns the output of that command.
 
-    def __init__(self, message) -> None:
-        super().__init__(message)
+    Arguments:
+        cmd:
+            Command to execute.
+
+        user:
+            User name to run the command as. If set, the command is executed after dropping
+            privileges to this user.
+
+        env_overrides:
+            Environment variables to override or add for the command execution.
+            These values are merged on top of the current process environment.
+
+        mimic_login:
+            If mimic_login is True, will set the following environment variables according to the
+            given user's passwd file details. This only happens when user is set.
+                - HOME
+                - USER
+                - LOGNAME
+                - SHELL
+
+        pty:
+            If True, run the command inside a pseudo-terminal (PTY). This enables interactive
+            behavior and terminal-dependent programs. If False, run the command without a PTY
+            using standard subprocess execution.
+
+        check:
+            If True, raise CommandFailedError when the command exits with a non-zero status.
+            If False, print a warning when encountering a non-zero exit code.
+    """
+    if pty:
+        result = command.pty_run(
+            cmd, user=user, env_overrides=env_overrides, mimic_login=mimic_login
+        )
+    else:
+        result = command.run(cmd, user=user, env_overrides=env_overrides, mimic_login=mimic_login)
+
+    if check:
+        # This raises an error if the command failed exiting the function early
+        result = command.check_run_result(cmd, result)
+
+    code, command_output = result
+    if code != 0:
+        output.print_warning(f"Command '{shlex.join(cmd)}' returned with an exit code {code}.")
+        if not pty:
+            output.print_command_output(command_output)
+
+    return command_output
 
 
 def sh(
     sh_cmd: str,
     user: typing.Optional[str] = None,
     env_overrides: typing.Optional[dict[str, str]] = None,
-):
+    mimic_login: bool = False,
+    pty: bool = True,
+    check: bool = True,
+) -> str:
     """
-    Shortcut for running a shell command.
+    Shortcut for running a shell command. Returns the output of that command.
+
+    Arguments:
+        sh_cmd:
+            Shell command to execute. The command is passed to the system shell /bin/sh.
+
+        user:
+            User name to run the command as. If set, the command is executed after dropping
+            privileges to this user.
+
+        env_overrides:
+            Environment variables to override or add for the command execution.
+            These values are merged on top of the current process environment.
+
+        mimic_login:
+            If mimic_login is True, will set the following environment variables according to the
+            given user's passwd file details. This only happens when user is set.
+                - HOME
+                - USER
+                - LOGNAME
+                - SHELL
+
+        pty:
+            If True, run the command inside a pseudo-terminal (PTY). This enables interactive
+            behavior and terminal-dependent programs. If False, run the command without a PTY
+            using standard subprocess execution.
+
+        check:
+            If True, raise CommandFailedError when the command exits with a non-zero status.
+            If False, print a warning when encountering a non-zero exit code.
     """
-    if env_overrides is None:
-        env_overrides = {}
-
-    env = os.environ.copy()
-    for var, val in env_overrides.items():
-        env[var] = val
-
-    if user is None:
-        try:
-            subprocess.run(sh_cmd, shell=True, check=True, env=env)
-        except subprocess.CalledProcessError as e:
-            raise decman.error.UserFacingError(
-                f"Running user defined shell command '{sh_cmd}' failed."
-            ) from e
-    else:
-        try:
-            uid = pwd.getpwnam(user).pw_uid
-            gid = pwd.getpwnam(user).pw_gid
-        except KeyError as e:
-            raise decman.error.UserFacingError(
-                f"Running user defined shell command failed because the user {user} doesn't exist."
-            ) from e
-
-        with subprocess.Popen(
-            sh_cmd, shell=True, group=gid, user=uid, env=env
-        ) as process:
-            if process.wait() != 0:
-                raise decman.error.UserFacingError(
-                    f"Running user shell command '{sh_cmd}' as {user} failed."
-                )
-
-
-def prg(
-    command: list[str],
-    user: typing.Optional[str] = None,
-    env_overrides: typing.Optional[dict[str, str]] = None,
-):
-    """
-    Shortcut for running a program.
-    """
-    if env_overrides is None:
-        env_overrides = {}
-
-    env = os.environ.copy()
-    for var, val in env_overrides.items():
-        env[var] = val
-
-    if user is None:
-        try:
-            subprocess.run(command, check=True, env=env)
-        except subprocess.CalledProcessError as e:
-            raise decman.error.UserFacingError(
-                f"Running user defined program '{command}' failed."
-            ) from e
-    else:
-        try:
-            uid = pwd.getpwnam(user).pw_uid
-            gid = pwd.getpwnam(user).pw_gid
-        except KeyError as e:
-            raise decman.error.UserFacingError(
-                f"Running user defined program failed because the user {user} doesn't exist."
-            ) from e
-
-        with subprocess.Popen(command, group=gid, user=uid, env=env) as process:
-            if process.wait() != 0:
-                raise decman.error.UserFacingError(
-                    f"Running user program '{command}' as {user} failed."
-                )
-
-
-class File:
-    """
-    A simple file that gets copied to the target.
-    """
-
-    def __init__(
-        self,
-        source_file: typing.Optional[str] = None,
-        content: typing.Optional[str] = None,
-        bin_file: bool = False,
-        encoding: str = "utf-8",
-        owner: typing.Optional[str] = None,
-        group: typing.Optional[str] = None,
-        permissions: int = 0o644,
-    ):
-        if source_file is None and content is None:
-            raise ValueError("Both source_file and content cannot be None.")
-
-        if source_file is not None and content is not None:
-            raise ValueError("Both source_file and content cannot be set.")
-
-        self.source_file = source_file
-        self.content = content
-        self.permissions = permissions
-        self.bin_file = bin_file
-        self.encoding = encoding
-        self.uid = None
-        self.gid = None
-
-        if owner is not None:
-            self.uid = pwd.getpwnam(owner).pw_uid
-            self.gid = pwd.getpwnam(owner).pw_gid
-
-        if group is not None:
-            self.gid = grp.getgrnam(group).gr_gid
-
-    def copy_to(self, target: str, variables: typing.Optional[dict[str, str]] = None):
-        """
-        Copies the contents of this file to the target file.
-        """
-        if variables is None:
-            variables = {}
-
-        target_directory = os.path.dirname(target)
-
-        def create_missing_dirs(
-            dirct: str, uid: typing.Optional[int], gid: typing.Optional[int]
-        ):
-            if not os.path.isdir(dirct):
-                parent_dir = os.path.dirname(dirct)
-                if not os.path.isdir(parent_dir):
-                    create_missing_dirs(parent_dir, uid, gid)
-                os.mkdir(dirct)
-
-                if uid is not None:
-                    assert gid is not None, "If uid is set, then gid is set."
-                    os.chown(dirct, uid, gid)
-
-        create_missing_dirs(target_directory, self.uid, self.gid)
-
-        self._write_content(target, variables)
-
-        if self.uid is not None:
-            assert self.gid is not None, "If uid is set, then gid is set."
-            os.chown(target, self.uid, self.gid)
-
-        os.chmod(target, self.permissions)
-
-    def _write_content(self, target: str, variables: dict[str, str]):
-        if self.source_file is not None and (self.bin_file or len(variables) == 0):
-            shutil.copy(self.source_file, target)
-        elif self.bin_file and self.content is not None:
-            with open(target, "wb") as file:
-                file.write(self.content.encode(encoding=self.encoding))
-        elif self.source_file is not None:
-            with open(self.source_file, "rt", encoding=self.encoding) as src:
-                content = src.read()
-
-            for var, value in variables.items():
-                content = content.replace(var, value)
-
-            with open(target, "wt", encoding=self.encoding) as file:
-                file.write(content)
-        else:
-            assert self.content is not None, (
-                "Content should be set since source_file was not set."
-            )
-            content = self.content
-            for var, value in variables.items():
-                content = content.replace(var, value)
-
-            with open(target, "wt", encoding=self.encoding) as file:
-                file.write(content)
-
-
-class Directory:
-    """
-    Contents of this directory will be copied to the target.
-    """
-
-    def __init__(
-        self,
-        source_directory: str,
-        bin_files: bool = False,
-        encoding: str = "utf-8",
-        owner: typing.Optional[str] = None,
-        group: typing.Optional[str] = None,
-        permissions: int = 0o644,
-    ):
-        self.source_directory = source_directory
-        self.bin_files = bin_files
-        self.encoding = encoding
-        self.permissions = permissions
-
-        self.owner = owner
-        self.group = group
-        self.uid = None
-        self.gid = None
-
-        if owner is not None:
-            self.uid = pwd.getpwnam(owner).pw_uid
-            self.gid = pwd.getpwnam(owner).pw_gid
-
-        if group is not None:
-            self.gid = grp.getgrnam(group).gr_gid
-
-    def copy_to(
-        self,
-        target_directory: str,
-        variables: typing.Optional[dict[str, str]] = None,
-        only_print: bool = False,
-    ) -> list[str]:
-        """
-        Copies the files in this directory to the target directory.
-
-        Returns all created files.
-        """
-        created = []
-        original_wd = os.getcwd()
-        try:
-            os.chdir(self.source_directory)
-            for src_dir, _, src_files in os.walk("."):
-                for src_file in src_files:
-                    src_path = os.path.join(src_dir, src_file)
-                    file = File(
-                        source_file=src_path,
-                        bin_file=self.bin_files,
-                        encoding=self.encoding,
-                        owner=self.owner,
-                        group=self.group,
-                        permissions=self.permissions,
-                    )
-                    target = os.path.normpath(os.path.join(target_directory, src_path))
-                    created.append(target)
-
-                    if not only_print:
-                        file.copy_to(target, variables)
-        finally:
-            os.chdir(original_wd)
-        return created
-
-
-class UserPackage:
-    """
-    Defines a custom package.
-    """
-
-    def __init__(
-        self,
-        pkgname: str,
-        version: str,
-        dependencies: list[str],
-        git_url: str,
-        pkgbase: typing.Optional[str] = None,
-        provides: typing.Optional[list[str]] = None,
-        make_dependencies: typing.Optional[list[str]] = None,
-        check_dependencies: typing.Optional[list[str]] = None,
-    ):
-        if pkgbase is None:
-            pkgbase = pkgname
-        if provides is None:
-            provides = []
-        if make_dependencies is None:
-            make_dependencies = []
-        if check_dependencies is None:
-            check_dependencies = []
-
-        self.pkgname = pkgname
-        self.pkgbase = pkgbase
-        self.version = version
-        self.provides = provides
-        self.dependencies = dependencies
-        self.make_dependencies = make_dependencies
-        self.check_dependencies = check_dependencies
-        self.git_url = git_url
-
-    def __hash__(self) -> int:
-        return self.pkgname.__hash__()
-
-    def __eq__(self, value: object, /) -> bool:
-        if isinstance(value, self.__class__):
-            return value.pkgname == self.pkgname
-        return False
-
-
-class Module:
-    """
-    Collection of connected packages, services and files.
-
-    Inherit this class to create your own modules.
-    """
-
-    def __init__(self, name: str, enabled: bool, version: str):
-        self.name = name
-        self.enabled = enabled
-        self.version = version
-
-    def on_enable(self):
-        """
-        Override this method to run python code when this module gets enabled.
-        """
-
-    def on_disable(self):
-        """
-        Override this method to run python code when this module gets disabled.
-
-        Note! If this module is simply removed, the code will not exacute. Instead set enabled to
-        False.
-        """
-
-    def after_update(self):
-        """
-        Override this method to run python code after updating the system. If this module is
-        disabled, this will not run.
-        """
-
-    def after_version_change(self):
-        """
-        Override this method to run python code after the version of this module has changed.
-        """
-
-    def files(self) -> dict[str, File]:
-        """
-        Override this method to return files that should be installed as a part of this module.
-        """
-        return {}
-
-    def directories(self) -> dict[str, Directory]:
-        """
-        Override this method to return directories that should be installed as a part of this module.
-        """
-        return {}
-
-    def file_variables(self) -> dict[str, str]:
-        """
-        Override this method to return variables that should replaced with a new value inside
-        this module's text files.
-        """
-        return {}
-
-    def pacman_packages(self) -> list[str]:
-        """
-        Override this method to return pacman packages that should be installed as a part of this
-        Module.
-        """
-        return []
-
-    def user_packages(self) -> list[UserPackage]:
-        """
-        Override this method to return user packages that should be installed as a part of this
-        Module.
-        """
-        return []
-
-    def aur_packages(self) -> list[str]:
-        """
-        Override this method to return AUR packages that should be installed as a part of this
-        Module.
-        """
-        return []
-
-    def flatpak_packages(self) -> list[str]:
-        """
-        Override this method to return flatpak packages that should be installed to the system installation as a part of this
-        Module.
-        """
-        return []
-
-    def flatpak_user_packages(self) -> dict[str, list[str]]:
-        """
-        Override this method to return flatpak packages that should be installed to the user installation as a part of this
-        Module.
-        """
-        return {}
-
-    def systemd_units(self) -> list[str]:
-        """
-        Override this method to return systemd units that should be enabled as a part of this
-        Module.
-        """
-        return []
-
-    def systemd_user_units(self) -> dict[str, list[str]]:
-        """
-        Override this method to return systemd user units that should be enabled as a part of this
-        Module.
-        """
-        return {}
-
-    def __hash__(self) -> int:
-        return self.name.__hash__()
-
-    def __eq__(self, value: object, /) -> bool:
-        if isinstance(value, self.__class__):
-            return value.name == self.name
-        return False
-
-
-packages: list[str] = []
-aur_packages: list[str] = []
-user_packages: list[UserPackage] = []
-ignored_packages: list[str] = []
-enabled_systemd_units: list[str] = []
-enabled_systemd_user_units: dict[str, list[str]] = {}
-files: dict[str, File] = {}
-directories: dict[str, Directory] = {}
-modules: list[Module] = []
-flatpak_packages: list[str] = []
-flatpak_user_packages: dict[str, list[str]] = {}
-ignored_flatpak_packages: list[str] = []
+    cmd = ["/bin/sh", "-c", sh_cmd]
+    return prg(
+        cmd, user=user, env_overrides=env_overrides, mimic_login=mimic_login, pty=pty, check=check
+    )

@@ -1,0 +1,14 @@
+#compdef decman
+# zsh completion for decman
+
+_arguments -s \
+  '--source=[python file containing configuration]:config file:_files' \
+  '--dry-run[print what would happen as a result of running decman]' \
+  '--print[print what would happen as a result of running decman]' \
+  '--debug[show debug output]' \
+  '--skip[skip the following execution steps]:step(s):_message -r "step"' \
+  '--only[run only the following execution steps]:step(s):_message -r "step"' \
+  '--no-hooks[don'\''t run hook methods for modules]' \
+  '--no-color[don'\''t print messages with color]' \
+  '--params[additional parameters passed to plugins]:param(s):_message -r "param"' \
+  '--help[show help]'

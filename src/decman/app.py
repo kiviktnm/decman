@@ -1,20 +1,16 @@
-# pyright: reportUnusedCallResult=false
-"""
-Module containing the CLI Application.
-"""
-
 import argparse
 import os
-import pwd
-import shutil
 import sys
-import traceback
 
 import decman
 import decman.config as conf
-import decman.error as err
-import decman.lib as l
-from decman.lib import fpm
+import decman.core.error as errors
+import decman.core.file_manager as file_manager
+import decman.core.module as _module
+import decman.core.output as output
+import decman.core.store as _store
+
+_STORE_FILE = "/var/lib/decman/store.json"
 
 
 def main():
@@ -22,488 +18,325 @@ def main():
     Main entry for the CLI app
     """
 
-    sys.pycache_prefix = os.path.join(conf.pkg_cache_dir, "python/")
+    sys.pycache_prefix = os.path.join(conf.cache_dir, "python/")
 
     parser = argparse.ArgumentParser(
         prog="decman",
         description="Declarative package & configuration manager for Arch Linux",
-        epilog="See more help at: https://github.com/kiviktnm/decman",
+        epilog="See the documentation: https://github.com/kiviktnm/decman",
     )
 
+    parser.add_argument("--source", action="store", help="python file containing configuration")
     parser.add_argument(
-        "--source", action="store", help="python file containing configuration"
-    )
-    parser.add_argument(
-        "--print",
         "--dry-run",
+        "--print",
         action="store_true",
         default=False,
         help="print what would happen as a result of running decman",
     )
+    parser.add_argument("--debug", action="store_true", default=False, help="show debug output")
     parser.add_argument(
-        "--debug", action="store_true", default=False, help="show debug output"
+        "--skip", nargs="*", type=str, default=[], help="skip the following execution steps"
     )
     parser.add_argument(
-        "--no-packages",
+        "--only", nargs="*", type=str, default=[], help="run only the following execution steps"
+    )
+    parser.add_argument(
+        "--no-hooks",
         action="store_true",
         default=False,
-        help="don't upgrade any packages (including foreign packages)",
+        help="don't run hook methods for modules",
     )
     parser.add_argument(
-        "--no-foreign-packages",
+        "--no-color",
         action="store_true",
         default=False,
-        help="don't upgrade foreign packages",
+        help="don't print messages with color",
     )
     parser.add_argument(
-        "--no-flatpaks",
-        action="store_true",
-        default=False,
-        help="don't upgrade flatpak packages",
-    )
-    parser.add_argument(
-        "--no-files", action="store_true", default=False, help="don't install any files"
-    )
-    parser.add_argument(
-        "--no-systemd-units",
-        action="store_true",
-        default=False,
-        help="don't enable/disable systemd units",
-    )
-    parser.add_argument(
-        "--no-commands",
-        action="store_true",
-        default=False,
-        help="don't run user specified commands",
-    )
-    parser.add_argument(
-        "--upgrade-devel",
-        action="store_true",
-        default=False,
-        help="upgrade devel packages",
-    )
-    parser.add_argument(
-        "--force-build",
-        action="store_true",
-        default=False,
-        help="force building of packages that are already cached",
+        "--params", nargs="*", default=[], type=str, help="additional parameters passed to plugins"
     )
 
     args = parser.parse_args()
 
-    if not _is_root():
-        l.print_error("Not running as root. Please run decman as root.")
+    conf.debug_output = args.debug
+
+    if args.no_color:
+        conf.color_output = False
+    else:
+        conf.color_output = output.has_ansi_support()
+
+    if os.getuid() != 0:
+        output.print_error("Not running as root. Please run decman as root.")
         sys.exit(1)
 
     original_wd = os.getcwd()
+    failed = False
 
     try:
-        store = l.Store.restore()
-    except err.UserFacingError as error:
-        l.print_error(error.user_facing_msg)
-        for line in traceback.format_exc().splitlines():
-            l.print_debug(line)
+        with _store.Store(_STORE_FILE, args.dry_run) as store:
+            try:
+                _execute_source(store, args)
+                failed = not run_decman(store, args)
+            except errors.SourceError as error:
+                output.print_error(f"Error raised manually in the source: {error}")
+                output.print_traceback()
+                failed = True
+            except errors.CommandFailedError as error:
+                output.print_error(str(error))
+                output.print_command_output(error.output)
+                output.print_traceback()
+                failed = True
+            except ValueError as error:
+                output.print_error("ValueError raised from the source.")
+                output.print_error(str(error))
+                output.print_traceback()
+                failed = True
+            except errors.InvalidOnDisableError as error:
+                output.print_error(str(error))
+                output.print_traceback()
+                failed = True
+            except Exception as error:
+                output.print_error(f"Unexpected error while running decman: {error}")
+                output.print_traceback()
+                failed = True
+    except OSError as error:
+        output.print_error(
+            f"Failed to access decman store file '{_STORE_FILE}': {error.strerror or str(error)}."
+        )
+        output.print_error("This may cause already completed operations to run again.")
+        output.print_traceback()
+    finally:
+        os.chdir(original_wd)
+
+    if failed:
         sys.exit(1)
 
-    errored = False
 
-    try:
-        opts = _set_up(store, args)
-        # Override debug_output if cli option is used
-        if args.debug:
-            conf.debug_output = True
-            conf.suppress_command_output = False
-        # When print cli option is used, show info output
-        if args.print:
-            conf.quiet_output = False
-        Core(store, opts).run()
-    except err.UserFacingError as error:
-        l.print_error(error.user_facing_msg)
-        for line in traceback.format_exc().splitlines():
-            l.print_debug(line)
-        errored = True
-    except decman.UserRaisedError as user_error:
-        l.print_error(f"Error encountered while running the source: {user_error}")
-        errored = True
+def _execute_source(store: _store.Store, args: argparse.Namespace):
+    """
+    Runs decman source. May call ``sys.exit(1)`` if user aborts running the source or reading the
+    source fails.
 
-    # Save even when an error has occurred, since this avoids repeating steps like building pkgs.
-    try:
-        store.save()
-    except err.UserFacingError as error:
-        l.print_error(error.user_facing_msg)
-        for line in traceback.format_exc().splitlines():
-            l.print_debug(line)
-        errored = True
+    Raises:
+        ``SourceError``
+            If code in the source raises this error manually.
 
-    os.chdir(original_wd)
-    if errored:
-        sys.exit(2)
-
-
-def _set_up(store: l.Store, args):
-    source = store.source_file
+        ``InvalidOnDisableError``
+            If modules in the source have invalid on_disable functions.
+    """
+    source = store.get("source_file", None)
     source_changed = False
+
     if args.source is not None:
         source = args.source
         source_changed = True
 
     if source is None:
-        l.print_error(
+        output.print_error(
             "Source was not specified. Please specify a source with the '--source' argument."
         )
-        l.print_info("Decman will remember the previously specified source.")
+        output.print_info("Decman will remember the previously specified source.")
         sys.exit(1)
 
-    if source_changed or not store.allow_running_source_without_prompt:
-        l.print_warning(f"Decman will run the file '{source}' as root!")
-        l.print_warning(
+    if source_changed or not store.get("allow_running_source_without_prompt", False):
+        output.print_warning(f"Decman will run the file '{source}' as root!")
+        output.print_warning(
             "Only proceed if you trust the file completely. The file can also import other files."
         )
 
-        if not l.prompt_confirm("Proceed?", default=False):
+        if not output.prompt_confirm("Proceed?", default=False):
             sys.exit(1)
 
-        if l.prompt_confirm("Remember this choice?", default=False):
-            store.allow_running_source_without_prompt = True
+        if output.prompt_confirm("Remember this choice?", default=False):
+            store["allow_running_source_without_prompt"] = True
 
     source_path = os.path.abspath(source)
     source_dir = os.path.dirname(source_path)
-    store.source_file = source_path
+    store["source_file"] = source_path
 
     try:
         with open(source_path, "rt", encoding="utf-8") as file:
             content = file.read()
-    except OSError as e:
-        raise err.UserFacingError(
-            f"Failed to read source file '{store.source_file}'."
-        ) from e
+    except OSError as error:
+        output.print_error(f"Failed to read source '{source_path}': {error.strerror or str(error)}")
+        sys.exit(1)
 
     os.chdir(source_dir)
     sys.path.append(".")
     exec(content)
 
-    return (
-        args.print,
-        not args.no_packages,
-        not args.no_foreign_packages,
-        not args.no_flatpaks,
-        not args.no_files,
-        not args.no_systemd_units,
-        not args.no_commands,
-        args.upgrade_devel,
-        args.force_build,
-    )
 
-
-class Core:
+def run_decman(store: _store.Store, args: argparse.Namespace) -> bool:
     """
-    Contains the main logic of decman.
+    Runs decman with the given arguments and a store.
+
+    Returns ``True`` if executed succesfully. Otherwise ``False``.
+
+    Raises:
+        ``SourceError``
+            If code in the source raises this error manually.
+
+        ``CommandFailedError``
+            If running any command fails.
     """
 
-    def __init__(self, store: l.Store, opts):
-        (
-            self.only_print,
-            self.update_packages,
-            self.update_foreign_packages,
-            self.update_flatpaks,
-            self.update_files,
-            self.update_units,
-            self.run_commands,
-            self.upgrade_devel,
-            self.force_build,
-        ) = opts
+    output.print_debug(f"Available plugins: {' '.join(decman.plugins.keys())}")
 
-        if conf.enable_flatpak and not shutil.which("flatpak"):
-            l.print_error(
-                "Flatpaks have been enabled in the source file, but the flatpak command could not be found. Either disable flatpaks or make sure that flatpak is installed and can be accessed by decman. Exiting."
-            )
-            sys.exit(1)
+    store.ensure("enabled_modules", [])
+    store.ensure("module_on_disable_scripts", {})
 
-        self.store = store
-        self.source = _resolve_source()
-        self.pacman = l.Pacman()
-        self.flatpak = l.Flatpak()
-        self.systemctl = l.Systemd(store)
-        self.fpkg_search = fpm.ExtendedPackageSearch(self.pacman)
+    execution_order = _determine_execution_order(args)
+    new_modules = _find_new_modules(store)
+    disabled_modules = _find_disabled_modules(store)
 
-        for upkg in self.source.all_user_pkgs():
-            self.fpkg_search.add_user_pkg(
-                fpm.PackageInfo.from_user_package(upkg, self.pacman)
-            )
+    # Disable hooks should be run before anything else because they might depend on packages that
+    # are going to get removed.
+    if not args.no_hooks:
+        _run_before_update(store, args)
+        _run_on_disable(store, args, disabled_modules)
 
-        self.fpm = fpm.ForeignPackageManager(store, self.pacman, self.fpkg_search)
+    # Run main execution order
+    for step in execution_order:
+        output.print_info(f"Running step '{step}'.")
+        match step:
+            case "files":
+                if not file_manager.update_files(
+                    store, decman.modules, decman.files, decman.directories, dry_run=args.dry_run
+                ):
+                    return False
+            case plugin_name:
+                plugin = decman.plugins.get(plugin_name, None)
+                if plugin:
+                    plugin.process_modules(store, decman.modules)
+                    if not plugin.apply(store, dry_run=args.dry_run, params=args.params):
+                        return False
+                else:
+                    output.print_warning(
+                        f"Plugin '{plugin_name}' configured in execution_order, "
+                        "but not found in available plugins."
+                    )
 
-    def run(self):
-        """
-        Run the main logic of decman.
-        """
+    # On enable and on change should be ran last since they might depend on effects caused by
+    # execution steps.
+    if not args.no_hooks:
+        _run_on_enable(store, args, new_modules)
+        _run_on_change(store, args)
+        _run_after_update(store, args)
 
-        if self.update_units:
-            self._disable_units()
-
-        if self.update_files:
-            self._create_and_remove_files()
-
-        if self.update_packages:
-            self._remove_pkgs()
-            self._upgrade_pkgs()
-            self._install_pkgs()
-
-        if self.update_units:
-            self._enable_units()
-
-        if self.run_commands:
-            self._run_modules()
-            all_enabled_modules = {}
-            for mod, version in self.source.all_enabled_modules():
-                all_enabled_modules[mod] = version
-            # Enabled modules are really only stored for commands,
-            # so they can be set only when the commands were exacuted.
-            self.store.enabled_modules = all_enabled_modules
-
-    def _disable_units(self):
-        to_disable = self.source.units_to_disable(self.store)
-        l.print_list("Disabling systemd units:", to_disable)
-        if to_disable:
-            l.print_info("Disabled systemd units won't be stopped automatically.")
-        if not self.only_print:
-            self.systemctl.disable_units(to_disable)
-
-        user_units_to_disable = self.source.user_units_to_disable(self.store)
-        for user, units in user_units_to_disable.items():
-            l.print_list(f"Disabling systemd units for {user}:", units)
-            if not self.only_print:
-                self.systemctl.disable_user_units(units, user)
-
-    def _remove_pkgs(self):
-        """
-        Remove pacman and flatpak packages
-        """
-        # pacman
-        currently_installed = self.pacman.get_installed()
-        to_remove = self.source.packages_to_remove(currently_installed)
-        
-        if conf.enable_flatpak and self.update_flatpaks:
-            currently_installed_flatpak = self.flatpak.get_installed()
-            to_remove_flatpak = self.source.flatpak_packages_to_remove(
-                currently_installed_flatpak
-            )
-
-        l.print_list("Removing pacman packages:", to_remove)
-
-        if conf.enable_flatpak and self.update_flatpaks:
-            l.print_list("Removing flatpak packages:", to_remove_flatpak)
-            self._remove_user_flatpaks(only_print=True)
-
-        if self.only_print:
-            return
-
-        self.pacman.remove(to_remove)
-
-        # flatpak
-        if conf.enable_flatpak and self.update_flatpaks:
-            self.flatpak.remove(to_remove_flatpak)
-            self._remove_user_flatpaks()
-
-    def _remove_user_flatpaks(self, only_print: bool = False):
-        # Get all non system users (users that have uid >= 1000), also ignore nobody
-        users = [
-            u.pw_name
-            for u in pwd.getpwall()
-            if u.pw_uid >= 1000 and u.pw_name not in ("nobody",)
-        ]
-        # Add root to users
-        users.append("root")
-        for user in users:
-            currently_installed_flatpak = self.flatpak.get_installed(
-                as_user=True, which_user=user
-            )
-            to_remove_flatpak = self.source.flatpak_packages_to_remove(
-                currently_installed_flatpak, as_user=True, which_user=user
-            )
-            l.print_list(
-                f"Removing flatpak packages from user installation for user {user}",
-                to_remove_flatpak,
-            )
-
-            if only_print:
-                continue
-
-            self.flatpak.remove(to_remove_flatpak, True, user)
-
-    def _upgrade_pkgs(self):
-        """
-        Upgrade pacman, fpm and flatpak packages
-        """
-        # flatpak + fpm
-        l.print_summary("Upgrading packages.")
-        if self.only_print:
-            return
-
-        self.pacman.upgrade()
-        if conf.enable_fpm and self.update_foreign_packages:
-            self.fpm.upgrade(
-                self.upgrade_devel, self.force_build, self.source.ignored_packages
-            )
-
-        # flatpak
-        if conf.enable_flatpak and self.update_flatpaks:
-            l.print_summary("Upgrading flatpak packages.")
-            self.flatpak.upgrade()
-            users = [
-                u.pw_name
-                for u in pwd.getpwall()
-                if u.pw_uid >= 1000 and u.pw_name not in ("nobody",)
-            ]
-            # Add root to users
-            users.append("root")
-            for user in users:
-                l.print_summary(f"Upgrading flatpak packages for {user}.")
-                self.flatpak.upgrade(True, user)
-
-    def _install_pkgs(self):
-        """
-        Installs all pacman, fpm, and flatpak packages.
-        """
-
-        # pacman + fpm
-        currently_installed = self.pacman.get_installed()
-        to_install_pacman = self.source.pacman_packages_to_install(currently_installed)
-        to_install_fpm = self.source.foreign_packages_to_install(currently_installed)
-
-        # flatpak
-        if conf.enable_flatpak and self.update_flatpaks:
-            currently_installed_flatpak = self.flatpak.get_installed()
-            to_install_flatpak = self.source.flatpak_packages_to_install(
-                currently_installed_flatpak
-            )
-
-        l.print_list("Installing pacman packages:", to_install_pacman)
-
-        # fpm prints a summary so no need to print it twice
-        if self.only_print:
-            l.print_list("Installing foreign packages:", to_install_fpm)
-
-        if conf.enable_flatpak and self.update_flatpaks:
-            l.print_list("Installing flatpak packages:", to_install_flatpak)
-
-        if self.only_print:
-            self._install_user_flatpaks(only_print=True)
-            return
-
-        self.pacman.install(to_install_pacman)
-        if conf.enable_fpm and self.update_foreign_packages:
-            self.fpm.install(to_install_fpm, force=self.force_build)
-
-        if conf.enable_flatpak and self.update_flatpaks:
-            self.flatpak.install(to_install_flatpak)
-            # Print summary before the action
-            self._install_user_flatpaks(only_print=True)
-            self._install_user_flatpaks()
-
-    def _install_user_flatpaks(self, only_print: bool = False):
-        # Get all non system users (users that have uid >= 1000), also ignore nobody
-        users = [
-            u.pw_name
-            for u in pwd.getpwall()
-            if u.pw_uid >= 1000 and u.pw_name not in ("nobody",)
-        ]
-        # Add root to users
-        users.append("root")
-        for user in users:
-            currently_installed_flatpak = self.flatpak.get_installed(
-                as_user=True, which_user=user
-            )
-            to_install_flatpak = self.source.flatpak_packages_to_install(
-                currently_installed_flatpak, as_user=True, which_user=user
-            )
-
-            if only_print:
-                l.print_list(
-                    f"Installing flatpak packages to user installation for user {user}",
-                    to_install_flatpak,
-                )
-                continue
-
-            self.flatpak.install(to_install_flatpak, True, user)
-
-    def _create_and_remove_files(self):
-        l.print_summary("Installing files.")
-
-        all_created = self.source.create_all_files(self.only_print)
-        to_remove = self.source.files_to_remove(self.store, all_created)
-
-        l.print_list("Ensured files are up to date:", all_created, elements_per_line=1)
-        l.print_list("Removing files:", to_remove, elements_per_line=1)
-
-        if self.only_print:
-            return
-
-        for file in to_remove:
-            try:
-                os.remove(file)
-            except OSError as e:
-                l.print_error(f"{e}")
-                l.print_warning(f"Failed to remove file: {file}")
-
-        self.store.created_files = all_created
-
-    def _enable_units(self):
-        to_enable = self.source.units_to_enable(self.store)
-        l.print_list("Enabling systemd units:", to_enable)
-        if to_enable:
-            l.print_info("Enabled systemd units won't be started automatically.")
-        if not self.only_print:
-            self.systemctl.enable_units(to_enable)
-
-        user_units_to_enable = self.source.user_units_to_enable(self.store)
-        for user, units in user_units_to_enable.items():
-            l.print_list(f"Enabling systemd units for {user}:", units)
-            if not self.only_print:
-                self.systemctl.enable_user_units(units, user)
-
-    def _run_modules(self):
-        l.print_summary("Running on enable hooks.")
-        if not self.only_print:
-            self.source.run_on_enable(self.store)
-
-        l.print_summary("Running after version change hooks.")
-        if not self.only_print:
-            self.source.run_after_version_change(self.store)
-
-        l.print_summary("Running on disable hooks.")
-        if not self.only_print:
-            self.source.run_on_disable(self.store)
-
-        l.print_summary("Running after update hooks.")
-        if not self.only_print:
-            self.source.run_after_update()
+    return True
 
 
-def _resolve_source() -> l.Source:
-    enabled_systemd_user_units = {}
-    for user, units in decman.enabled_systemd_user_units.items():
-        enabled_systemd_user_units[user] = set(units)
+def _determine_execution_order(args: argparse.Namespace) -> list[str]:
+    execution_order = []
 
-    flatpak_user_packages = {}
-    for user, pkgs in decman.flatpak_user_packages.items():
-        flatpak_user_packages[user] = set(pkgs)
+    if args.only:
+        output.print_debug("Argument '--only' is set. Pruning execution steps.")
+        for step in decman.execution_order:
+            if step in args.only:
+                output.print_debug(f"Adding {step} to execution order.")
+                execution_order.append(step)
+    else:
+        execution_order = decman.execution_order
 
-    return l.Source(
-        pacman_packages=set(decman.packages),
-        aur_packages=set(decman.aur_packages),
-        user_packages=set(decman.user_packages),
-        ignored_packages=set(decman.ignored_packages),
-        systemd_units=set(decman.enabled_systemd_units),
-        systemd_user_units=enabled_systemd_user_units,
-        files=decman.files,
-        directories=decman.directories,
-        modules=set(decman.modules),
-        flatpak_packages=set(decman.flatpak_packages),
-        flatpak_user_packages=flatpak_user_packages,
-        ignored_flatpak_packages=set(decman.ignored_flatpak_packages),
-    )
+    for skip in args.skip:
+        output.print_debug(f"Skipping step {skip}.")
+        execution_order.remove(skip)
+
+    output.print_debug(f"Execution order is: {', '.join(execution_order)}.")
+    return execution_order
 
 
-def _is_root() -> bool:
-    return os.geteuid() == 0
+def _find_new_modules(store: _store.Store):
+    new_modules = []
+    for module in decman.modules:
+        if module.name not in store["enabled_modules"]:
+            new_modules.append(module.name)
+    output.print_debug(f"New modules are: {', '.join(new_modules)}.")
+    return new_modules
+
+
+def _find_disabled_modules(store: _store.Store):
+    disabled_modules = []
+    for module_name in store["enabled_modules"]:
+        if module_name not in decman.modules:
+            disabled_modules.append(module_name)
+    output.print_debug(f"Disabled modules are: {', '.join(disabled_modules)}.")
+    return disabled_modules
+
+
+def _run_before_update(store: _store.Store, args: argparse.Namespace):
+    output.print_summary("Running before_update -hooks.")
+    for module in decman.modules:
+        output.print_debug(f"Running before_update for {module.name}.")
+        if not args.dry_run:
+            module.before_update(store)
+
+
+def _run_on_disable(store: _store.Store, args: argparse.Namespace, disabled_modules: list[str]):
+    if not disabled_modules:
+        return
+
+    output.print_summary("Running on_disable -scripts.")
+
+    for disabled_module in disabled_modules:
+        on_disable_script = store["module_on_disable_scripts"].get(disabled_module, None)
+        if on_disable_script:
+            output.print_debug(f"Running on_disable for {disabled_module}.")
+
+            if not args.dry_run:
+                decman.prg([on_disable_script])
+                store["enabled_modules"].remove(disabled_module)
+                store["module_on_disable_scripts"].pop(disabled_module)
+
+
+def _run_on_enable(store: _store.Store, args: argparse.Namespace, new_modules: list[str]):
+    if not new_modules:
+        return
+
+    output.print_summary("Running on_enable -hooks.")
+    for module in decman.modules:
+        if module.name in new_modules:
+            output.print_debug(f"Running on_enable for {module.name}.")
+
+            if not args.dry_run:
+                module.on_enable(store)
+                store["enabled_modules"].append(module.name)
+                try:
+                    script = _module.write_on_disable_script(
+                        module, conf.module_on_disable_scripts_dir
+                    )
+                    if script:
+                        store["module_on_disable_scripts"][module.name] = script
+                except OSError as error:
+                    output.print_error(
+                        f"Failed to create on_disable script for module {module.name}: "
+                    )
+                    output.print_error(f"{error.strerror or str(error)}.")
+                    output.print_traceback()
+                    output.print_warning(
+                        "This script will NOT be created when decman runs the next time."
+                    )
+                    output.print_warning(
+                        "You should investigate the reason for the error and try to fix it."
+                    )
+                    output.print_warning(
+                        "Then disable and re-enable this module to create the script."
+                    )
+
+
+def _run_on_change(store: _store.Store, args: argparse.Namespace):
+    output.print_summary("Running on_change -hooks.")
+    for module in decman.modules:
+        if module._changed:
+            output.print_debug(f"Running on_change for {module.name}.")
+            if not args.dry_run:
+                module.on_change(store)
+
+
+def _run_after_update(store: _store.Store, args: argparse.Namespace):
+    output.print_summary("Running after_update -hooks.")
+    for module in decman.modules:
+        output.print_debug(f"Running after_update for {module.name}.")
+        if not args.dry_run:
+            module.after_update(store)
