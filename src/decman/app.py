@@ -84,6 +84,7 @@ def main():
                 failed = True
             except errors.CommandFailedError as error:
                 output.print_error(str(error))
+                output.print_command_output(error.output)
                 output.print_traceback()
                 failed = True
             except ValueError as error:

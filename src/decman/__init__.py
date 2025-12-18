@@ -120,8 +120,7 @@ def prg(
     if code != 0:
         output.print_warning(f"Command '{shlex.join(cmd)}' returned with an exit code {code}.")
         if not pty:
-            for line in command_output.strip().split("\n"):
-                output.print_continuation(line.strip())
+            output.print_command_output(command_output)
 
     return command_output
 

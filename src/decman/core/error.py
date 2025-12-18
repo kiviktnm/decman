@@ -68,4 +68,4 @@ class CommandFailedError(Exception):
     def __init__(self, command: list[str], output: str) -> None:
         self.command = shlex.join(command)
         self.output = output.strip()
-        super().__init__(f"Running a command '{self.command}' failed. Output:\n{self.output}")
+        super().__init__(f"Running a command '{self.command}' failed.")
