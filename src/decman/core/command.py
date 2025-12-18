@@ -206,7 +206,7 @@ def _run_parent(master_fd: int, pid: int) -> tuple[int, str]:
     # Helper function to set PTY window size to the current terminal size
     def resize_pty(*args):
         try:
-            rows, cols = shutil.get_terminal_size()
+            cols, rows = shutil.get_terminal_size()
             winsz = struct.pack("HHHH", rows, cols, 0, 0)
             fcntl.ioctl(master_fd, termios.TIOCSWINSZ, winsz)
         except OSError:

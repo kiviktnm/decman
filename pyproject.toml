@@ -18,6 +18,7 @@ decman = "decman.app:main"
 systemd = "decman.plugins.systemd:Systemd"
 pacman = "decman.plugins.pacman:Pacman"
 aur = "decman.plugins.aur:AUR"
+flatpak = "decman.plugins.flatpak:Flatpak"
 
 [dependency-groups]
 dev = [
