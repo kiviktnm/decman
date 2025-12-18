@@ -258,8 +258,9 @@ def _find_new_modules(store: _store.Store):
 
 def _find_disabled_modules(store: _store.Store):
     disabled_modules = []
+    enabled_module_names = set(map(lambda m: m.name, decman.modules))
     for module_name in store["enabled_modules"]:
-        if module_name not in decman.modules:
+        if module_name not in enabled_module_names:
             disabled_modules.append(module_name)
     output.print_debug(f"Disabled modules are: {', '.join(disabled_modules)}.")
     return disabled_modules
