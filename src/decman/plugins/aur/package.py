@@ -280,8 +280,8 @@ class CustomPackage:
         try:
             with tempfile.TemporaryDirectory(prefix="decman-pkgbuild-") as tmpdir:
                 tmp_path = pathlib.Path(tmpdir)
-                # Allow the user 'nobody' to read here
-                os.chmod(tmpdir, 0o755)
+                # Allow the user 'nobody' to use this directory
+                os.chmod(tmpdir, 0o777)
                 shutil.copy(path / "PKGBUILD", tmp_path / "PKGBUILD")
                 os.chmod(tmp_path / "PKGBUILD", 0o644)
 
@@ -298,7 +298,7 @@ class CustomPackage:
         try:
             with tempfile.TemporaryDirectory(prefix="decman-pkgbuild-") as tmpdir:
                 tmp_path = pathlib.Path(tmpdir)
-                # Allow the user 'nobody' to write here
+                # Allow the user 'nobody' to use this directory
                 os.chmod(tmpdir, 0o777)
                 try:
                     cmd = commands.git_clone(self.git_url, tmpdir)

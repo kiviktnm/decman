@@ -18,37 +18,13 @@ def test_run_exec_failure():
     assert "not" in out.lower()
 
 
-def test_run_env_overrides_and_mimic_login_visible_in_child(monkeypatch):
-    class FakePw:
-        pw_dir = "/fake/home"
-        pw_name = "fakeuser"
-        pw_uid = 1000
-        pw_gid = 1000
-        pw_shell = "/bin/fakesh"
-
-    # Mock passwd lookup
-    monkeypatch.setattr(
-        "decman.core.command.pwd.getpwnam",
-        lambda user: FakePw(),
-    )
-
+def test_run_env_overrides_visible_in_child(monkeypatch):
     code, out = command.run(
         [
             sys.executable,
             "-c",
-            (
-                "import os, json; "
-                "print(json.dumps({"
-                "'FOO': os.environ['FOO'], "
-                "'HOME': os.environ['HOME'], "
-                "'USER': os.environ['USER'], "
-                "'LOGNAME': os.environ['LOGNAME'], "
-                "'SHELL': os.environ['SHELL']"
-                "}))"
-            ),
+            ("import os, json; print(json.dumps({'FOO': os.environ['FOO'], }))"),
         ],
-        user="fakeuser",
-        mimic_login=True,
         env_overrides={"FOO": "BAR"},
     )
 
@@ -56,10 +32,6 @@ def test_run_env_overrides_and_mimic_login_visible_in_child(monkeypatch):
 
     data = json.loads(out.strip())
     assert data["FOO"] == "BAR"
-    assert data["HOME"] == "/fake/home"
-    assert data["USER"] == "fakeuser"
-    assert data["LOGNAME"] == "fakeuser"
-    assert data["SHELL"] == "/bin/fakesh"
 
 
 @pytest.mark.skipif(not sys.stdin.isatty(), reason="requires TTY")

@@ -606,7 +606,7 @@ class PackageBuilder:
         cmd = self._commands.make_chroot_pkg(
             self.chroot_wd_dir, self.makepkg_user, chroot_pkg_files
         )
-        command.check_run_result(cmd, command.run(cmd))
+        command.check_run_result(cmd, command.pty_run(cmd))
 
         for pkgname in package_names:
             file = self._find_pkgfile(pkgname, pkgbuild_dir)
@@ -819,11 +819,12 @@ class PackageBuilder:
         if output.prompt_confirm("Build this package?", default=True):
             cmd = self._commands.git_get_commit_id()
             rc, git_output = command.run(cmd)
-            if rc != 0:
-                raise ForeignPackageManagerError(
-                    f"Failed to get commit id for {pkgbase}."
-                ) from errors.CommandFailedError(cmd, git_output)
-            commit_id = git_output.strip()
-            self._store["pkgbuild_latest_reviewed_commits"][pkgbase] = commit_id
+            if rc == 0:
+                commit_id = git_output.strip()
+                self._store["pkgbuild_latest_reviewed_commits"][pkgbase] = commit_id
+            else:
+                output.print_debug(
+                    f"{pkgbase} is not in a git repository. Commit ID cannot be saved."
+                )
         else:
             raise ForeignPackageManagerError("Building aborted.")
