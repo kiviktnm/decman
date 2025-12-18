@@ -35,9 +35,11 @@ def main():
         help="print what would happen as a result of running decman",
     )
     parser.add_argument("--debug", action="store_true", default=False, help="show debug output")
-    parser.add_argument("--skip", nargs="*", type=str, help="skip the following execution steps")
     parser.add_argument(
-        "--only", nargs="*", type=str, help="run only the following execution steps"
+        "--skip", nargs="*", type=str, default=[], help="skip the following execution steps"
+    )
+    parser.add_argument(
+        "--only", nargs="*", type=str, default=[], help="run only the following execution steps"
     )
     parser.add_argument(
         "--no-hooks",
@@ -177,6 +179,8 @@ def run_decman(store: _store.Store, args: argparse.Namespace) -> bool:
         ``CommandFailedError``
             If running any command fails.
     """
+
+    output.print_debug(f"Available plugins: {' '.join(decman.plugins.keys())}")
 
     store.ensure("enabled_modules", [])
     store.ensure("module_on_disable_scripts", {})

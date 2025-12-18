@@ -2,6 +2,7 @@ import dataclasses
 import os
 import pathlib
 import re
+import shutil
 import tempfile
 
 import requests  # type: ignore
@@ -276,35 +277,63 @@ class CustomPackage:
                 self.git_url, self.pkgbuild_directory, f"No PKGBUILD found in '{path}'."
             )
 
-        return self._run_makepkg_printsrcinfo(path, commands)
+        try:
+            with tempfile.TemporaryDirectory(prefix="decman-pkgbuild-") as tmpdir:
+                tmp_path = pathlib.Path(tmpdir)
+                # Allow the user 'nobody' to read here
+                os.chmod(tmpdir, 0o755)
+                shutil.copy(path / "PKGBUILD", tmp_path / "PKGBUILD")
+                os.chmod(tmp_path / "PKGBUILD", 0o644)
+
+                return self._run_makepkg_printsrcinfo(tmp_path, commands)
+        except OSError as error:
+            raise PKGBUILDParseError(
+                self.git_url,
+                self.pkgbuild_directory,
+                "Failed to create temporary directory for the PKGBUILD.",
+            ) from error
 
     def _srcinfo_from_git(self, commands: AurCommands) -> str:
         assert self.git_url is not None, "This will not get called if git_url is unset."
-        with tempfile.TemporaryDirectory(prefix="decman-pkgbuild-") as tmpdir:
-            tmp_path = pathlib.Path(tmpdir)
-            try:
-                cmd = commands.git_clone(self.git_url, tmpdir)
-                command.check_run_result(cmd, command.run(cmd))
-            except errors.CommandFailedError as error:
-                raise PKGBUILDParseError(
-                    self.git_url, self.pkgbuild_directory, "Failed to clone PKGBUILD repository."
-                ) from error
+        try:
+            with tempfile.TemporaryDirectory(prefix="decman-pkgbuild-") as tmpdir:
+                tmp_path = pathlib.Path(tmpdir)
+                # Allow the user 'nobody' to write here
+                os.chmod(tmpdir, 0o777)
+                try:
+                    cmd = commands.git_clone(self.git_url, tmpdir)
+                    # Use the user nobody, since that will be used later to generate SRCINFO
+                    command.check_run_result(cmd, command.run(cmd, user="nobody"))
+                except errors.CommandFailedError as error:
+                    raise PKGBUILDParseError(
+                        self.git_url,
+                        self.pkgbuild_directory,
+                        "Failed to clone PKGBUILD repository.",
+                    ) from error
 
-            if not (tmp_path / "PKGBUILD").exists():
-                raise PKGBUILDParseError(
-                    self.git_url,
-                    self.pkgbuild_directory,
-                    f"Cloned repository '{self.git_url}' does not contain a PKGBUILD.",
-                )
+                if not (tmp_path / "PKGBUILD").exists():
+                    raise PKGBUILDParseError(
+                        self.git_url,
+                        self.pkgbuild_directory,
+                        f"Cloned repository '{self.git_url}' does not contain a PKGBUILD.",
+                    )
 
-            return self._run_makepkg_printsrcinfo(tmp_path, commands)
+                return self._run_makepkg_printsrcinfo(tmp_path, commands)
+        except OSError as error:
+            raise PKGBUILDParseError(
+                self.git_url,
+                self.pkgbuild_directory,
+                "Failed to create temporary directory for the PKGBUILD.",
+            ) from error
 
     def _run_makepkg_printsrcinfo(self, path: pathlib.Path, commands: AurCommands) -> str:
         orig_wd = os.getcwd()
         try:
             os.chdir(path)
             cmd = commands.print_srcinfo()
-            _, srcinfo = command.check_run_result(cmd, command.run(cmd))
+            # No need to use the makepkg_user config option here.
+            # For just printing the SRCINFO, hardcoded 'nobody' works
+            _, srcinfo = command.check_run_result(cmd, command.run(cmd, user="nobody"))
         except errors.CommandFailedError as error:
             raise PKGBUILDParseError(
                 self.git_url, self.pkgbuild_directory, "Failed to generate SRCINFO using makepkg."
