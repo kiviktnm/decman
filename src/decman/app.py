@@ -267,7 +267,7 @@ def _find_disabled_modules(store: _store.Store):
 def _run_before_update(store: _store.Store, args: argparse.Namespace):
     output.print_summary("Running before_update -hooks.")
     for module in decman.modules:
-        output.print_info(f"Running before_update for {module.name}.")
+        output.print_debug(f"Running before_update for {module.name}.")
         if not args.dry_run:
             module.before_update(store)
 
@@ -281,7 +281,7 @@ def _run_on_disable(store: _store.Store, args: argparse.Namespace, disabled_modu
     for disabled_module in disabled_modules:
         on_disable_script = store["module_on_disable_scripts"].get(disabled_module, None)
         if on_disable_script:
-            output.print_info(f"Running on_disable for {disabled_module}.")
+            output.print_debug(f"Running on_disable for {disabled_module}.")
 
             if not args.dry_run:
                 decman.prg([on_disable_script])
@@ -296,7 +296,7 @@ def _run_on_enable(store: _store.Store, args: argparse.Namespace, new_modules: l
     output.print_summary("Running on_enable -hooks.")
     for module in decman.modules:
         if module.name in new_modules:
-            output.print_info(f"Running on_enable for {module.name}.")
+            output.print_debug(f"Running on_enable for {module.name}.")
 
             if not args.dry_run:
                 module.on_enable(store)
@@ -328,7 +328,7 @@ def _run_on_change(store: _store.Store, args: argparse.Namespace):
     output.print_summary("Running on_change -hooks.")
     for module in decman.modules:
         if module._changed:
-            output.print_info(f"Running on_change for {module.name}.")
+            output.print_debug(f"Running on_change for {module.name}.")
             if not args.dry_run:
                 module.on_change(store)
 
@@ -336,6 +336,6 @@ def _run_on_change(store: _store.Store, args: argparse.Namespace):
 def _run_after_update(store: _store.Store, args: argparse.Namespace):
     output.print_summary("Running after_update -hooks.")
     for module in decman.modules:
-        output.print_info(f"Running after_update for {module.name}.")
+        output.print_debug(f"Running after_update for {module.name}.")
         if not args.dry_run:
             module.after_update(store)
