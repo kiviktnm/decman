@@ -176,6 +176,7 @@ class FlatpakCommands:
 
         If ``as_user`` is ``True``, run the command as the user for whom packages are removed.
         """
+
         return [
             "flatpak",
             "remove",
@@ -219,6 +220,10 @@ class FlatpakInterface:
             cmd, command.run(cmd, user=user, mimic_login=as_user)
         )
         packages = packages_text.strip().split("\n")
+
+        # In case no apps are installed, the list contains this
+        if "" in packages:
+            packages.remove("")
 
         return set(packages)
 
