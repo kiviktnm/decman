@@ -106,6 +106,9 @@ def main():
         )
         output.print_error("This may cause already completed operations to run again.")
         output.print_traceback()
+    except KeyboardInterrupt:
+        output.print_error("Interrupted by the user.")
+        failed = True
     finally:
         os.chdir(original_wd)
 
