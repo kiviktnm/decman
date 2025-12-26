@@ -766,13 +766,17 @@ class PackageBuilder:
                 ) from errors.CommandFailedError(cmd, git_output)
 
         if pkgbuild_directory:
-            pkgbuild_file = os.path.join(pkgbuild_directory, "PKGBUILD")
             try:
-                shutil.copy(pkgbuild_file, "./PKGBUILD")
+                shutil.copytree(pkgbuild_directory, ".", dirs_exist_ok=True)
+
+                # Chmod to 755 to allow reading files
+                mode = 0o755
+                for root, dirs, files in os.walk("."):
+                    for name in dirs + files:
+                        os.chmod(os.path.join(root, name), mode)
+                os.chmod(".", mode)
             except OSError as error:
-                raise ForeignPackageManagerError(
-                    f"Failed to copy PKGBUILD from {pkgbuild_directory}."
-                ) from error
+                raise ForeignPackageManagerError(f"Failed to copy {pkgbuild_directory}.") from error
 
         if output.prompt_confirm(f"Review PKGBUILD or show diff for {pkgbase}?", default=True):
             latest_reviewed_commit = None
