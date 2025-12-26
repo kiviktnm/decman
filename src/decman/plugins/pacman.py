@@ -298,18 +298,26 @@ class PacmanInterface:
         if not self._print_highlights:
             return
 
-        output.print_summary("Pacman output highlights:")
         lines = pacman_output.split("\n")
+        highlight_lines = []
         for index, line in enumerate(lines):
             for keyword in self._keywords:
                 if keyword.lower() in line.lower():
-                    output.print_summary(f"lines: {index}-{index + 2}")
+                    highlight_lines.append(f"lines: {index}-{index + 2}")
                     if index >= 1:
-                        output.print_continuation(lines[index - 1])
-                    output.print_continuation(line)
+                        highlight_lines.append(lines[index - 1])
+                    highlight_lines.append(line)
                     if index + 1 < len(lines):
-                        output.print_continuation(lines[index + 1])
-                    output.print_continuation("")
+                        highlight_lines.append(lines[index + 1])
+                    highlight_lines.append("")
 
                     # Break, as to not print the same line again if it contains multiple keywords
                     break
+
+        if highlight_lines:
+            output.print_summary("Pacman output highlights:")
+            for line in highlight_lines:
+                if line.startswith("lines:"):
+                    output.print_summary(line)
+                else:
+                    output.print_continuation(line)
