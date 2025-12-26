@@ -3,6 +3,7 @@ import shutil
 import time
 import typing
 
+import decman.config as config
 import decman.core.command as command
 import decman.core.error as errors
 import decman.core.output as output
@@ -428,10 +429,7 @@ class ForeignPackageManager:
 
         try:
             cmd = self._commands.compare_versions(installed_version, fetched_version)
-            returncode, vercmp_output = command.run(cmd)
-            if returncode != 0:
-                raise errors.CommandFailedError(cmd, vercmp_output)
-
+            vercmp_output = command.prg(cmd, pty=False)
             should_upgrade = int(vercmp_output) < 0
 
             output.print_debug(
@@ -561,8 +559,8 @@ class PackageBuilder:
             pass
 
         cmd = self._commands.make_chroot(self.chroot_dir, self._pkgs_in_chroot)
-        command.check_run_result(
-            cmd, command.run(cmd, env_overrides=mkarchroot_env_vars, pass_environment=False)
+        command.prg(
+            cmd, env_overrides=mkarchroot_env_vars, pass_environment=False, pty=config.debug_output
         )
 
     def remove_build_environment(self):
@@ -600,13 +598,13 @@ class PackageBuilder:
         cmd = self._commands.install_chroot(
             self.chroot_dir, chroot_new_pacman_pkgs + PackageBuilder.always_included_packages
         )
-        command.check_run_result(cmd, command.run(cmd))
+        command.prg(cmd, pty=config.debug_output)
         output.print_info("Making package.")
 
         cmd = self._commands.make_chroot_pkg(
             self.chroot_wd_dir, self.makepkg_user, chroot_pkg_files
         )
-        command.check_run_result(cmd, command.pty_run(cmd))
+        command.prg(cmd)
 
         for pkgname in package_names:
             file = self._find_pkgfile(pkgname, pkgbuild_dir)
@@ -637,7 +635,7 @@ class PackageBuilder:
                     real_pkgname = cmd_output.strip()
                     to_remove.add(real_pkgname)
             cmd = self._commands.remove_chroot(self.chroot_dir, to_remove)
-            command.check_run_result(cmd, command.run(cmd))
+            command.prg(cmd, pty=config.debug_output)
 
         output.print_info(f"Finished building: '{' '.join(package_names)}'.")
 
@@ -758,12 +756,7 @@ class PackageBuilder:
 
         if git_url:
             cmd = self._commands.git_clone(git_url, ".")
-            rc, git_output = command.run(cmd)
-
-            if rc != 0:
-                raise ForeignPackageManagerError(
-                    f"Failed to clone PKGBUILD from {git_url}"
-                ) from errors.CommandFailedError(cmd, git_output)
+            command.prg(cmd, pty=config.debug_output)
 
         if pkgbuild_directory:
             try:
@@ -788,13 +781,7 @@ class PackageBuilder:
                 )
 
                 cmd = self._commands.git_log_commit_ids()
-                rc, git_output = command.run(cmd)
-
-                if rc != 0:
-                    raise ForeignPackageManagerError(
-                        f"Failed to get git commit ids for {pkgbase}."
-                    ) from errors.CommandFailedError(cmd, git_output)
-
+                git_output = command.prg(cmd, pty=False)
                 git_commit_ids = git_output.strip().split("\n")
 
             if latest_reviewed_commit is None or latest_reviewed_commit not in git_commit_ids:
@@ -802,11 +789,7 @@ class PackageBuilder:
                     for file in os.scandir("."):
                         if file.is_file() and not file.name.startswith("."):
                             cmd = self._commands.review_file(file.path)
-                            rc, review_output = command.pty_run(cmd)
-                            if rc != 0:
-                                raise ForeignPackageManagerError(
-                                    f"Failed to review file '{file.path}'."
-                                ) from errors.CommandFailedError(cmd, review_output)
+                            command.prg(cmd)
                 except OSError as error:
                     raise ForeignPackageManagerError(
                         f"Failed to review files in directory for {pkgbase}."
@@ -814,11 +797,7 @@ class PackageBuilder:
 
             else:
                 cmd = self._commands.git_diff(latest_reviewed_commit)
-                rc, review_output = command.pty_run(cmd)
-                if rc != 0:
-                    raise ForeignPackageManagerError(
-                        "Failed to review file using git diff."
-                    ) from errors.CommandFailedError(cmd, review_output)
+                command.prg(cmd)
 
         if output.prompt_confirm("Build this package?", default=True):
             cmd = self._commands.git_get_commit_id()

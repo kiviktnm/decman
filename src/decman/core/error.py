@@ -65,7 +65,10 @@ class CommandFailedError(Exception):
         command (list[str]): The command that caused the exception.
     """
 
-    def __init__(self, command: list[str], output: str) -> None:
+    def __init__(self, command: list[str], output: str | None) -> None:
         self.command = shlex.join(command)
-        self.output = output.strip()
-        super().__init__(f"Running a command '{self.command}' failed.")
+        if output:
+            self.output: str | None = output.strip()
+        else:
+            self.output = None
+        super().__init__(f"Command '{self.command}' returned with a non-zero exit code.")

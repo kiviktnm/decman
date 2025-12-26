@@ -229,9 +229,13 @@ class AUR(plugins.Plugin):
             output.print_traceback()
             return False
         except errors.CommandFailedError as error:
-            output.print_error("Running a AUR command failed.")
+            output.print_error(
+                "AUR command exited with an unexpected return code. You may have cancelled a "
+                "pacman operation."
+            )
             output.print_error(str(error))
-            output.print_command_output(error.output)
+            if error.output:
+                output.print_command_output(error.output)
             output.print_traceback()
             return False
 

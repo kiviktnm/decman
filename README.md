@@ -126,6 +126,12 @@ Decman has some CLI options, to see them all run:
 decman --help
 ```
 
+For troubleshooting and submitting issues, you should use the `--debug` option.
+
+```sh
+sudo decman --debug
+```
+
 [See the complete documentation for using decman.](/docs/README.md)
 
 ## Installation

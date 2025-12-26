@@ -201,7 +201,7 @@ def test_apply_returns_false_on_command_failure(monkeypatch: pytest.MonkeyPatch)
     ok = pacman.apply(store, dry_run=False)
 
     assert ok is False
-    assert any("pacman command failed" in msg for msg in errors_logged)
+    assert any("Pacman command exited with an unexpected" in msg for msg in errors_logged)
     assert any("boom" in msg for msg in continuations)
     assert traceback_called  # at least once
 

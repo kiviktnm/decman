@@ -1,5 +1,6 @@
 import shutil
 
+import decman.config as config
 import decman.core.command as command
 import decman.core.error as errors
 import decman.core.module as module
@@ -179,7 +180,8 @@ class Systemd(plugins.Plugin):
         except errors.CommandFailedError as error:
             output.print_error("Running a systemd command failed.")
             output.print_error(str(error))
-            output.print_command_output(error.output)
+            if error.output:
+                output.print_command_output(error.output)
             output.print_traceback()
             return False
         return True
@@ -192,7 +194,7 @@ class Systemd(plugins.Plugin):
             return
 
         cmd = self.commands.enable_units(units)
-        command.check_run_result(cmd, command.run(cmd))
+        command.prg(cmd, pty=config.debug_output)
 
         store["systemd_units"] |= units
 
@@ -204,7 +206,7 @@ class Systemd(plugins.Plugin):
             return
 
         cmd = self.commands.disable_units(units)
-        command.check_run_result(cmd, command.run(cmd))
+        command.prg(cmd, pty=config.debug_output)
 
         store["systemd_units"] -= units
 
@@ -216,7 +218,7 @@ class Systemd(plugins.Plugin):
             return
 
         cmd = self.commands.enable_user_units(units, user)
-        command.check_run_result(cmd, command.run(cmd))
+        command.prg(cmd, pty=config.debug_output)
 
         store["systemd_user_units"].setdefault(user, set())
         store["systemd_user_units"][user] |= units
@@ -229,7 +231,7 @@ class Systemd(plugins.Plugin):
             return
 
         cmd = self.commands.disable_user_units(units, user)
-        command.check_run_result(cmd, command.run(cmd))
+        command.prg(cmd, pty=config.debug_output)
 
         store["systemd_user_units"].setdefault(user, set())
         store["systemd_user_units"][user] -= units
@@ -240,7 +242,7 @@ class Systemd(plugins.Plugin):
         """
 
         cmd = self.commands.user_daemon_reload(user)
-        _, text = command.check_run_result(cmd, command.run(cmd))
+        command.prg(cmd, pty=config.debug_output)
 
     def reload_daemon(self):
         """
@@ -248,4 +250,4 @@ class Systemd(plugins.Plugin):
         """
 
         cmd = self.commands.daemon_reload()
-        command.check_run_result(cmd, command.run(cmd))
+        command.prg(cmd, pty=config.debug_output)

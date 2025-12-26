@@ -1,3 +1,4 @@
+import decman.config as config
 import decman.core.command as command
 import decman.core.error as errors
 import decman.plugins.pacman as pacman
@@ -206,7 +207,7 @@ class AurPacmanInterface(pacman.PacmanInterface):
             return
 
         cmd = self._aur_commands.install_as_dependencies(deps)
-        _, pacman_output = command.check_run_result(cmd, command.pty_run(cmd))
+        pacman_output = command.prg(cmd)
         self.print_highlighted_pacman_messages(pacman_output)
 
     def install_files(self, files: list[str], as_explicit: set[str]):
@@ -218,11 +219,11 @@ class AurPacmanInterface(pacman.PacmanInterface):
             return
 
         cmd = self._aur_commands.install_files_as_dependencies(files)
-        _, pacman_output = command.check_run_result(cmd, command.pty_run(cmd))
+        pacman_output = command.prg(cmd)
         self.print_highlighted_pacman_messages(pacman_output)
 
         if not as_explicit:
             return
 
         cmd = self._commands.set_as_explicit(as_explicit)
-        _, pacman_output = command.check_run_result(cmd, command.run(cmd))
+        command.prg(cmd, pty=config.debug_output)

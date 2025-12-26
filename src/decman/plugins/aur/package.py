@@ -303,7 +303,7 @@ class CustomPackage:
                 try:
                     cmd = commands.git_clone(self.git_url, tmpdir)
                     # Use the user nobody, since that will be used later to generate SRCINFO
-                    command.check_run_result(cmd, command.run(cmd, user="nobody"))
+                    command.prg(cmd, user="nobody", pty=config.debug_output)
                 except errors.CommandFailedError as error:
                     raise PKGBUILDParseError(
                         self.git_url,
@@ -333,7 +333,7 @@ class CustomPackage:
             cmd = commands.print_srcinfo()
             # No need to use the makepkg_user config option here.
             # For just printing the SRCINFO, hardcoded 'nobody' works
-            _, srcinfo = command.check_run_result(cmd, command.run(cmd, user="nobody"))
+            srcinfo = command.prg(cmd, user="nobody", pty=False)
         except errors.CommandFailedError as error:
             raise PKGBUILDParseError(
                 self.git_url, self.pkgbuild_directory, "Failed to generate SRCINFO using makepkg."

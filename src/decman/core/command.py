@@ -28,6 +28,80 @@ def get_user_info(user: str) -> tuple[int, int]:
     return info.pw_uid, info.pw_gid
 
 
+def prg(
+    cmd: list[str],
+    user: typing.Optional[str] = None,
+    env_overrides: typing.Optional[dict[str, str]] = None,
+    pass_environment: bool = True,
+    mimic_login: bool = False,
+    pty: bool = True,
+    check: bool = True,
+) -> str:
+    """
+    Shortcut for running a command. Returns the output of that command.
+
+    Arguments:
+        cmd:
+            Command to execute.
+
+        user:
+            User name to run the command as. If set, the command is executed after dropping
+            privileges to this user.
+
+        env_overrides:
+            Environment variables to override or add for the command execution.
+            These values are merged on top of the current process environment.
+
+        mimic_login:
+            If mimic_login is True, will set the following environment variables according to the
+            given user's passwd file details. This only happens when user is set.
+                - HOME
+                - USER
+                - LOGNAME
+                - SHELL
+
+        pty:
+            If True, run the command inside a pseudo-terminal (PTY). This enables interactive
+            behavior and terminal-dependent programs. If False, run the command without a PTY
+            using standard subprocess execution.
+
+            If running in a PTY, the raised CommandFailedError will not contain command output,
+            since it has already been shown to the user.
+
+        check:
+            If True, raise CommandFailedError when the command exits with a non-zero status.
+            If False, print a warning when encountering a non-zero exit code.
+    """
+    if pty:
+        result = pty_run(
+            cmd,
+            user=user,
+            env_overrides=env_overrides,
+            pass_environment=pass_environment,
+            mimic_login=mimic_login,
+        )
+    else:
+        result = run(
+            cmd,
+            user=user,
+            env_overrides=env_overrides,
+            pass_environment=pass_environment,
+            mimic_login=mimic_login,
+        )
+
+    if check:
+        # This raises an error if the command failed exiting the function early
+        result = check_run_result(cmd, result, include_output=not pty)
+
+    code, command_output = result
+    if code != 0:
+        output.print_warning(f"Command '{shlex.join(cmd)}' returned with an exit code {code}.")
+        if not pty:
+            output.print_command_output(command_output)
+
+    return command_output
+
+
 def pty_run(
     command: list[str],
     user: None | str = None,
@@ -64,7 +138,7 @@ def pty_run(
 
     command[0] = shutil.which(command[0]) or command[0]
 
-    output.print_debug(f"Running command '{shlex.join(command)}'")
+    output.print_debug(f"Running command '{shlex.join(command)}'.")
 
     env = _build_env(user, env_overrides, mimic_login, pass_environment)
 
@@ -107,7 +181,7 @@ def run(
 
     command[0] = shutil.which(command[0]) or command[0]
 
-    output.print_debug(f"Running command '{shlex.join(command)}'")
+    output.print_debug(f"Running command '{shlex.join(command)}'.")
 
     env = _build_env(user, env_overrides, mimic_login, pass_environment)
     uid, gid = None, None
@@ -130,7 +204,9 @@ def run(
     return process.returncode, stdout.decode("utf-8", errors="replace")
 
 
-def check_run_result(command: list[str], result: tuple[int, str]) -> tuple[int, str]:
+def check_run_result(
+    command: list[str], result: tuple[int, str], include_output: bool = True
+) -> tuple[int, str]:
     """
     Validates the result of a command execution.
 
@@ -141,7 +217,10 @@ def check_run_result(command: list[str], result: tuple[int, str]) -> tuple[int, 
     """
     code, output = result
     if code != 0:
-        raise errors.CommandFailedError(command, output)
+        if include_output:
+            raise errors.CommandFailedError(command, output)
+        else:
+            raise errors.CommandFailedError(command, None)
     return code, output
 
 
@@ -152,9 +231,10 @@ def _build_env(
     pass_environment: bool,
 ) -> dict[str, str]:
     env = {}
+    cwd = os.getcwd()
     output.print_debug(
-        f"Command environment is: user={user}, env_overrides={env_overrides},"
-        f"mimic_login={mimic_login}, pass_environment={pass_environment}"
+        f"Command environment is: cwd='{cwd}', user='{user}', env_overrides='{env_overrides}', "
+        f"mimic_login='{mimic_login}', pass_environment='{pass_environment}'"
     )
 
     if pass_environment:

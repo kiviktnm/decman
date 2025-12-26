@@ -92,8 +92,13 @@ class Flatpak(plugins.Plugin):
                 self.apply_packages(pm, user, packages, self.ignored_packages, dry_run)
         except errors.CommandFailedError as error:
             output.print_error("Running a flatpak command failed.")
+            output.print_error(
+                "Flatpak command exited with an unexpected return code. You may have cancelled a "
+                "flatpak operation."
+            )
             output.print_error(str(error))
-            output.print_command_output(error.output)
+            if error.output:
+                output.print_command_output(error.output)
             output.print_traceback()
             return False
         return True
@@ -239,7 +244,7 @@ class FlatpakInterface:
         as_user = user is not None
 
         cmd = self._commands.install(packages, as_user)
-        command.check_run_result(cmd, command.pty_run(cmd, user=user, mimic_login=as_user))
+        command.prg(cmd, user=user, mimic_login=as_user)
 
     def upgrade(self, user: str | None = None):
         """
@@ -249,7 +254,7 @@ class FlatpakInterface:
         """
         as_user = user is not None
         cmd = self._commands.upgrade(as_user)
-        command.check_run_result(cmd, command.pty_run(cmd, user=user, mimic_login=as_user))
+        command.prg(cmd, user=user, mimic_login=as_user)
 
     def remove(self, packages: set[str], user: str | None = None):
         """
@@ -262,7 +267,7 @@ class FlatpakInterface:
 
         as_user = user is not None
         cmd = self._commands.remove(packages, as_user)
-        command.check_run_result(cmd, command.pty_run(cmd, user=user, mimic_login=as_user))
+        command.prg(cmd, user=user, mimic_login=as_user)
 
         cmd = self._commands.remove_unused(as_user)
-        command.check_run_result(cmd, command.pty_run(cmd, user=user, mimic_login=as_user))
+        command.prg(cmd, user=user, mimic_login=as_user)

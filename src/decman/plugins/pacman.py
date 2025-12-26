@@ -1,5 +1,6 @@
 import shutil
 
+import decman.config as config
 import decman.core.command as command
 import decman.core.error as errors
 import decman.core.module as module
@@ -109,9 +110,13 @@ class Pacman(plugins.Plugin):
             if not dry_run:
                 pm.install(to_install)
         except errors.CommandFailedError as error:
-            output.print_error("Running a pacman command failed.")
+            output.print_error(
+                "Pacman command exited with an unexpected return code. You may have cancelled a "
+                "pacman operation."
+            )
             output.print_error(str(error))
-            output.print_command_output(error.output)
+            if error.output:
+                output.print_command_output(error.output)
             output.print_traceback()
             return False
         return True
@@ -254,7 +259,7 @@ class PacmanInterface:
             return
 
         cmd = self._commands.set_as_dependencies(packages)
-        command.check_run_result(cmd, command.run(cmd))
+        command.prg(cmd, pty=config.debug_output)
 
     def install(self, packages: set[str]):
         """
@@ -266,18 +271,18 @@ class PacmanInterface:
 
         cmd = self._commands.install(packages)
 
-        _, pacman_output = command.check_run_result(cmd, command.pty_run(cmd))
+        pacman_output = command.prg(cmd)
         self.print_highlighted_pacman_messages(pacman_output)
 
         cmd = self._commands.set_as_explicit(packages)
-        command.check_run_result(cmd, command.run(cmd))
+        command.prg(cmd, pty=config.debug_output)
 
     def upgrade(self):
         """
         Upgrades all packages.
         """
         cmd = self._commands.upgrade()
-        _, pacman_output = command.check_run_result(cmd, command.pty_run(cmd))
+        pacman_output = command.prg(cmd)
         self.print_highlighted_pacman_messages(pacman_output)
 
     def remove(self, packages: set[str]):
@@ -288,7 +293,7 @@ class PacmanInterface:
             return
 
         cmd = self._commands.remove(packages)
-        _, pacman_output = command.check_run_result(cmd, command.pty_run(cmd))
+        pacman_output = command.prg(cmd)
         self.print_highlighted_pacman_messages(pacman_output)
 
     def print_highlighted_pacman_messages(self, pacman_output: str):
