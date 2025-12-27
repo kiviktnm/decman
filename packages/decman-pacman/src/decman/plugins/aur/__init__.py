@@ -2,13 +2,6 @@ import os
 import shutil
 
 import pyalpm
-
-import decman.config as config
-import decman.core.error as errors
-import decman.core.module as module
-import decman.core.output as output
-import decman.core.store as _store
-import decman.plugins as plugins
 from decman.plugins.aur.commands import AurCommands, AurPacmanInterface
 from decman.plugins.aur.error import (
     AurRPCError,
@@ -18,6 +11,13 @@ from decman.plugins.aur.error import (
 )
 from decman.plugins.aur.fpm import ForeignPackageManager
 from decman.plugins.aur.package import CustomPackage, PackageSearch
+
+import decman.config as config
+import decman.core.error as errors
+import decman.core.module as module
+import decman.core.output as output
+import decman.core.store as _store
+import decman.plugins as plugins
 
 # Re-exports
 __all__ = [

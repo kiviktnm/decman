@@ -4,15 +4,15 @@ import pathlib
 import shutil
 import tempfile
 
+import decman.plugins.pacman as pacman_module
 import requests  # type: ignore
+from decman.plugins.aur.commands import AurCommands, AurPacmanInterface
+from decman.plugins.aur.error import AurRPCError, PKGBUILDParseError
 
 import decman.config as config
 import decman.core.command as command
 import decman.core.error as errors
 import decman.core.output as output
-import decman.plugins.pacman as pacman_module
-from decman.plugins.aur.commands import AurCommands, AurPacmanInterface
-from decman.plugins.aur.error import AurRPCError, PKGBUILDParseError
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

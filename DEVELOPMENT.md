@@ -7,15 +7,27 @@ Before committing ensure all tests pass and format files.
 Run decman as root to test all changes:
 
 ```sh
-sudo uv run decman
+sudo uv run --all-packages decman
+```
+
+## Python shell
+
+Running a python shell with all the packages.
+
+```sh
+sudo uv run --all-packages python
+sudo uv run --exact --package decman python
 ```
 
 ## Testing
 
-Run all unit tests (`-s` disables output capturing):
+Run all unit tests (`-s` disables output capturing, needed for PTY test):
 
 ```sh
-uv run pytest -s
+uv run --package decman pytest -s tests/
+uv run --package decman-pacman pytest packages/decman-pacman/tests/
+uv run --package decman-systemd pytest packages/decman-systemd/tests/
+uv run --package decman-flatpak pytest packages/decman-flatpak/tests/
 ```
 
 ## Formatting

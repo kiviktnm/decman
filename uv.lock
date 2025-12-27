@@ -2,6 +2,14 @@ version = 1
 revision = 3
 requires-python = ">=3.13"
 
+[manifest]
+members = [
+    "decman",
+    "decman-flatpak",
+    "decman-pacman",
+    "decman-systemd",
+]
+
 [[package]]
 name = "certifi"
 version = "2025.11.12"
@@ -65,9 +73,16 @@ wheels = [
 name = "decman"
 version = "1.0.0"
 source = { editable = "." }
-dependencies = [
-    { name = "pyalpm" },
-    { name = "requests" },
+
+[package.optional-dependencies]
+flatpak = [
+    { name = "decman-flatpak" },
+]
+pacman = [
+    { name = "decman-pacman" },
+]
+systemd = [
+    { name = "decman-systemd" },
 ]
 
 [package.dev-dependencies]
@@ -78,15 +93,56 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "pyalpm" },
-    { name = "requests" },
+    { name = "decman-flatpak", marker = "extra == 'flatpak'", editable = "packages/decman-flatpak" },
+    { name = "decman-pacman", marker = "extra == 'pacman'", editable = "packages/decman-pacman" },
+    { name = "decman-systemd", marker = "extra == 'systemd'", editable = "packages/decman-systemd" },
 ]
+provides-extras = ["pacman", "systemd", "flatpak"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "pytest", specifier = ">=8.4.2" },
     { name = "ruff", specifier = ">=0.14.9" },
 ]
+
+[[package]]
+name = "decman-flatpak"
+version = "1.0.0"
+source = { editable = "packages/decman-flatpak" }
+dependencies = [
+    { name = "decman" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "decman", editable = "." }]
+
+[[package]]
+name = "decman-pacman"
+version = "1.0.0"
+source = { editable = "packages/decman-pacman" }
+dependencies = [
+    { name = "decman" },
+    { name = "pyalpm" },
+    { name = "requests" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "decman", editable = "." },
+    { name = "pyalpm" },
+    { name = "requests" },
+]
+
+[[package]]
+name = "decman-systemd"
+version = "1.0.0"
+source = { editable = "packages/decman-systemd" }
+dependencies = [
+    { name = "decman" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "decman", editable = "." }]
 
 [[package]]
 name = "idna"

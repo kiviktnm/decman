@@ -3,15 +3,16 @@ import shutil
 import time
 import typing
 
+from decman.plugins.aur.commands import AurCommands
+from decman.plugins.aur.error import ForeignPackageManagerError
+from decman.plugins.aur.package import AurPacmanInterface, PackageSearch
+from decman.plugins.aur.resolver import DepGraph, ForeignPackage
+
 import decman.config as config
 import decman.core.command as command
 import decman.core.error as errors
 import decman.core.output as output
 import decman.core.store as _store
-from decman.plugins.aur.commands import AurCommands
-from decman.plugins.aur.error import ForeignPackageManagerError
-from decman.plugins.aur.package import AurPacmanInterface, PackageSearch
-from decman.plugins.aur.resolver import DepGraph, ForeignPackage
 
 
 def find_latest_cached_package(store: _store.Store, package: str) -> tuple[str, str] | None:

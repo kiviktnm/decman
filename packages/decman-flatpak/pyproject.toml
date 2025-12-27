@@ -1,0 +1,20 @@
+[project]
+name = "decman-flatpak"
+version = "1.0.0"
+requires-python = ">=3.13"
+dependencies = ["decman==1.0.0"]
+
+[project.entry-points."decman.plugins"]
+flatpak = "decman.plugins.flatpak:Flatpak"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = true
+include = ["decman.plugins*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
