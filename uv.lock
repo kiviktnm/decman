@@ -93,9 +93,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "decman-flatpak", marker = "extra == 'flatpak'", editable = "packages/decman-flatpak" },
-    { name = "decman-pacman", marker = "extra == 'pacman'", editable = "packages/decman-pacman" },
-    { name = "decman-systemd", marker = "extra == 'systemd'", editable = "packages/decman-systemd" },
+    { name = "decman-flatpak", marker = "extra == 'flatpak'", editable = "plugins/decman-flatpak" },
+    { name = "decman-pacman", marker = "extra == 'pacman'", editable = "plugins/decman-pacman" },
+    { name = "decman-systemd", marker = "extra == 'systemd'", editable = "plugins/decman-systemd" },
 ]
 provides-extras = ["pacman", "systemd", "flatpak"]
 
@@ -108,7 +108,7 @@ dev = [
 [[package]]
 name = "decman-flatpak"
 version = "1.0.0"
-source = { editable = "packages/decman-flatpak" }
+source = { editable = "plugins/decman-flatpak" }
 dependencies = [
     { name = "decman" },
 ]
@@ -119,7 +119,7 @@ requires-dist = [{ name = "decman", editable = "." }]
 [[package]]
 name = "decman-pacman"
 version = "1.0.0"
-source = { editable = "packages/decman-pacman" }
+source = { editable = "plugins/decman-pacman" }
 dependencies = [
     { name = "decman" },
     { name = "pyalpm" },
@@ -136,7 +136,7 @@ requires-dist = [
 [[package]]
 name = "decman-systemd"
 version = "1.0.0"
-source = { editable = "packages/decman-systemd" }
+source = { editable = "plugins/decman-systemd" }
 dependencies = [
     { name = "decman" },
 ]

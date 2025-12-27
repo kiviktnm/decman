@@ -25,9 +25,9 @@ Run all unit tests (`-s` disables output capturing, needed for PTY test):
 
 ```sh
 uv run --package decman pytest -s tests/
-uv run --package decman-pacman pytest packages/decman-pacman/tests/
-uv run --package decman-systemd pytest packages/decman-systemd/tests/
-uv run --package decman-flatpak pytest packages/decman-flatpak/tests/
+uv run --package decman-pacman pytest plugins/decman-pacman/tests/
+uv run --package decman-systemd pytest plugins/decman-systemd/tests/
+uv run --package decman-flatpak pytest plugins/decman-flatpak/tests/
 ```
 
 ## Formatting
