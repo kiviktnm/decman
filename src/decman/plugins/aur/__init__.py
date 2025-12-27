@@ -1,6 +1,8 @@
 import os
 import shutil
 
+import pyalpm
+
 import decman.config as config
 import decman.core.error as errors
 import decman.core.module as module
@@ -64,6 +66,9 @@ class AUR(plugins.Plugin):
         self.custom_packages: set[CustomPackage] = set()
         self.ignored_packages: set[str] = set()
         self.commands: AurCommands = AurCommands()
+
+        self.database_signature_level = pyalpm.SIG_DATABASE_OPTIONAL
+        self.database_path = "/var/lib/pacman/"
 
         self.aur_rpc_timeout: int = 30
         self.print_highlights: bool = True
@@ -142,7 +147,13 @@ class AUR(plugins.Plugin):
             package_search = PackageSearch(self.aur_rpc_timeout)
             for custom_package in self.custom_packages:
                 package_search.add_custom_pkg(custom_package.parse(self.commands))
-            pm = AurPacmanInterface(self.commands, self.print_highlights, self.keywords)
+            pm = AurPacmanInterface(
+                self.commands,
+                self.print_highlights,
+                self.keywords,
+                self.database_signature_level,
+                self.database_path,
+            )
             fpm = ForeignPackageManager(
                 store,
                 pm,
@@ -225,6 +236,11 @@ class AUR(plugins.Plugin):
             return False
         except ForeignPackageManagerError as error:
             output.print_error("Foreign package manager failed.")
+            output.print_error(str(error))
+            output.print_traceback()
+            return False
+        except pyalpm.error as error:
+            output.print_error("Failed to query pacman databases with pyalpm.")
             output.print_error(str(error))
             output.print_traceback()
             return False

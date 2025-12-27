@@ -1,4 +1,7 @@
+import re
 import shutil
+
+import pyalpm
 
 import decman.config as config
 import decman.core.command as command
@@ -17,6 +20,14 @@ def packages(fn):
     """
     fn.__pacman__packages__ = True
     return fn
+
+
+def strip_dependency(dep: str) -> str:
+    """
+    Removes version spefications from a dependency name.
+    """
+    rx = re.compile("(=.*|>.*|<.*)")
+    return rx.sub("", dep)
 
 
 class Pacman(plugins.Plugin):
@@ -40,6 +51,8 @@ class Pacman(plugins.Plugin):
             # "error",
             # "note",
         }
+        self.database_signature_level = pyalpm.SIG_DATABASE_OPTIONAL
+        self.database_path = "/var/lib/pacman/"
 
     def available(self) -> bool:
         return shutil.which("pacman") is not None
@@ -66,9 +79,15 @@ class Pacman(plugins.Plugin):
     def apply(
         self, store: _store.Store, dry_run: bool = False, params: list[str] | None = None
     ) -> bool:
-        pm = PacmanInterface(self.commands, self.print_highlights, self.keywords)
-
         try:
+            pm = PacmanInterface(
+                self.commands,
+                self.print_highlights,
+                self.keywords,
+                self.database_signature_level,
+                self.database_path,
+            )
+
             currently_installed_native = pm.get_native_explicit()
             currently_installed_foreign = pm.get_foreign_explicit()
             orphans = pm.get_native_orphans()
@@ -109,6 +128,11 @@ class Pacman(plugins.Plugin):
 
             if not dry_run:
                 pm.install(to_install)
+        except pyalpm.error as error:
+            output.print_error("Failed to query pacman databases with pyalpm.")
+            output.print_error(str(error))
+            output.print_traceback()
+            return False
         except errors.CommandFailedError as error:
             output.print_error(
                 "Pacman command exited with an unexpected return code. You may have cancelled a "
@@ -123,32 +147,11 @@ class Pacman(plugins.Plugin):
 
 
 class PacmanCommands:
-    def list_explicit_native(self) -> list[str]:
+    def list_pacman_repos(self) -> list[str]:
         """
-        Running this command outputs a newline seperated list of explicitly installed native
-        packages.
+        Running this command prints a newline seperated list of pacman repositories.
         """
-        return ["pacman", "-Qeqn", "--color=never"]
-
-    def list_explicit_foreign(self) -> list[str]:
-        """
-        Running this command outputs a newline seperated list of explicitly installed foreign
-        packages.
-        """
-        return ["pacman", "-Qeqm", "--color=never"]
-
-    def list_orphans_native(self) -> list[str]:
-        """
-        Running this command outputs a newline seperated list of orphaned native packages.
-        """
-        return ["pacman", "-Qndtq", "--color=never"]
-
-    def list_dependants(self, pkg: str) -> list[str]:
-        """
-        Running this command outputs a newline seperated list of packages that depend on the given
-        package.
-        """
-        return ["pacman", "-Rc", "--print", "--print-format", "%n", pkg]
+        return ["pacman-conf", "--repo-list"]
 
     def install(self, pkgs: set[str]) -> list[str]:
         """
@@ -186,24 +189,66 @@ class PacmanInterface:
     """
     High level interface for running pacman commands.
 
-    On failure methods raise a ``CommandFailedError``.
+    On failure methods raise a ``CommandFailedError`` or ``pyalpm.error``.
     """
 
     def __init__(
-        self, commands: PacmanCommands, print_highlights: bool, keywords: set[str]
+        self,
+        commands: PacmanCommands,
+        print_highlights: bool,
+        keywords: set[str],
+        dbsiglevel: int,
+        dbpath: str,
     ) -> None:
         self._commands = commands
         self._print_highlights = print_highlights
         self._keywords = keywords
+        self._dbsiglevel = dbsiglevel
+        self._dbpath = dbpath
+        self._handle = self._create_pyalpm_handle()
+        self._name_index = self._create_name_index()
+        self._provides_index = self._create_provides_index()
+
+    def _create_pyalpm_handle(self):
+        root = "/"
+
+        h = pyalpm.Handle(root, self._dbpath)
+
+        cmd = self._commands.list_pacman_repos()
+        repos = command.prg(cmd, pty=False).strip().split("\n")
+
+        # Empty string means no DBs
+        if "" in repos and len(repos) == 1:
+            return
+
+        for repo in repos:
+            h.register_syncdb(repo, self._dbsiglevel)
+
+        return h
+
+    def _create_name_index(self) -> set[str]:
+        return {pkg.name for db in self._handle.get_syncdbs() for pkg in db.pkgcache}
+
+    def _create_provides_index(self) -> dict[str, set[str]]:
+        out: dict[str, set[str]] = {}
+        for db in self._handle.get_syncdbs():
+            for pkg in db.pkgcache:
+                for p in pkg.provides:
+                    out.setdefault(strip_dependency(p), set()).add(pkg.name)
+        return out
+
+    def _is_native(self, package: str) -> bool:
+        return package in self._name_index
 
     def get_native_explicit(self) -> set[str]:
         """
         Returns a set of explicitly installed native packages.
         """
-
-        cmd = self._commands.list_explicit_native()
-        _, packages_text = command.check_run_result(cmd, command.run(cmd))
-        packages = set(packages_text.strip().split("\n"))
+        out: set[str] = set()
+        for pkg in self._handle.get_localdb().pkgcache:
+            if pkg.reason == pyalpm.PKG_REASON_EXPLICIT and self._is_native(pkg.name):
+                out.add(pkg.name)
+        return out
 
         return packages
 
@@ -211,45 +256,51 @@ class PacmanInterface:
         """
         Returns a set of orphaned native packages.
         """
-
-        cmd = self._commands.list_orphans_native()
-        rc, packages_text = command.run(cmd)
-        # returncode 1 means no packages exist
-        if rc == 1:
-            return set()
-        if rc != 0:
-            raise errors.CommandFailedError(cmd, packages_text)
-
-        packages = set(packages_text.strip().split("\n"))
-
-        return packages
+        out: set[str] = set()
+        for pkg in self._handle.get_localdb().pkgcache:
+            if pkg.reason != pyalpm.PKG_REASON_DEPEND:
+                continue
+            if pkg.compute_requiredby():
+                continue
+            if self._is_native(pkg.name):
+                out.add(pkg.name)
+        return out
 
     def get_foreign_explicit(self) -> set[str]:
         """
         Returns a set of explicitly installed foreign packages.
         """
-        cmd = self._commands.list_explicit_foreign()
-        rc, packages_text = command.run(cmd)
-        # returncode 1 means no packages exist
-        if rc == 1:
-            return set()
-        if rc != 0:
-            raise errors.CommandFailedError(cmd, packages_text)
-
-        packages = set(packages_text.strip().split("\n"))
-
-        return packages
+        out: set[str] = set()
+        for pkg in self._handle.get_localdb().pkgcache:
+            if pkg.reason == pyalpm.PKG_REASON_EXPLICIT and not self._is_native(pkg.name):
+                out.add(pkg.name)
+        return out
 
     def get_dependants(self, package: str) -> set[str]:
         """
-        Returns a set of packages that depend on the given package.
+        Returns a set of installed packages that depend on the given package.
+        Includes the package itself.
         """
+        local = self._handle.get_localdb()
 
-        cmd = self._commands.list_dependants(package)
-        _, packages_text = command.check_run_result(cmd, command.run(cmd))
-        packages = set(packages_text.strip().split("\n"))
+        seen: set[str] = set()
+        stack = [package]
 
-        return packages
+        while stack:
+            name = stack.pop()
+            if name in seen:
+                continue
+            seen.add(name)
+
+            pkg = local.get_pkg(name)
+            if pkg is None:
+                continue
+
+            for dep in pkg.compute_requiredby():
+                if dep not in seen:
+                    stack.append(dep)
+
+        return seen
 
     def set_as_dependencies(self, packages: set[str]):
         """

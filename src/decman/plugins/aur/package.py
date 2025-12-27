@@ -1,7 +1,6 @@
 import dataclasses
 import os
 import pathlib
-import re
 import shutil
 import tempfile
 
@@ -11,16 +10,9 @@ import decman.config as config
 import decman.core.command as command
 import decman.core.error as errors
 import decman.core.output as output
+import decman.plugins.pacman as pacman_module
 from decman.plugins.aur.commands import AurCommands, AurPacmanInterface
 from decman.plugins.aur.error import AurRPCError, PKGBUILDParseError
-
-
-def strip_dependency(dep: str) -> str:
-    """
-    Removes version spefications from a dependency name.
-    """
-    rx = re.compile("(=.*|>.*|<.*)")
-    return rx.sub("", dep)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -162,7 +154,7 @@ class PackageInfo:
         foreign: list[str] = []
 
         for dependency in deps:
-            stripped = strip_dependency(dependency)
+            stripped = pacman_module.strip_dependency(dependency)
             if pacman.is_installable(dependency):
                 native.append(stripped)
             else:

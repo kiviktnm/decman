@@ -102,7 +102,7 @@ def test_apply_respects_ignored_packages_and_protects_their_dependencies(
 
     # Fake pacman interface for foreign/native info
     class FakePM:
-        def __init__(self, commands, print_highlights, keywords) -> None:
+        def __init__(self, commands, print_highlights, keywords, dbsiglevel, dbpath) -> None:
             self.commands = commands
             self.print_highlights = print_highlights
             self.keywords = keywords
@@ -139,9 +139,15 @@ def test_apply_respects_ignored_packages_and_protects_their_dependencies(
         def set_as_dependencies(self, pkgs: set[str]) -> None:
             self.set_as_deps_called_with = pkgs
 
-    fake_pm = FakePM(None, None, None)
+    fake_pm = FakePM(None, None, None, None, None)
 
-    def fake_pm_ctor(commands, print_highlights, keywords) -> FakePM:
+    def fake_pm_ctor(
+        commands,
+        print_highlights,
+        keywords,
+        dbsiglevel,
+        dbpath,
+    ) -> FakePM:
         fake_pm.commands = commands
         fake_pm.print_highlights = print_highlights
         fake_pm.keywords = keywords
@@ -182,7 +188,13 @@ def test_apply_respects_ignored_packages_and_protects_their_dependencies(
     fake_fpm = FakeFPM(None, None, None, None, None, None, None)
 
     def fake_fpm_ctor(
-        store_arg, pm_arg, package_search_arg, commands_arg, cache_dir, build_dir, makepkg_user
+        store_arg,
+        pm_arg,
+        package_search_arg,
+        commands_arg,
+        cache_dir,
+        build_dir,
+        makepkg_user,
     ):
         fake_fpm.store = store_arg
         fake_fpm.pm = pm_arg

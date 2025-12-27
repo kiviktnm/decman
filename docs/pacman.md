@@ -2,7 +2,7 @@
 
 Pacman plugin can be used to manage pacman packages. The pacman plugin manages only native packages found in arch repositories. All foreign (AUR) packages are ignored by this plugin.
 
-This plugin will ensure that explicitly installed packages match those defined in the decman source. If your system has explicitly installed package A, but it is not included in the source, it will be uninstalled. You don't need to list dependencies in your source as those will be handeled by pacman automatically. However, if you have inluded package B in your source and that package depends on A, this plugin will not remove A. Instead it will demote A to a dependency. This plugin will also remove all orphaned packages automatically.
+This plugin will ensure that explicitly installed packages match those defined in the decman source. If your system has explicitly installed package A, but it is not included in the source, it will be uninstalled. You don't need to list dependencies in your source as those will be handeled by pacman automatically. However, if you have inluded package B in your source and that package depends on A, this plugin will not remove A. Instead it will demote A to a dependency. This plugin will also remove all orphaned packages automatically. **Packages that are only optionally required by other packages are considered orphans.** This way this plugin can ensure that your system truly matches your source. You cannot install an optional dependency, and forget about it later.
 
 Please keep in mind that decman doesn't play well with package groups, since all packages part of that group will be installed explicitly. After the initial run decman will now try to remove those packages since it only knows that the group itself should be explicitly installed. Instead of package groups, use meta packages.
 
@@ -54,6 +54,12 @@ decman.pacman.keywords = {"pacsave", "pacnew", "warning"}
 
 # disable the feature
 decman.pacman.print_highlights = False
+
+# signature level for querying existing databases
+decman.pacman.database_signature_level = 2048 # pyalpm.SIG_DATABASE_OPTIONAL
+
+# path to databases
+decman.pacman.database_path = "/var/lib/pacman/"
 ```
 
 Additionally it's possible to override the commands this plugin uses. Create your own `PacmanCommands` class and override methods returning commands. These are the defaults.
@@ -62,32 +68,11 @@ Additionally it's possible to override the commands this plugin uses. Create you
 from decman.plugins import pacman
 
 class MyCommands(pacman.PacmanCommands):
-    def list_explicit_native(self) -> list[str]:
+    def list_pacman_repos(self) -> list[str]:
         """
-        Running this command outputs a newline seperated list of explicitly installed native
-        packages.
+        Running this command prints a newline seperated list of pacman repositories.
         """
-        return ["pacman", "-Qeqn", "--color=never"]
-
-    def list_explicit_foreign(self) -> list[str]:
-        """
-        Running this command outputs a newline seperated list of explicitly installed foreign
-        packages.
-        """
-        return ["pacman", "-Qeqm", "--color=never"]
-
-    def list_orphans_native(self) -> list[str]:
-        """
-        Running this command outputs a newline seperated list of orphaned native packages.
-        """
-        return ["pacman", "-Qndtq", "--color=never"]
-
-    def list_dependants(self, pkg: str) -> list[str]:
-        """
-        Running this command outputs a newline seperated list of packages that depend on the given
-        package.
-        """
-        return ["pacman", "-Rc", "--print", "--print-format", "%n", pkg]
+        return ["pacman-conf", "--repo-list"]
 
     def install(self, pkgs: set[str]) -> list[str]:
         """

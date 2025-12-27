@@ -8,7 +8,7 @@ AUR plugin can be used to manage AUR and custom packages. The pacman plugin mana
 
 It manages packages exactly the same way as the pacman plugin.
 
-> This plugin will ensure that explicitly installed packages match those defined in the decman source. If your system has explicitly installed package A, but it is not included in the source, it will be uninstalled. You don't need to list dependencies in your source as those will be handeled by pacman automatically. However, if you have inluded package B in your source and that package depends on A, this plugin will not remove A. Instead it will demote A to a dependency. This plugin will also remove all orphaned packages automatically.
+> This plugin will ensure that explicitly installed packages match those defined in the decman source. If your system has explicitly installed package A, but it is not included in the source, it will be uninstalled. You don't need to list dependencies in your source as those will be handeled by pacman automatically. However, if you have inluded package B in your source and that package depends on A, this plugin will not remove A. Instead it will demote A to a dependency. This plugin will also remove all orphaned packages automatically. **Packages that are only optionally required by other packages are considered orphans.** This way this plugin can ensure that your system truly matches your source. You cannot install an optional dependency, and forget about it later.
 
 Building of foreign packages happens in a chroot. This creates some overhead, but ensures clean builds. By default the chroot is created to `/tmp/decman/build`. If `/tmp` is a in-memory filesystem like tmpfs, make sure that the tmpfs-partition is large enough. I recommend at least 6 GB. You can also change the build directory if memory is an issue.
 
@@ -81,7 +81,7 @@ If these sets change, this plugin will flag the module as changed. The module's 
 
 ## Configuration
 
-This module has partially the same configuration with pacman. You'll have to define pacman output keywords again.
+This module has partially the same configuration with pacman. You'll have to define pacman output keywords and database options again.
 
 ```py
 import decman
@@ -89,6 +89,12 @@ import decman
 decman.aur.keywords = {"pacsave", "pacnew", "warning"}
 # disable the feature
 decman.aur.print_highlights = False
+
+# signature level for querying existing databases
+decman.aur.database_signature_level = 2048 # pyalpm.SIG_DATABASE_OPTIONAL
+
+# path to databases
+decman.aur.database_path = "/var/lib/pacman/"
 ```
 
 There are some options related to building packages.
@@ -117,25 +123,6 @@ from decman.plugins import aur
 import decman
 
 class MyAurAndPacmanCommands(aur.AurCommands):
-    def list_orphans_foreign(self) -> list[str]:
-        """
-        Running this command outputs a newline seperated list of orphaned foreign packages.
-        """
-        return ["pacman", "-Qmdtq", "--color=never"]
-
-    def list_foreign_versioned(self) -> list[str]:
-        """
-        Running this command outputs a newline seperated list of installed packages and their
-        versions that are not from pacman repositories.
-        """
-        return ["pacman", "-Qm", "--color=never"]
-
-    def is_installable(self, pkg: str) -> list[str]:
-        """
-        This command exits with code 0 when a package is installable from pacman repositories.
-        """
-        return ["pacman", "-Sddp", pkg]
-
     def install_as_dependencies(self, pkgs: set[str]) -> list[str]:
         """
         Running this command installs the given packages from pacman repositories.

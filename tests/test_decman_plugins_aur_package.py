@@ -8,7 +8,6 @@ from decman.plugins.aur.package import (
     CustomPackage,
     PackageInfo,
     PackageSearch,
-    strip_dependency,
 )
 
 
@@ -22,23 +21,6 @@ def silence_output(monkeypatch):
         "prompt_number",
         lambda *a, **k: 1,  # safe default
     )
-
-
-# --- strip_dependency ------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    "dep,expected",
-    [
-        ("foo", "foo"),
-        ("foo=1.0", "foo"),
-        ("bar>=2", "bar"),
-        ("baz<3", "baz"),
-        ("multi=1.0-2", "multi"),
-    ],
-)
-def test_strip_dependency(dep, expected):
-    assert strip_dependency(dep) == expected
 
 
 # --- PackageInfo -----------------------------------------------------------

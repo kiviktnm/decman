@@ -1,29 +1,11 @@
+import pyalpm
+
 import decman.config as config
 import decman.core.command as command
-import decman.core.error as errors
 import decman.plugins.pacman as pacman
 
 
 class AurCommands(pacman.PacmanCommands):
-    def list_orphans_foreign(self) -> list[str]:
-        """
-        Running this command outputs a newline seperated list of orphaned foreign packages.
-        """
-        return ["pacman", "-Qmdtq", "--color=never"]
-
-    def list_foreign_versioned(self) -> list[str]:
-        """
-        Running this command outputs a newline seperated list of installed packages and their
-        versions that are not from pacman repositories.
-        """
-        return ["pacman", "-Qm", "--color=never"]
-
-    def is_installable(self, pkg: str) -> list[str]:
-        """
-        This command exits with code 0 when a package is installable from pacman repositories.
-        """
-        return ["pacman", "-Sddp", pkg]
-
     def install_as_dependencies(self, pkgs: set[str]) -> list[str]:
         """
         Running this command installs the given packages from pacman repositories.
@@ -144,8 +126,15 @@ class AurPacmanInterface(pacman.PacmanInterface):
     On failure methods raise a ``CommandFailedError``.
     """
 
-    def __init__(self, commands: AurCommands, print_highlights: bool, keywords: set[str]) -> None:
-        super().__init__(commands, print_highlights, keywords)
+    def __init__(
+        self,
+        commands: AurCommands,
+        print_highlights: bool,
+        keywords: set[str],
+        dbsiglevel: int,
+        dbpath: str,
+    ) -> None:
+        super().__init__(commands, print_highlights, keywords, dbsiglevel, dbpath)
         self._installable: dict[str, bool] = {}
         self._aur_commands = commands
 
@@ -153,51 +142,32 @@ class AurPacmanInterface(pacman.PacmanInterface):
         """
         Returns a set of orphaned foreign packages.
         """
-
-        cmd = self._aur_commands.list_orphans_foreign()
-        rc, packages_text = command.run(cmd)
-        # returncode 1 means no packages exist
-        if rc == 1:
-            return set()
-        if rc != 0:
-            raise errors.CommandFailedError(cmd, packages_text)
-
-        packages = set(packages_text.strip().split("\n"))
-
-        return packages
+        out: set[str] = set()
+        for pkg in self._handle.get_localdb().pkgcache:
+            if pkg.reason != pyalpm.PKG_REASON_DEPEND:
+                continue
+            if pkg.compute_requiredby():
+                continue
+            if not self._is_native(pkg.name):
+                out.add(pkg.name)
+        return out
 
     def is_installable(self, pkg: str) -> bool:
         """
         Returns True if a package can be installed using pacman.
         """
-        if pkg in self._installable:
-            return self._installable[pkg]
-
-        returncode, _ = command.run(self._aur_commands.is_installable(pkg))
-        result = returncode == 0
-
-        self._installable[pkg] = result
-        return result
+        return pkg in self._name_index or pacman.strip_dependency(pkg) in self._provides_index
 
     def get_versioned_foreign_packages(self) -> list[tuple[str, str]]:
         """
         Returns a list of installed packages and their versions that aren't from pacman databases,
         basically AUR packages.
         """
-        cmd = self._aur_commands.list_foreign_versioned()
-        returncode, packages_text = command.run(cmd)
-        packages = [
-            (line.split(" ")[0], line.split(" ")[1]) for line in packages_text.strip().split("\n")
-        ]
-
-        # returncode 1 means no packages exist
-        if returncode == 1:
-            return []
-
-        if returncode != 0:
-            raise errors.CommandFailedError(cmd, packages_text)
-
-        return packages
+        out: list[tuple[str, str]] = []
+        for pkg in self._handle.get_localdb().pkgcache:
+            if not self._is_native(pkg.name):
+                out.append((pkg.name, pkg.version))
+        return out
 
     def install_dependencies(self, deps: set[str]):
         """

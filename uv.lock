@@ -66,6 +66,7 @@ name = "decman"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "pyalpm" },
     { name = "requests" },
 ]
 
@@ -76,7 +77,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "requests" }]
+requires-dist = [
+    { name = "pyalpm" },
+    { name = "requests" },
+]
 
 [package.metadata.requires-dev]
 dev = [
@@ -119,6 +123,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746", size = 20538, upload-time = "2025-05-15T12:30:06.134Z" },
 ]
+
+[[package]]
+name = "pyalpm"
+version = "0.10.12"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fa/33/fb965c94a703b2f62741a52911446fe85e7effc677d54d1a8cd0033f4848/pyalpm-0.10.12.tar.gz", hash = "sha256:8c6cb4bbba819f99fe6c2547f25a861f68905d96729caf1ea15ba6c43d4f1127", size = 52295, upload-time = "2025-05-27T10:33:58.208Z" }
 
 [[package]]
 name = "pygments"

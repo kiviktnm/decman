@@ -5,6 +5,20 @@ import pytest
 from decman.plugins import pacman as pacman_plugin
 
 
+@pytest.mark.parametrize(
+    "dep,expected",
+    [
+        ("foo", "foo"),
+        ("foo=1.0", "foo"),
+        ("bar>=2", "bar"),
+        ("baz<3", "baz"),
+        ("multi=1.0-2", "multi"),
+    ],
+)
+def test_strip_dependency(dep, expected):
+    assert pacman_plugin.strip_dependency(dep) == expected
+
+
 class FakeStore(dict):
     def ensure(self, key: str, default: Any) -> None:
         if key not in self:
@@ -59,7 +73,9 @@ def test_apply_dry_run_computes_sets_and_does_not_call_pacman(
 
     # Fake PacmanInterface returned by plugin module
     class FakePM:
-        def __init__(self, commands, print_highlights, keywords) -> None:  # noqa: D401
+        def __init__(
+            self, commands, print_highlights, keywords, database_signature_level, database_path
+        ) -> None:  # noqa: D401
             self.commands = commands
             self.print_highlights = print_highlights
             self.keywords = keywords
@@ -101,9 +117,11 @@ def test_apply_dry_run_computes_sets_and_does_not_call_pacman(
         def install(self, pkgs: set[str]) -> None:
             self.install_called_with = pkgs
 
-    fake_pm = FakePM(None, None, None)
+    fake_pm = FakePM(None, None, None, None, None)
 
-    def fake_pm_ctor(commands, print_highlights, keywords) -> FakePM:
+    def fake_pm_ctor(
+        commands, print_highlights, keywords, database_signature_level, database_path
+    ) -> FakePM:
         # constructor used in Pacman.apply
         fake_pm.commands = commands
         fake_pm.print_highlights = print_highlights
@@ -217,7 +235,9 @@ def test_ignored_packages_are_not_removed_or_installed(monkeypatch: pytest.Monke
     pacman.ignored_packages = {"ignored-installed", "ignored-uninstalled"}
 
     class FakePM:
-        def __init__(self, commands, print_highlights, keywords) -> None:
+        def __init__(
+            self, commands, print_highlights, keywords, database_signature_level, database_path
+        ) -> None:  # noqa: D401
             self.commands = commands
             self.print_highlights = print_highlights
             self.keywords = keywords
@@ -252,9 +272,11 @@ def test_ignored_packages_are_not_removed_or_installed(monkeypatch: pytest.Monke
         def install(self, pkgs: set[str]) -> None:
             self.install_called_with = pkgs
 
-    fake_pm = FakePM(None, None, None)
+    fake_pm = FakePM(None, None, None, None, None)
 
-    def fake_pm_ctor(commands, print_highlights, keywords) -> FakePM:
+    def fake_pm_ctor(
+        commands, print_highlights, keywords, database_signature_level, database_path
+    ) -> FakePM:
         fake_pm.commands = commands
         fake_pm.print_highlights = print_highlights
         fake_pm.keywords = keywords
