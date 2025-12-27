@@ -1,5 +1,6 @@
 import re
 import shutil
+from typing import Callable
 
 import pyalpm
 
@@ -208,6 +209,7 @@ class PacmanInterface:
         self._handle = self._create_pyalpm_handle()
         self._name_index = self._create_name_index()
         self._provides_index = self._create_provides_index()
+        self._requiredby_index = self._create_requiredby_index()
 
     def _create_pyalpm_handle(self):
         root = "/"
@@ -226,8 +228,8 @@ class PacmanInterface:
 
         return h
 
-    def _create_name_index(self) -> set[str]:
-        return {pkg.name for db in self._handle.get_syncdbs() for pkg in db.pkgcache}
+    def _create_name_index(self) -> dict[str, pyalpm.Package]:
+        return {pkg.name: pkg for db in self._handle.get_syncdbs() for pkg in db.pkgcache}
 
     def _create_provides_index(self) -> dict[str, set[str]]:
         out: dict[str, set[str]] = {}
@@ -235,10 +237,17 @@ class PacmanInterface:
             for pkg in db.pkgcache:
                 for p in pkg.provides:
                     out.setdefault(strip_dependency(p), set()).add(pkg.name)
+                    out.setdefault(p, set()).add(pkg.name)
         return out
+
+    def _create_requiredby_index(self) -> dict[str, set[str]]:
+        return {p.name: set(p.compute_requiredby()) for p in self._handle.get_localdb().pkgcache}
 
     def _is_native(self, package: str) -> bool:
         return package in self._name_index
+
+    def _is_foreign(self, package: str) -> bool:
+        return not self._is_native(package)
 
     def get_native_explicit(self) -> set[str]:
         """
@@ -252,19 +261,28 @@ class PacmanInterface:
 
         return packages
 
+    def _get_orphans(self, filter_fn: Callable[["PacmanInterface", str], bool]) -> set[str]:
+        orphans: set[str] = {
+            p.name
+            for p in self._handle.get_localdb().pkgcache
+            if p.reason == pyalpm.PKG_REASON_DEPEND and filter_fn(self, p.name)
+        }
+
+        # Prune orphans until there are only packages that are requiredby other orphans
+        changed = True
+        while changed:
+            changed = False
+            for name in tuple(orphans):
+                if self._requiredby_index.get(name, set()) - orphans:
+                    orphans.remove(name)
+                    changed = True
+        return orphans
+
     def get_native_orphans(self) -> set[str]:
         """
         Returns a set of orphaned native packages.
         """
-        out: set[str] = set()
-        for pkg in self._handle.get_localdb().pkgcache:
-            if pkg.reason != pyalpm.PKG_REASON_DEPEND:
-                continue
-            if pkg.compute_requiredby():
-                continue
-            if self._is_native(pkg.name):
-                out.add(pkg.name)
-        return out
+        return self._get_orphans(PacmanInterface._is_native)
 
     def get_foreign_explicit(self) -> set[str]:
         """

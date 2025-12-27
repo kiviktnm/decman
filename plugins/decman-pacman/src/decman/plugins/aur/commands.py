@@ -1,5 +1,4 @@
 import decman.plugins.pacman as pacman
-import pyalpm
 
 import decman.config as config
 import decman.core.command as command
@@ -142,15 +141,7 @@ class AurPacmanInterface(pacman.PacmanInterface):
         """
         Returns a set of orphaned foreign packages.
         """
-        out: set[str] = set()
-        for pkg in self._handle.get_localdb().pkgcache:
-            if pkg.reason != pyalpm.PKG_REASON_DEPEND:
-                continue
-            if pkg.compute_requiredby():
-                continue
-            if not self._is_native(pkg.name):
-                out.add(pkg.name)
-        return out
+        return self._get_orphans(pacman.PacmanInterface._is_foreign)
 
     def is_installable(self, pkg: str) -> bool:
         """
