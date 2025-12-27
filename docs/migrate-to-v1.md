@@ -6,7 +6,8 @@ I recommend reading decman's new documentation. This document is supposed to be 
 
 This change is mostly architectural and doesn't change decman's behavior, but there are a few exceptions.
 
-- The pacman plugin will now remove orphan packages
+- The pacman plugin will now remove orphan packages.
+  - **Packages that are only optionally required by other packages are considered orphans.**
 - Explicitly installed packages that are required by other explicitly installed packages are no longer uninstalled when removed from the source.
 - Module's `on_disable` will now be executed when the module is no longer present in `decman.modules`.
   - It will be executed even when the module is removed completely from the source
@@ -596,7 +597,7 @@ class MyCommands(decman.config.Commands):
 
 #### New
 
-AUR and pacman commands are a seperate setting, but they share the same subclass, so it's possible to set them in a one place. New commands have also been added but it is better to look at the plugin documentation for those options. Notable changes are: `list_pkgs` have been split to `list_explicit_native` and `list_explicit_foreign`.
+AUR and pacman commands are a seperate setting, but they share the same subclass, so it's possible to set them in a one place. Many pacman query commands have been deleted since pyalpm is used now. New commands have also been added but it is better to look at the plugin documentation for those options.
 
 These values are the new defaults.
 
@@ -608,18 +609,6 @@ decman.aur.commands = MyAurAndPacmanCommands()
 decman.pacman.commands = MyAurAndPacmanCommands()
 
 class MyAurAndPacmanCommands(aur.AurCommands):
-    def list_explicit_native(self) -> list[str]:
-        return ["pacman", "-Qeqn", "--color=never"]
-
-    def list_explicit_foreign(self) -> list[str]:
-        return ["pacman", "-Qeqm", "--color=never"]
-
-    def list_orphans_native(self) -> list[str]:
-        return ["pacman", "-Qndtq", "--color=never"]
-
-    def list_dependants(self, pkg: str) -> list[str]:
-        return ["pacman", "-Rc", "--print", "--print-format", "%n", pkg]
-
     def install(self, pkgs: set[str]) -> list[str]:
         return ["pacman", "-S", "--needed"] + list(pkgs)
 
@@ -634,15 +623,6 @@ class MyAurAndPacmanCommands(aur.AurCommands):
 
     def remove(self, pkgs: set[str]) -> list[str]:
         return ["pacman", "-Rs"] + list(pkgs)
-
-    def list_orphans_foreign(self) -> list[str]:
-        return ["pacman", "-Qmdtq", "--color=never"]
-
-    def list_foreign_versioned(self) -> list[str]:
-        return ["pacman", "-Qm", "--color=never"]
-
-    def is_installable(self, pkg: str) -> list[str]:
-        return ["pacman", "-Sddp", pkg]
 
     def install_as_dependencies(self, pkgs: set[str]) -> list[str]:
         return ["pacman", "-S", "--needed", "--asdeps"] + list(pkgs)

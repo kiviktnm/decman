@@ -391,7 +391,7 @@ Create your own modules by subclassing `Plugin`. Then override the methods docum
 from decman.plugins import Plugin
 
 class MyPlugin(Plugin):
-    # Plugins should be singletons.
+    # Plugins should be singletons. (Only one instance exists ever.)
     # This name should be the same as the key used in decman.plugins dict.
     NAME = "my-plugin"
 ```
@@ -454,10 +454,8 @@ In `pyproject.toml` set:
 
 ```toml
 [project.entry-points."decman.plugins"]
-systemd = "decman.plugins.systemd:Systemd"
 pacman = "decman.plugins.pacman:Pacman"
 aur = "decman.plugins.aur:AUR"
-flatpak = "decman.plugins.flatpak:Flatpak"
 ```
 
 ## Useful utilities
@@ -474,6 +472,7 @@ decman.prg(
     ["nvim", "--headless", "+Lazy! sync", "+qa"],
     user = "user",
     env_overrides = {"EXAMPLE": "value"},
+    pass_environment = True,
     mimic_login = True,
     pty = True,
     check = True,
@@ -484,7 +483,8 @@ decman.prg(
 
 - `cmd: list[str]`: Command to execute.
 - `user: str`: User name to run the command as. If set, the command is executed after dropping privileges to this user.
-- `env_overrides dict[str, str]`: Environment variables to override or add for the command execution. These values are merged on top of the current process environment.
+- `pass_environment: bool`: Copy decman's execution environment variables and pass them to the subprocess.
+- `env_overrides: dict[str, str]`: Environment variables to override or add for the command execution. These values are merged on top of the current process environment.
 - `mimic_login: bool`: If mimic_login is True, will set the following environment variables according to the given user's passwd file details. This only happens when user is set.
   - `HOME`
   - `USER`

@@ -1,8 +1,8 @@
+import decman.plugins.pacman as pacman
 import pyalpm
 
 import decman.config as config
 import decman.core.command as command
-import decman.plugins.pacman as pacman
 
 
 class AurCommands(pacman.PacmanCommands):

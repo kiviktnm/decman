@@ -1,5 +1,4 @@
 import pytest
-
 from decman.plugins.aur.error import DependencyCycleError
 from decman.plugins.aur.resolver import DepGraph, ForeignPackage
 

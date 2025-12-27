@@ -8,11 +8,44 @@ from decman.core.module import Module
 from decman.core.store import Store
 from decman.plugins import Plugin, available_plugins
 
-# Plugin types
-from decman.plugins.aur import AUR
-from decman.plugins.flatpak import Flatpak
-from decman.plugins.pacman import Pacman
-from decman.plugins.systemd import Systemd
+plugins: dict[str, Plugin] = available_plugins()
+
+# Quick access for default plugins
+try:
+    from decman.plugins.aur import AUR
+    from decman.plugins.pacman import Pacman
+
+    pacman: None | Pacman = None
+    _pacman = plugins.get("pacman", None)
+    if isinstance(_pacman, Pacman):
+        pacman = _pacman
+
+    aur: None | AUR = None
+    _aur = plugins.get("aur", None)
+    if isinstance(_aur, AUR):
+        aur = _aur
+except ModuleNotFoundError:
+    pass
+
+try:
+    from decman.plugins.flatpak import Flatpak
+
+    flatpak: None | Flatpak = None
+    _flatpak = plugins.get("flatpak", None)
+    if isinstance(_flatpak, Flatpak):
+        flatpak = _flatpak
+except ModuleNotFoundError:
+    pass
+
+try:
+    from decman.plugins.systemd import Systemd
+
+    systemd: None | Systemd = None
+    _systemd = plugins.get("systemd", None)
+    if isinstance(_systemd, Systemd):
+        systemd = _systemd
+except ModuleNotFoundError:
+    pass
 
 __all__ = [
     "SourceError",
@@ -31,35 +64,12 @@ __all__ = [
 files: dict[str, File] = {}
 directories: dict[str, Directory] = {}
 modules: set[Module] = set()
-plugins: dict[str, Plugin] = available_plugins()
 execution_order: list[str] = [
     "files",
     "pacman",
     "aur",
     "systemd",
 ]
-
-# Default plugins get quick access
-pacman: None | Pacman = None
-aur: None | AUR = None
-systemd: None | Systemd = None
-flatpak: None | Flatpak = None
-
-_pacman = plugins.get("pacman", None)
-if isinstance(_pacman, Pacman):
-    pacman = _pacman
-
-_aur = plugins.get("aur", None)
-if isinstance(_aur, AUR):
-    aur = _aur
-
-_systemd = plugins.get("systemd", None)
-if isinstance(_systemd, Systemd):
-    systemd = _systemd
-
-_flatpak = plugins.get("flatpak", None)
-if isinstance(_flatpak, Flatpak):
-    flatpak = _flatpak
 
 
 def sh(

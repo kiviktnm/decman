@@ -7,19 +7,14 @@ authors = [
     {name = "Kivi Kaitaniemi"}
 ]
 requires-python = ">=3.13"
-dependencies = [
-    "requests",
-    "pyalpm",
-]
+
+[project.optional-dependencies]
+pacman = ["decman-pacman"]
+systemd = ["decman-systemd"]
+flatpak = ["decman-flatpak"]
 
 [project.scripts]
 decman = "decman.app:main"
-
-[project.entry-points."decman.plugins"]
-systemd = "decman.plugins.systemd:Systemd"
-pacman = "decman.plugins.pacman:Pacman"
-aur = "decman.plugins.aur:AUR"
-flatpak = "decman.plugins.flatpak:Flatpak"
 
 [dependency-groups]
 dev = [
@@ -30,6 +25,22 @@ dev = [
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.uv.workspace]
+members = [
+    "packages/decman-pacman",
+    "packages/decman-systemd",
+    "packages/decman-flatpak",
+]
+
+[tool.uv.sources]
+decman = { workspace = true }
+decman-pacman = { workspace = true }
+decman-systemd = { workspace = true }
+decman-flatpak = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
