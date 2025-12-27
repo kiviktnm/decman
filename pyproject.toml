@@ -2,7 +2,8 @@
 name = "decman"
 version = "1.0.0"
 description = "Declarative package & configuration manager for Arch Linux."
-license = {file = "LICENSE"}
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 authors = [
     {name = "Kivi Kaitaniemi"}
 ]
