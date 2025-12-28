@@ -241,6 +241,56 @@ decman.flatpak.user_packages.setdefault("user", {}).update({"com.valvesoftware.S
 decman.flatpak.ignored_packages |= {"dev.zed.Zed"}
 ```
 
+### Users and PGP keys
+
+Decman ships with built-in modules for managing users, groups and PGP keys. The modules don't support all features. In particular the PGP module is inteded only for AUR packages. However, they still allow managing users declaratively. Read more about them [here](/docs/extras.md).
+
+Here these modules are used to create a `builduser` for AUR packages.
+
+```python
+import decman
+import os
+from decman.extras.gpg import GPGReceiver
+from decman.extras.users import User, UserManager
+
+um = UserManager()
+gpg = GPGReceiver()
+
+# Add a normal user
+um.add_user(User(
+    username="alice",
+    groups=("libvirt"),
+    shell="/usr/bin/fish",
+))
+
+# Create builduser
+um.add_user(User(
+    username="builduser",
+    home="/var/lib/builduser",
+    system=True,
+))
+
+# Receive desired PGP keys to that account (Spotify as an example)
+gpg.fetch_key(
+    user="builduser",
+    gpg_home="/var/lib/builduser/gnupg",
+    fingerprint="E1096BCBFF6D418796DE78515384CE82BA52C83A",
+    uri="https://download.spotify.com/debian/pubkey_5384CE82BA52C83A.gpg",
+)
+
+# Configure aur to use builduser and the GNUPGHOME.
+os.environ["GNUPGHOME"] = "/var/lib/builduser/gnupg"
+decman.aur.makepkg_user = "builduser"
+
+# Add version control systems required by the packages
+decman.pacman.packages |= {"fossil"}
+
+# Add AUR packages that require PGP keys or builduser setup
+decman.aur.packages |= {"spotify", "pikchr-fossil"}
+
+decman.modules += [um, gpg]
+```
+
 ## Managing plugins and the order of operations
 
 The order of operations is managed by setting `decman.execution_order`. This is also the default.

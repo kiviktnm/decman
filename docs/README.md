@@ -7,7 +7,7 @@ This contains the documentation for decman. Each plugin has its own documentatio
 - [aur](/docs/aur.md)
 - [flatpak](/docs/flatpak.md)
 
-Check out [extras](docs/extras.md) for documentation for built-in modules.
+Check out [extras](/docs/extras.md) for documentation for built-in modules.
 
 ## Quick notes
 
