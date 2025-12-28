@@ -63,6 +63,7 @@ class CommandFailedError(Exception):
 
     Attributes:
         command (list[str]): The command that caused the exception.
+        output (str|None): Output of the command.
     """
 
     def __init__(self, command: list[str], output: str | None) -> None:

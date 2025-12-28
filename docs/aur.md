@@ -14,7 +14,7 @@ Building of foreign packages happens in a chroot. This creates some overhead, bu
 
 Build packages are by default stored in a cache `/var/cache/decman/aur`. This plugin keeps 3 most recent versions of all packages.
 
-When installing packages from other version control systems than git, you'll need to install the package for that VCS. There is an [issue and a workaround](source) related to fossil packages. Note that the issue's workaround is for an old version of decman. With this version, set the `makepkg_user` with `decman.aur.makepkg_user`.
+When installing packages from other version control systems than git, you'll need to install the package for that VCS.
 
 ## Usage
 
@@ -78,6 +78,47 @@ class MyModule(decman.Module):
 ```
 
 If these sets change, this plugin will flag the module as changed. The module's `on_change` method will be executed.
+
+## Recommended setup
+
+I recommend setting up a build user for AUR packages. Then you can import PGP keys to that user's keyring that will be used for verifying AUR packages. The build user setup might help with some version control systems such as fossil packages.
+
+```python
+import decman
+import os
+from decman.extras.gpg import GPGReceiver
+from decman.extras.users import User, UserManager
+
+um = UserManager()
+gpg = GPGReceiver()
+
+# Create builduser
+um.add_user(User(
+    username="builduser",
+    home="/var/lib/builduser",
+    system=True,
+))
+
+# Receive desired PGP keys to that account (Spotify as an example)
+gpg.fetch_key(
+    user="builduser",
+    gpg_home="/var/lib/builduser/gnupg",
+    fingerprint="E1096BCBFF6D418796DE78515384CE82BA52C83A",
+    uri="https://download.spotify.com/debian/pubkey_5384CE82BA52C83A.gpg",
+)
+
+# Configure aur to use builduser and the GNUPGHOME.
+os.environ["GNUPGHOME"] = "/var/lib/builduser/gnupg"
+decman.aur.makepkg_user = "builduser"
+
+# Add version control systems required by the packages
+decman.pacman.packages |= {"fossil"}
+
+# Add AUR packages that require PGP keys or builduser setup
+decman.aur.packages |= {"spotify", "pikchr-fossil"}
+
+decman.modules += [um, gpg]
+```
 
 ## Keys used in the decman store
 

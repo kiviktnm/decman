@@ -147,7 +147,10 @@ class AurPacmanInterface(pacman.PacmanInterface):
         """
         Returns True if a package can be installed using pacman.
         """
-        return pkg in self._name_index or pacman.strip_dependency(pkg) in self._provides_index
+        return (
+            pacman.strip_dependency(pkg) in self._name_index
+            or pacman.strip_dependency(pkg) in self._provides_index
+        )
 
     def get_versioned_foreign_packages(self) -> list[tuple[str, str]]:
         """
