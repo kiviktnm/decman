@@ -10,7 +10,7 @@ import decman.core.store as _store
 
 def update_files(
     store: _store.Store,
-    modules: set[module.Module],
+    modules: list[module.Module],
     files: dict[str, fs.File],
     directories: dict[str, fs.Directory],
     dry_run: bool = False,

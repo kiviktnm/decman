@@ -63,7 +63,7 @@ __all__ = [
 # -----------------------------------------
 files: dict[str, File] = {}
 directories: dict[str, Directory] = {}
-modules: set[Module] = set()
+modules: list[Module] = []
 execution_order: list[str] = [
     "files",
     "pacman",

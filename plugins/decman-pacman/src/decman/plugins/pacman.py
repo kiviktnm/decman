@@ -58,7 +58,7 @@ class Pacman(plugins.Plugin):
     def available(self) -> bool:
         return shutil.which("pacman") is not None
 
-    def process_modules(self, store: _store.Store, modules: set[module.Module]):
+    def process_modules(self, store: _store.Store, modules: list[module.Module]):
         # This is used to track changes in modules.
         store.ensure("packages_for_module", {})
 

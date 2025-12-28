@@ -5,7 +5,7 @@ import decman
 
 decman.pacman.packages |= {"openssh", "qemu-guest-agent", "sudo", "vim"}
 
-decman.modules |= {BaseModule(), KDE()}
+decman.modules += [BaseModule(), KDE()]
 
 decman.files["/home/arch/.vimrc"] = decman.File(
     source_file="./files/vimrc", owner="arch", permissions=0o600

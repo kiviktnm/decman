@@ -40,7 +40,7 @@ class Plugin:
         """
         return True
 
-    def process_modules(self, store: _store.Store, modules: set[module.Module]):
+    def process_modules(self, store: _store.Store, modules: list[module.Module]):
         """
         Processes a module.
         """

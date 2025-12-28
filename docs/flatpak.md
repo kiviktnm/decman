@@ -47,6 +47,11 @@ class MyModule(decman.Module):
 
 If packages or user packages change, this plugin will flag the module as changed. The module's `on_change` method will be executed.
 
+## Keys used in the decman store
+
+- `flatpaks_for_module`
+- `user_flatpaks_for_module`
+
 ## Configuration
 
 It's possible to override the commands this plugin uses. Create your own `FlatpakCommands` class and override methods returning commands. These are the defaults.

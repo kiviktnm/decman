@@ -45,6 +45,11 @@ class MyModule(decman.Module):
 
 If units or user units change, this plugin will flag the module as changed. The module's `on_change` method will be executed.
 
+## Keys used in the decman store
+
+- `systemd_units_for_module`
+- `systemd_user_units_for_module`
+
 ## Configuration
 
 It's possible to override the commands this plugin uses. Create your own `SystemdCommands` class and override methods returning commands. These are the defaults.

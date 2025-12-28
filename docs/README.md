@@ -7,6 +7,8 @@ This contains the documentation for decman. Each plugin has its own documentatio
 - [aur](/docs/aur.md)
 - [flatpak](/docs/flatpak.md)
 
+Check out [extras](docs/extras.md) for documentation for built-in modules.
+
 ## Quick notes
 
 "Decman source" or "source" refers to your system configuration. It is set using the `--source` command line argument with decman.
@@ -210,11 +212,11 @@ A **Module** is the primary unit for grouping related files, directories, packag
 
 Each module is uniquely identified by its `name`.
 
-Remember to add modules to decman.
+Remember to add modules to decman. Modules are added to a list to preserve deterministic execution order for hooks.
 
 ```py
 import decman
-decman.modules |= {MyModule()}
+decman.modules += [MyModule()]
 ```
 
 ### Basic Structure
@@ -418,7 +420,7 @@ This method only gathers information. It doesn't apply it.
 ```py
 from decman import Store, Module
 
-def process_modules(self, store: Store, modules: set[Module]):
+def process_modules(self, store: Store, modules: list[Module]):
     ...
 
     # Toy example for setting modules as changed

@@ -102,7 +102,7 @@ Then import your module in your main source file.
 import decman
 from syncthing import Syncthing
 
-decman.modules |= {Syncthing()}
+decman.modules += [Syncthing()]
 ```
 
 Then run decman.

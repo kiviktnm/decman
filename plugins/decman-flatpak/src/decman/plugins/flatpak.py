@@ -46,7 +46,7 @@ class Flatpak(plugins.Plugin):
     def available(self) -> bool:
         return shutil.which("flatpak") is not None
 
-    def process_modules(self, store: _store.Store, modules: set[module.Module]):
+    def process_modules(self, store: _store.Store, modules: list[module.Module]):
         # These store keys are used to track changes in modules.
         # This way when these change, module can be marked as changed
         store.ensure("flatpaks_for_module", {})

@@ -79,6 +79,11 @@ class MyModule(decman.Module):
 
 If these sets change, this plugin will flag the module as changed. The module's `on_change` method will be executed.
 
+## Keys used in the decman store
+
+- `aur_packages_for_module`
+- `custom_packages_for_module`
+
 ## Configuration
 
 This module has partially the same configuration with pacman. You'll have to define pacman output keywords and database options again.

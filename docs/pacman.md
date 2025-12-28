@@ -42,6 +42,10 @@ class MyModule(decman.Module):
 
 If this set changes, this plugin will flag the module as changed. The module's `on_change` method will be executed.
 
+## Keys used in the decman store
+
+- `packages_for_module`
+
 ## Configuration
 
 This plugin has a pacman output highlight function. If pacman output contains some keywords, it will be highlighted. You can disable this feature or set the keywords.

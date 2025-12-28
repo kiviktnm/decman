@@ -90,7 +90,7 @@ class AUR(plugins.Plugin):
             and shutil.which("mkarchroot") is not None
         )
 
-    def process_modules(self, store: _store.Store, modules: set[module.Module]):
+    def process_modules(self, store: _store.Store, modules: list[module.Module]):
         # This is used to track changes in modules.
         store.ensure("aur_packages_for_module", {})
         store.ensure("custom_packages_for_module", {})

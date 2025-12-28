@@ -74,5 +74,14 @@ class _SetJSONEncoder(json.JSONEncoder):
 
 def _decode_sets(obj: typing.Any) -> typing.Any:
     if isinstance(obj, dict) and obj.get("__type__") == "set" and "items" in obj:
-        return set(obj["items"])
+        # decode lists inside sets as tuples
+        norm = []
+
+        for item in obj["items"]:
+            if isinstance(item, list):
+                norm.append(tuple(item))
+            else:
+                norm.append(item)
+
+        return set(norm)
     return obj

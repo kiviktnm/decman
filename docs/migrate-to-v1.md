@@ -232,8 +232,6 @@ class MyModule(Module):
 
 #### New
 
-`decman.modules` is now a set instead of a list. If you wish to have multiple instances of the same module class, just name them differently. Name needs to be unique accross modules.
-
 Modules no longer have `version`s or `enabled` values. A module is enabled when it gets added to `decman.modules` and disabled when it gets removed from `decman.modules`. Versions are no longer needed because `after_version_change` has been removed and `on_change` has been added. `on_change` is executed automatically after the content of the module changes. `on_disable` will be executed automatically when the module is removed from `decman.modules`. It is no longer a instance method. Instead it must be a self-contained method with no references outside it. Not even imports.
 
 Module methods will get a `Store` instance passed to them as an argument. It can be used to store key-value pairs between decman runs.
@@ -245,7 +243,7 @@ import decman
 from decman import Module, Store, prg, sh
 from decman.plugins import pacman, aur, systemd, flatpak
 
-decman.modules |= {MyModule()}
+decman.modules += [MyModule()]
 
 class MyModule(Module):
     def __init__(self):

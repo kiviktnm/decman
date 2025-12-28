@@ -85,7 +85,7 @@ import decman
 from base import BaseModule
 
 decman.pacman.packages |= {"openssh", "qemu-guest-agent", "sudo", "vim"}
-decman.modules |= {BaseModule()}
+decman.modules += [BaseModule()]
 ```
 
 This config is already enough to run decman for the first time.
@@ -162,7 +162,7 @@ from kde import KDE
 
 ...
 
-decman.modules |= {BaseModule(), KDE()}
+decman.modules += [BaseModule(), KDE()]
 ```
 
 I'll run decman once again. I'll also start SDDM manually, since decman can't autostart it.
