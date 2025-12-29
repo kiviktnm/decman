@@ -288,6 +288,7 @@ decman.pacman.packages |= {"fossil"}
 # Add AUR packages that require PGP keys or builduser setup
 decman.aur.packages |= {"spotify", "pikchr-fossil"}
 
+# Order matters here, users should be added before gpg keys
 decman.modules += [um, gpg]
 ```
 
