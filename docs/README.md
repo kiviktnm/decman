@@ -212,7 +212,7 @@ A **Module** is the primary unit for grouping related files, directories, packag
 
 Each module is uniquely identified by its `name`.
 
-Remember to add modules to decman. Modules are added to a list to preserve deterministic execution order for hooks.
+Remember to add modules to decman. Modules are added to a list to preserve deterministic execution order for hooks. Modules added first will be executed first.
 
 ```py
 import decman
