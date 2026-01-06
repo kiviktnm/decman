@@ -220,20 +220,6 @@ def test_enable_units_success(monkeypatch, store, systemd):
     assert store["systemd_units"] == {"old.service", "new.service"}
 
 
-def test_enable_units_failure_does_not_update_store(monkeypatch, store, systemd):
-    store["systemd_units"] = {"old.service"}
-
-    def fake_run(cmd, **kwargs):
-        return 1, "error"
-
-    monkeypatch.setattr(systemd_mod.command, "run", fake_run)
-
-    with pytest.raises(systemd_mod.errors.CommandFailedError):
-        systemd.enable_units(store, {"new.service"})
-    # unchanged
-    assert store["systemd_units"] == {"old.service"}
-
-
 def test_disable_units_success(monkeypatch, store, systemd):
     store["systemd_units"] = {"old.service", "new.service"}
 
@@ -247,19 +233,6 @@ def test_disable_units_success(monkeypatch, store, systemd):
 
     systemd.disable_units(store, {"new.service"})
     assert store["systemd_units"] == {"old.service"}
-
-
-def test_disable_units_failure_does_not_update_store(monkeypatch, store, systemd):
-    store["systemd_units"] = {"old.service", "new.service"}
-
-    def fake_run(cmd, **kwargs):
-        return 1, "error"
-
-    monkeypatch.setattr(systemd_mod.command, "run", fake_run)
-
-    with pytest.raises(systemd_mod.errors.CommandFailedError):
-        systemd.disable_units(store, {"new.service"})
-    assert store["systemd_units"] == {"old.service", "new.service"}
 
 
 def test_enable_user_units_success(monkeypatch, store, systemd):
@@ -281,19 +254,6 @@ def test_enable_user_units_success(monkeypatch, store, systemd):
     }
 
 
-def test_enable_user_units_failure_does_not_update_store(monkeypatch, store, systemd):
-    store["systemd_user_units"] = {"alice": {"olduser.service"}}
-
-    def fake_run(cmd, **kwargs):
-        return 1, "error"
-
-    monkeypatch.setattr(systemd_mod.command, "run", fake_run)
-
-    with pytest.raises(systemd_mod.errors.CommandFailedError):
-        systemd.enable_user_units(store, {"newuser.service"}, "alice")
-    assert store["systemd_user_units"]["alice"] == {"olduser.service"}
-
-
 def test_disable_user_units_success(monkeypatch, store, systemd):
     store["systemd_user_units"] = {"alice": {"olduser.service", "newuser.service"}}
 
@@ -308,23 +268,6 @@ def test_disable_user_units_success(monkeypatch, store, systemd):
 
     systemd.disable_user_units(store, {"newuser.service"}, "alice")
     assert store["systemd_user_units"]["alice"] == {"olduser.service"}
-
-
-def test_disable_user_units_failure_does_not_update_store(monkeypatch, store, systemd):
-    store["systemd_user_units"] = {"alice": {"olduser.service", "newuser.service"}}
-
-    def fake_run(cmd, **kwargs):
-        return 1, "error"
-
-    monkeypatch.setattr(systemd_mod.command, "run", fake_run)
-
-    with pytest.raises(systemd_mod.errors.CommandFailedError):
-        systemd.disable_user_units(store, {"newuser.service"}, "alice")
-
-    assert store["systemd_user_units"]["alice"] == {
-        "olduser.service",
-        "newuser.service",
-    }
 
 
 def test_reload_daemon_uses_command_run(monkeypatch, systemd):

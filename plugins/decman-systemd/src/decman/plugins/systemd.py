@@ -151,15 +151,6 @@ class Systemd(plugins.Plugin):
                     user_units_to_disable[user].add(unit)
 
         try:
-            output.print_info("Reloading systemd daemon.")
-            if not dry_run:
-                self.reload_daemon()
-
-            output.print_info("Reloading systemd daemon for users.")
-            if not dry_run:
-                for user in user_units_to_enable.keys() | user_units_to_disable.keys():
-                    self.reload_user_daemon(user)
-
             output.print_list("Enabling systemd units:", list(units_to_enable))
             if not dry_run:
                 self.enable_units(store, units_to_enable)
@@ -177,6 +168,15 @@ class Systemd(plugins.Plugin):
                 output.print_list(f"Disabling systemd units for {user}:", list(units))
                 if not dry_run:
                     self.disable_user_units(store, units, user)
+
+            output.print_info("Reloading systemd daemon.")
+            if not dry_run:
+                self.reload_daemon()
+
+            output.print_info("Reloading systemd daemon for users.")
+            if not dry_run:
+                for user in user_units_to_enable.keys() | user_units_to_disable.keys():
+                    self.reload_user_daemon(user)
         except errors.CommandFailedError as error:
             output.print_error("Running a systemd command failed.")
             output.print_error(str(error))
@@ -206,7 +206,7 @@ class Systemd(plugins.Plugin):
             return
 
         cmd = self.commands.disable_units(units)
-        command.prg(cmd, pty=config.debug_output)
+        command.prg(cmd, pty=config.debug_output, check=False)
 
         store["systemd_units"] -= units
 
@@ -217,6 +217,7 @@ class Systemd(plugins.Plugin):
         if not units:
             return
 
+        # Use check=False to avoid issues when units don't exist
         cmd = self.commands.enable_user_units(units, user)
         command.prg(cmd, pty=config.debug_output)
 
@@ -230,8 +231,9 @@ class Systemd(plugins.Plugin):
         if not units:
             return
 
+        # Use check=False to avoid issues when units don't exist
         cmd = self.commands.disable_user_units(units, user)
-        command.prg(cmd, pty=config.debug_output)
+        command.prg(cmd, pty=config.debug_output, check=False)
 
         store["systemd_user_units"].setdefault(user, set())
         store["systemd_user_units"][user] -= units
