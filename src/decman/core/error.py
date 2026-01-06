@@ -12,7 +12,7 @@ class FSInstallationFailedError(Exception):
     Error raised when trying to install a file/directory to a target.
     """
 
-    def __init__(self, target: str, source: str, reason: str):
+    def __init__(self, source: str, target: str, reason: str):
         self.source = source
         self.target = target
         super().__init__(f"Failed to install file from {source} to {target}: {reason}.")
