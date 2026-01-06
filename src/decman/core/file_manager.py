@@ -13,6 +13,7 @@ def update_files(
     modules: list[module.Module],
     files: dict[str, fs.File],
     directories: dict[str, fs.Directory],
+    symlinks: dict[str, str],
     dry_run: bool = False,
 ) -> bool:
     """
@@ -59,6 +60,11 @@ def update_files(
         all_checked_files += checked
         all_changed_files += changed
 
+        output.print_debug("Applying common symlinks.")
+        checked, changed = _install_symlinks(symlinks, dry_run=dry_run)
+        all_checked_files += checked
+        all_changed_files += changed
+
         for mod in modules:
             module_changed_files = []
 
@@ -80,6 +86,14 @@ def update_files(
             all_checked_files += checked
             module_changed_files += changed
 
+            output.print_debug(f"Applying symlinks in module '{mod.name}'.")
+            checked, changed = _install_symlinks(
+                mod.symlinks(),
+                dry_run=dry_run,
+            )
+            all_checked_files += checked
+            module_changed_files += changed
+
             if len(module_changed_files) > 0:
                 output.print_debug(
                     f"Module '{mod.name}' set to changed due to modified "
@@ -88,6 +102,10 @@ def update_files(
                 mod._changed = True
             all_changed_files += module_changed_files
     except errors.FSInstallationFailedError as error:
+        output.print_error(str(error))
+        output.print_traceback()
+        return False
+    except errors.FSSymlinkFailedError as error:
         output.print_error(str(error))
         output.print_traceback()
         return False
@@ -182,5 +200,43 @@ def _install_directories(
 
         checked_files += checked
         changed_files += changed
+
+    return checked_files, changed_files
+
+
+def _is_symlink_to(path: str, target: str) -> bool:
+    if not os.path.islink(path):
+        return False
+    return os.readlink(path) == target
+
+
+def _install_symlinks(
+    symlinks: dict[str, str], dry_run: bool = False
+) -> tuple[list[str], list[str]]:
+    checked_files = []
+    changed_files = []
+
+    for link_name, target in symlinks.items():
+        output.print_debug(f"Checking symlink {link_name}.")
+        try:
+            checked_files.append(link_name)
+
+            if _is_symlink_to(link_name, target):
+                continue
+
+            changed_files.append(link_name)
+
+            if dry_run:
+                continue
+
+            if os.path.lexists(link_name):
+                os.unlink(link_name)
+
+            os.makedirs(os.path.dirname(link_name), exist_ok=True)
+            os.symlink(target, link_name)
+        except OSError as error:
+            raise errors.FSSymlinkFailedError(
+                link_name, target, error.strerror or str(error)
+            ) from error
 
     return checked_files, changed_files

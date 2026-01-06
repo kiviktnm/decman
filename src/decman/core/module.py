@@ -105,6 +105,13 @@ class Module:
         """
         return {}
 
+    def symlinks(self) -> dict[str, str]:
+        """
+        Override this method to return symlinks that should be created as a part of this
+        module.
+        """
+        return {}
+
     def file_variables(self) -> dict[str, str]:
         """
         Override this method to return variables that should replaced with a new value inside

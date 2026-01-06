@@ -63,6 +63,7 @@ __all__ = [
 # -----------------------------------------
 files: dict[str, File] = {}
 directories: dict[str, Directory] = {}
+symlinks: dict[str, str] = {}
 modules: list[Module] = []
 execution_order: list[str] = [
     "files",

@@ -206,7 +206,12 @@ def run_decman(store: _store.Store, args: argparse.Namespace) -> bool:
         match step:
             case "files":
                 if not file_manager.update_files(
-                    store, decman.modules, decman.files, decman.directories, dry_run=args.dry_run
+                    store,
+                    decman.modules,
+                    decman.files,
+                    decman.directories,
+                    decman.symlinks,
+                    dry_run=args.dry_run,
                 ):
                     return False
             case plugin_name:

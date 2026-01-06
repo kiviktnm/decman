@@ -4,7 +4,12 @@ import pytest
 
 import decman.core.error as errors
 import decman.core.output as output
-from decman.core.file_manager import _install_directories, _install_files, update_files
+from decman.core.file_manager import (
+    _install_directories,
+    _install_files,
+    _install_symlinks,
+    update_files,
+)
 
 
 class DummyFile:
@@ -48,12 +53,14 @@ class DummyModule:
         name: str,
         file_map: dict[str, DummyFile] | None = None,
         dir_map: dict[str, DummyDirectory] | None = None,
+        symlink_map: dict[str, str] | None = None,
         file_vars: dict[str, str] | None = None,
     ):
         self.name = name
         self._file_map = file_map or {}
         self._dir_map = dir_map or {}
         self._file_vars = file_vars or {}
+        self._symlink_map = symlink_map or {}
         self._changed = False
 
     def files(self):
@@ -61,6 +68,9 @@ class DummyModule:
 
     def directories(self):
         return self._dir_map
+
+    def symlinks(self):
+        return self._symlink_map
 
     def file_variables(self):
         return self._file_vars
@@ -227,6 +237,7 @@ def test_update_files_success_updates_store_and_removes_stale_files(monkeypatch)
         modules={m},
         files={"/etc/app/common.conf": common_file},
         directories={"/etc/app/config.d": common_dir},
+        symlinks={},
         dry_run=False,
     )
 
@@ -276,6 +287,7 @@ def test_update_files_dry_run_does_not_touch_store_or_remove(monkeypatch):
         modules={m},
         files={"/etc/app/common.conf": common_file},
         directories={"/etc/app/config.d": common_dir},
+        symlinks={},
         dry_run=True,
     )
 
@@ -328,6 +340,7 @@ def test_update_files_propagates_fsinstallation_error_and_does_not_modify_store(
         modules=set(),
         files={"/etc/app/broken.conf": DummyFile()},
         directories={},
+        symlinks={},
         dry_run=False,
     )
 
@@ -342,3 +355,165 @@ def test_update_files_propagates_fsinstallation_error_and_does_not_modify_store(
     # Error and traceback were logged
     assert error_msgs
     assert traces
+
+
+# symlinks
+
+
+def test_install_symlinks_creates_missing_link_and_parents(tmp_path):
+    target = tmp_path / "target"
+    target.write_text("x")
+
+    link = tmp_path / "a" / "b" / "link"
+
+    checked, changed = _install_symlinks({str(link): str(target)}, dry_run=False)
+
+    assert checked == [str(link)]
+    assert changed == [str(link)]
+    assert link.is_symlink()
+    assert os.readlink(link) == str(target)
+
+
+def test_install_symlinks_no_change_when_already_points_to_target(tmp_path):
+    target = tmp_path / "target"
+    target.write_text("x")
+
+    link = tmp_path / "link"
+    os.symlink(str(target), str(link))
+
+    checked, changed = _install_symlinks({str(link): str(target)}, dry_run=False)
+
+    assert checked == [str(link)]
+    assert changed == []
+    assert link.is_symlink()
+    assert os.readlink(link) == str(target)
+
+
+def test_install_symlinks_replaces_wrong_target(tmp_path):
+    target1 = tmp_path / "target1"
+    target2 = tmp_path / "target2"
+    target1.write_text("1")
+    target2.write_text("2")
+
+    link = tmp_path / "link"
+    os.symlink(str(target1), str(link))
+
+    checked, changed = _install_symlinks({str(link): str(target2)}, dry_run=False)
+
+    assert checked == [str(link)]
+    assert changed == [str(link)]
+    assert link.is_symlink()
+    assert os.readlink(link) == str(target2)
+
+
+def test_install_symlinks_replaces_existing_regular_file(tmp_path):
+    target = tmp_path / "target"
+    target.write_text("x")
+
+    link = tmp_path / "link"
+    link.write_text("not a symlink")
+
+    checked, changed = _install_symlinks({str(link): str(target)}, dry_run=False)
+
+    assert checked == [str(link)]
+    assert changed == [str(link)]
+    assert link.is_symlink()
+    assert os.readlink(link) == str(target)
+
+
+def test_install_symlinks_dry_run_does_not_touch_fs(tmp_path):
+    target = tmp_path / "target"
+    target.write_text("x")
+
+    link = tmp_path / "a" / "b" / "link"
+
+    checked, changed = _install_symlinks({str(link): str(target)}, dry_run=True)
+
+    assert checked == [str(link)]
+    assert changed == [str(link)]  # would change
+    assert not link.exists()
+
+
+def test_update_files_tracks_symlinks_and_removes_stale_symlinks(tmp_path):
+    # layout
+    root = tmp_path
+    t = root / "target"
+    t.write_text("x")
+
+    live_link = root / "links" / "live"
+    stale_link = root / "links" / "stale"
+
+    # pre-existing stale link to be removed
+    os.makedirs(stale_link.parent, exist_ok=True)
+    os.symlink(str(t), str(stale_link))
+
+    m = DummyModule(
+        name="mod1",
+        file_map={},
+        dir_map={},
+        symlink_map={str(live_link): str(t)},
+    )
+
+    store = DummyStore(
+        {"all_files": [str(stale_link)]}  # new store key
+    )
+
+    ok = update_files(
+        store=store,
+        modules={m},
+        files={},
+        directories={},
+        symlinks={},
+        dry_run=False,
+    )
+
+    assert ok is True
+
+    # new link exists
+    assert live_link.is_symlink()
+    assert os.readlink(live_link) == str(t)
+
+    # stale link removed
+    assert not stale_link.exists()
+
+    # store updated
+    assert store["all_files"] == [str(live_link)]
+
+
+def test_update_files_dry_run_does_not_create_or_remove_symlinks(tmp_path):
+    root = tmp_path
+    t = root / "target"
+    t.write_text("x")
+
+    live_link = root / "links" / "live"
+    stale_link = root / "links" / "stale"
+
+    os.makedirs(stale_link.parent, exist_ok=True)
+    os.symlink(str(t), str(stale_link))
+
+    m = DummyModule(
+        name="mod1",
+        file_map={},
+        dir_map={},
+        symlink_map={str(live_link): str(t)},
+    )
+
+    store = DummyStore({"all_files": [str(stale_link)]})
+
+    ok = update_files(
+        store=store,
+        modules={m},
+        files={},
+        directories={},
+        symlinks={},
+        dry_run=True,
+    )
+
+    assert ok is True
+
+    # no fs changes
+    assert not live_link.exists()
+    assert stale_link.is_symlink()
+
+    # store unchanged
+    assert store["all_files"] == [str(stale_link)]

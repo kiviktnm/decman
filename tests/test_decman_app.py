@@ -95,6 +95,7 @@ def base_decman(monkeypatch):
     dm.modules = []
     dm.files = []
     dm.directories = []
+    dm.symlinks = {}
     dm.plugins = {}
     dm.prg_calls = []
 
@@ -113,13 +114,14 @@ def file_manager(monkeypatch):
     fm.update_files_calls = []
     fm.result = True
 
-    def update_files(store, modules, files, directories, dry_run=False):
+    def update_files(store, modules, files, directories, symlinks, dry_run=False):
         fm.update_files_calls.append(
             dict(
                 store=store,
                 modules=list(modules),
                 files=list(files),
                 directories=list(directories),
+                symlinks=list(symlinks),
                 dry_run=dry_run,
             )
         )

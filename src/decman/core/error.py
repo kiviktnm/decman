@@ -18,6 +18,17 @@ class FSInstallationFailedError(Exception):
         super().__init__(f"Failed to install file from {source} to {target}: {reason}.")
 
 
+class FSSymlinkFailedError(Exception):
+    """
+    Error raised when trying to create a symlink to a target.
+    """
+
+    def __init__(self, link_name: str, target: str, reason: str):
+        self.link_name = link_name
+        self.target = target
+        super().__init__(f"Failed to install symlink from {link_name} to {target}: {reason}.")
+
+
 class InvalidOnDisableError(Exception):
     """
     Error raised when trying to create a Module with an invalid on_disable method.
