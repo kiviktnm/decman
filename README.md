@@ -1,12 +1,7 @@
 # Decman
 
-> THIS README IS FOR AN UNRELEASED VERSION!
->
-> There are going to be breaking changes!
+> Decman has breaking changes!
 > Decman has undergone an architecture rewrite. The new architecture makes decman more expandable and maintainable.
->
-> The AUR package will receive this update after I have tested it enough.
-> See this [tag](https://github.com/kiviktnm/decman/tree/0.4.2) for the current version of decman available in the AUR.
 >
 > Migration guide is [here](/docs/migrate-to-v1.md).
 
