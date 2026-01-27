@@ -625,8 +625,6 @@ class PackageBuilder:
 
             add_package_to_cache(self._store, pkgname, version, dest)
 
-        output.print_info("Removing build dependencies from chroot.")
-
         if len(chroot_new_pacman_pkgs) != 0:
             to_remove = set()
             for p in chroot_new_pacman_pkgs:
@@ -635,8 +633,13 @@ class PackageBuilder:
                     _, cmd_output = command.check_run_result(cmd, command.run(cmd))
                     real_pkgname = cmd_output.strip()
                     to_remove.add(real_pkgname)
-            cmd = self._commands.remove_chroot(self.chroot_dir, to_remove)
-            command.prg(cmd, pty=config.debug_output)
+
+            if to_remove:
+                output.print_info("Removing build dependencies from chroot.")
+                cmd = self._commands.remove_chroot(self.chroot_dir, to_remove)
+                command.prg(cmd, pty=config.debug_output)
+            else:
+                output.print_debug("No build dependencies to remove from chroot.")
 
         output.print_info(f"Finished building: '{' '.join(package_names)}'.")
 

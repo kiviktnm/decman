@@ -188,7 +188,7 @@ class AUR(plugins.Plugin):
             )
             for package in to_remove:
                 dependants = pm.get_dependants(package)
-                if any(dependant in dependants_to_keep for dependant in dependants):
+                if dependants & dependants_to_keep:
                     to_set_as_dependencies.add(package)
                 else:
                     actually_to_remove.add(package)
