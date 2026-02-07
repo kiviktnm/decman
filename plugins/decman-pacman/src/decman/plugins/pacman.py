@@ -208,6 +208,7 @@ class PacmanInterface:
         self._dbpath = dbpath
         self._handle = self._create_pyalpm_handle()
         self._name_index = self._create_name_index()
+        self._local_provides_index = self._create_local_provides_index()
         self._provides_index = self._create_provides_index()
         self._requiredby_index = self._create_requiredby_index()
 
@@ -231,6 +232,14 @@ class PacmanInterface:
     def _create_name_index(self) -> dict[str, pyalpm.Package]:
         return {pkg.name: pkg for db in self._handle.get_syncdbs() for pkg in db.pkgcache}
 
+    def _create_local_provides_index(self) -> dict[str, set[str]]:
+        out: dict[str, set[str]] = {}
+        for pkg in self._handle.get_localdb().pkgcache:
+            for p in pkg.provides:
+                out.setdefault(strip_dependency(p), set()).add(pkg.name)
+                out.setdefault(p, set()).add(pkg.name)
+        return out
+
     def _create_provides_index(self) -> dict[str, set[str]]:
         out: dict[str, set[str]] = {}
         for db in self._handle.get_syncdbs():
@@ -248,6 +257,12 @@ class PacmanInterface:
 
     def _is_foreign(self, package: str) -> bool:
         return not self._is_native(package)
+
+    def get_all_packages(self) -> set[str]:
+        """
+        Returns a set of all installed packages.
+        """
+        return {pkg for pkg in self._handle.get_localdb().pkgcache}
 
     def get_native_explicit(self) -> set[str]:
         """

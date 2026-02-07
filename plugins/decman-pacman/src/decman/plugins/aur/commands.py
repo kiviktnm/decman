@@ -143,6 +143,16 @@ class AurPacmanInterface(pacman.PacmanInterface):
         """
         return self._get_orphans(pacman.PacmanInterface._is_foreign)
 
+    def is_provided_by_installed(self, dependency: str) -> bool:
+        return pacman.strip_dependency(dependency) in self._local_provides_index
+
+    def filter_installed_packages(self, deps: set[str]) -> set[str]:
+        out = set()
+        for d in deps:
+            if not self.is_provided_by_installed(d) and d not in self.get_all_packages():
+                out.add(d)
+        return out
+
     def is_installable(self, pkg: str) -> bool:
         """
         Returns True if a package can be installed using pacman.
