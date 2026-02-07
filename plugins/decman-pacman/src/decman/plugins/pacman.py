@@ -65,7 +65,7 @@ class Pacman(plugins.Plugin):
         for mod in modules:
             store["packages_for_module"].setdefault(mod.name, set())
 
-            packages = plugins.run_method_with_attribute(mod, "__pacman__packages__") or set()
+            packages = set().union(*plugins.run_methods_with_attribute(mod, "__pacman__packages__"))
 
             if store["packages_for_module"][mod.name] != packages:
                 mod._changed = True

@@ -48,8 +48,8 @@ class Plugin:
 
 def run_method_with_attribute(mod: module.Module, attribute: str) -> typing.Any:
     """
-    Runs the method with the given attribute in the module and returns its returned value.
-    Returns none if no such method is found.
+    Runs the first method with the given attribute in the module and returns its returned value.
+    Returns ``None`` if no such method is found.
 
     Only the first found method with the attribute is ran.
     """
@@ -62,6 +62,23 @@ def run_method_with_attribute(mod: module.Module, attribute: str) -> typing.Any:
             return attr()
 
     return None
+
+
+def run_methods_with_attribute(mod: module.Module, attribute: str) -> list[typing.Any]:
+    """
+    Runs all methods with the given attribute in the module and returns their returned values.
+    Returns an empty list if no such methods are found.
+    """
+    values = []
+    for name in dir(mod):
+        attr = getattr(mod, name)
+        if not callable(attr):
+            continue
+        func = getattr(attr, "__func__", attr)
+        if getattr(func, attribute, False):
+            values.append(attr())
+
+    return values
 
 
 def available_plugins() -> dict[str, Plugin]:
