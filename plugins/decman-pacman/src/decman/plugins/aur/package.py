@@ -269,15 +269,20 @@ class CustomPackage:
                 self.git_url, self.pkgbuild_directory, f"No PKGBUILD found in '{path}'."
             )
 
+        # Since makepkg cannot run as root even when just printing the SRCINFO,
+        # use a tmpdir and the user 'nobody'
         try:
             with tempfile.TemporaryDirectory(prefix="decman-pkgbuild-") as tmpdir:
-                tmp_path = pathlib.Path(tmpdir)
-                # Allow the user 'nobody' to use this directory
-                os.chmod(tmpdir, 0o777)
-                shutil.copy(path / "PKGBUILD", tmp_path / "PKGBUILD")
-                os.chmod(tmp_path / "PKGBUILD", 0o644)
+                shutil.copytree(path, tmpdir, dirs_exist_ok=True)
 
-                return self._run_makepkg_printsrcinfo(tmp_path, commands)
+                # Allow the user 'nobody' to use this directory
+                mode = 0o777
+                for root, dirs, files in os.walk(tmpdir):
+                    for name in dirs + files:
+                        os.chmod(os.path.join(root, name), mode)
+                os.chmod(tmpdir, 0o777)
+
+                return self._run_makepkg_printsrcinfo(pathlib.Path(tmpdir), commands)
         except OSError as error:
             raise PKGBUILDParseError(
                 self.git_url,
