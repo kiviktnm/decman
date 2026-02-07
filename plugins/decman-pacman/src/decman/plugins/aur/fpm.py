@@ -135,6 +135,9 @@ class ResolvedDependencies:
         self.foreign_build_dep_pkgs: set[str] = set()
         self.build_order: list[str] = []
         self.packages: dict[str, ForeignPackage] = {}
+        # maps dependency names to package names
+        self.providers: dict[str, list[str]] = {}
+        self.all_provided: set[str] = set()
         self._pkgbases_to_pkgs: dict[str, set[str]] = {}
         self._pkgs_to_pkgbases: dict[str, str] = {}
 
@@ -277,8 +280,11 @@ class ForeignPackageManager:
         if not output.prompt_confirm("Proceed?", default=True):
             raise ForeignPackageManagerError("Installing aborted by the user.")
 
+        needed_pacman_deps = self._pacman.filter_installed_packages(
+            resolved_dependencies.pacman_deps - resolved_dependencies.all_provided
+        )
         output.print_summary("Installing foreign package dependencies from pacman.")
-        self._pacman.install_dependencies(resolved_dependencies.pacman_deps)
+        self._pacman.install_dependencies(needed_pacman_deps)
 
         try:
             with PackageBuilder(
@@ -319,7 +325,8 @@ class ForeignPackageManager:
             output.print_summary("Installing foreign packages.")
             self._pacman.install_files(
                 package_files_to_install,
-                as_explicit=resolved_dependencies.foreign_pkgs,
+                as_explicit=resolved_dependencies.foreign_pkgs
+                - resolved_dependencies.foreign_dep_pkgs,
             )
         else:
             output.print_summary("No packages to install.")
@@ -378,6 +385,10 @@ class ForeignPackageManager:
                 raise ForeignPackageManagerError(
                     f"Failed to find '{pkgname}' from AUR or user provided packages."
                 )
+
+            for provided in info.provides:
+                result.providers.setdefault(provided, []).append(pkgname)
+                result.all_provided.add(provided)
 
             result.pacman_deps.update(info.native_dependencies(self._pacman))
             result.add_pkgbase_info(pkgname, info.pkgbase)

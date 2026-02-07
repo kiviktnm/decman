@@ -8,6 +8,12 @@ dependencies = [
   "requests",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-mock>=3.15.1",
+]
+
 [project.entry-points."decman.plugins"]
 pacman = "decman.plugins.pacman:Pacman"
 aur = "decman.plugins.aur:AUR"

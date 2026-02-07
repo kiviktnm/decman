@@ -208,7 +208,8 @@ class AUR(plugins.Plugin):
 
             output.print_summary("Upgrading foreign packages.")
             if not dry_run:
-                fpm.upgrade(upgrade_devel, force, self.ignored_packages)
+                # don't try to upgrade removed packages
+                fpm.upgrade(upgrade_devel, force, self.ignored_packages | actually_to_remove)
 
             to_install = (
                 (self.packages | custom_package_names)
