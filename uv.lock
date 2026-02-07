@@ -71,7 +71,7 @@ wheels = [
 
 [[package]]
 name = "decman"
-version = "1.0.0"
+version = "1.1.0"
 source = { editable = "." }
 
 [package.optional-dependencies]
@@ -107,7 +107,7 @@ dev = [
 
 [[package]]
 name = "decman-flatpak"
-version = "1.0.0"
+version = "1.1.0"
 source = { editable = "plugins/decman-flatpak" }
 dependencies = [
     { name = "decman" },
@@ -118,7 +118,7 @@ requires-dist = [{ name = "decman", editable = "." }]
 
 [[package]]
 name = "decman-pacman"
-version = "1.0.0"
+version = "1.1.0"
 source = { editable = "plugins/decman-pacman" }
 dependencies = [
     { name = "decman" },
@@ -147,7 +147,7 @@ dev = [
 
 [[package]]
 name = "decman-systemd"
-version = "1.0.0"
+version = "1.1.0"
 source = { editable = "plugins/decman-systemd" }
 dependencies = [
     { name = "decman" },

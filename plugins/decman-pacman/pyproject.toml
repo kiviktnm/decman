@@ -1,9 +1,9 @@
 [project]
 name = "decman-pacman"
-version = "1.0.0"
+version = "1.1.0"
 requires-python = ">=3.13"
 dependencies = [
-  "decman==1.0.0",
+  "decman==1.1.0",
   "pyalpm",
   "requests",
 ]

@@ -1,8 +1,8 @@
 [project]
 name = "decman-flatpak"
-version = "1.0.0"
+version = "1.1.0"
 requires-python = ">=3.13"
-dependencies = ["decman==1.0.0"]
+dependencies = ["decman==1.1.0"]
 
 [project.entry-points."decman.plugins"]
 flatpak = "decman.plugins.flatpak:Flatpak"
