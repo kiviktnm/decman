@@ -65,13 +65,13 @@ def test_process_modules_marks_changed_and_updates_store(monkeypatch, store, sys
 
     def fake_run_method(mod, attr):
         if mod is m1 and attr == "__systemd__units__":
-            return {"a.service"}
+            return [{"a.service"}]
         if mod is m1 and attr == "__systemd__user__units__":
-            return {"alice": {"u1.service"}}
+            return [{"alice": {"u1.service"}}]
         # m2 has no units
-        return None
+        return []
 
-    monkeypatch.setattr(systemd_mod.plugins, "run_method_with_attribute", fake_run_method)
+    monkeypatch.setattr(systemd_mod.plugins, "run_methods_with_attribute", fake_run_method)
 
     systemd.process_modules(store, {m1, m2})
 
@@ -96,12 +96,12 @@ def test_process_modules_no_change_second_run(monkeypatch, store, systemd):
 
     def fake_run_method(mod, attr):
         if attr == "__systemd__units__":
-            return {"a.service"}
+            return [{"a.service"}]
         if attr == "__systemd__user__units__":
-            return {"alice": {"u1.service"}}
-        return None
+            return [{"alice": {"u1.service"}}]
+        return []
 
-    monkeypatch.setattr(systemd_mod.plugins, "run_method_with_attribute", fake_run_method)
+    monkeypatch.setattr(systemd_mod.plugins, "run_methods_with_attribute", fake_run_method)
 
     # first run populates store
     systemd.process_modules(store, {m1})
@@ -109,7 +109,7 @@ def test_process_modules_no_change_second_run(monkeypatch, store, systemd):
 
     # new instance (fresh per-process in real usage)
     systemd2 = systemd_mod.Systemd()
-    monkeypatch.setattr(systemd_mod.plugins, "run_method_with_attribute", fake_run_method)
+    monkeypatch.setattr(systemd_mod.plugins, "run_methods_with_attribute", fake_run_method)
 
     systemd2.process_modules(store, {m1})
 

@@ -40,14 +40,14 @@ def test_process_modules_collects_packages_and_marks_changed(
     mod1 = FakeModule("mod1", {"pkg1", "pkg2"})
     mod2 = FakeModule("mod2", {"pkg3"})
 
-    def fake_run_method_with_attribute(mod: FakeModule, attr: str) -> set[str]:
+    def fake_run_methods_with_attribute(mod: FakeModule, attr: str) -> set[str]:
         assert attr == "__pacman__packages__"
-        return mod._packages
+        return [mod._packages]
 
     monkeypatch.setattr(
         pacman_plugin.plugins,
-        "run_method_with_attribute",
-        fake_run_method_with_attribute,
+        "run_methods_with_attribute",
+        fake_run_methods_with_attribute,
     )
 
     pacman.process_modules(store, {mod1, mod2})

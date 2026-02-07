@@ -99,9 +99,11 @@ class AUR(plugins.Plugin):
             store["aur_packages_for_module"].setdefault(mod.name, set())
             store["custom_packages_for_module"].setdefault(mod.name, set())
 
-            aur_packages = plugins.run_method_with_attribute(mod, "__aur__packages__") or set()
-            custom_packages = (
-                plugins.run_method_with_attribute(mod, "__custom__packages__") or set()
+            aur_packages = set().union(
+                *plugins.run_methods_with_attribute(mod, "__aur__packages__")
+            )
+            custom_packages = set().union(
+                *plugins.run_methods_with_attribute(mod, "__custom__packages__")
             )
             custom_package_strs = set(map(str, custom_packages))
 

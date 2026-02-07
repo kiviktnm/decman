@@ -93,8 +93,12 @@ class Systemd(plugins.Plugin):
             store["systemd_units_for_module"].setdefault(mod.name, set())
             store["systemd_user_units_for_module"].setdefault(mod.name, {})
 
-            units = plugins.run_method_with_attribute(mod, "__systemd__units__") or set()
-            user_units = plugins.run_method_with_attribute(mod, "__systemd__user__units__") or {}
+            units = set().union(*plugins.run_methods_with_attribute(mod, "__systemd__units__"))
+            user_units = {
+                k: v
+                for d in plugins.run_methods_with_attribute(mod, "__systemd__user__units__")
+                for k, v in d.items()
+            }
 
             if store["systemd_units_for_module"][mod.name] != units:
                 mod._changed = True

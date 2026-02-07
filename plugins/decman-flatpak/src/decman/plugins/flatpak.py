@@ -56,10 +56,14 @@ class Flatpak(plugins.Plugin):
             store["flatpaks_for_module"].setdefault(mod.name, set())
             store["user_flatpaks_for_module"].setdefault(mod.name, {})
 
-            packages = plugins.run_method_with_attribute(mod, "__flatpak__packages__") or set()
-            user_packages = (
-                plugins.run_method_with_attribute(mod, "__flatpak__user__packages__") or {}
+            packages = set().union(
+                *plugins.run_methods_with_attribute(mod, "__flatpak__packages__")
             )
+            user_packages = {
+                k: v
+                for d in plugins.run_methods_with_attribute(mod, "__flatpak__user__packages__")
+                for k, v in d.items()
+            }
 
             if store["flatpaks_for_module"][mod.name] != packages:
                 mod._changed = True

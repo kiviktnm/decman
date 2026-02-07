@@ -46,15 +46,15 @@ def test_process_modules_collects_aur_and_custom_packages_and_marks_changed(
     mod1 = FakeModule("mod1", {"aur1", "aur2"}, {cp1})
     mod2 = FakeModule("mod2", {"aur3"}, {cp2})
 
-    def fake_run_method_with_attribute(mod: FakeModule, attr: str):
+    def fake_run_methods_with_attribute(mod: FakeModule, attr: str):
         if attr == "__aur__packages__":
-            return mod._aur_pkgs
+            return [mod._aur_pkgs]
         if attr == "__custom__packages__":
-            return mod._custom_pkgs
-        return None
+            return [mod._custom_pkgs]
+        return []
 
     monkeypatch.setattr(
-        aur_plugin.plugins, "run_method_with_attribute", fake_run_method_with_attribute
+        aur_plugin.plugins, "run_methods_with_attribute", fake_run_methods_with_attribute
     )
 
     aur.process_modules(store, {mod1, mod2})
