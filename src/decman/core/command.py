@@ -218,9 +218,9 @@ def check_run_result(
     code, output = result
     if code != 0:
         if include_output:
-            raise errors.CommandFailedError(command, output)
+            raise errors.CommandFailedError(command, code, output)
         else:
-            raise errors.CommandFailedError(command, None)
+            raise errors.CommandFailedError(command, code, None)
     return code, output
 
 
