@@ -245,7 +245,11 @@ def test_apply_respects_ignored_packages_and_protects_their_dependencies(
     assert "ignored-aur" not in (fake_pm.remove_called_with or set())
 
     # Upgrade called with flags and ignored set
-    assert fake_fpm.upgrade_args == (True, True, aur.ignored_packages)
+    assert fake_fpm.upgrade_args == (
+        True,
+        True,
+        aur.ignored_packages | (fake_pm.remove_called_with or set()),
+    )
 
     # to_install = (packages | custom_names) - installed_foreign - ignored
     #            = {"desired-aur", "custom-aur"} - {"ignored-aur", "dep-of-ignored", "orphan-foreign"}
