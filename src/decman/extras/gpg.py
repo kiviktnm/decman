@@ -100,6 +100,7 @@ class _GPGInterface:
             "--no-tty",
             "--import-ownertrust",
         ]
+        # use subprocess manually since decman exposed functions don't allow setting input
         p = subprocess.run(
             cmd,
             input=data,
@@ -110,7 +111,7 @@ class _GPGInterface:
             check=False,
         )
         if p.returncode != 0:
-            raise CommandFailedError(cmd, p.stdout)
+            raise CommandFailedError(cmd, p.returncode, p.stdout)
 
     def delete_keys(self, fingerprints: list[str]):
         decman.prg(

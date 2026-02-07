@@ -195,7 +195,7 @@ def test_apply_returns_false_on_command_failure(monkeypatch: pytest.MonkeyPatch)
             pass
 
         def get_native_explicit(self) -> set[str]:
-            raise pacman_plugin.errors.CommandFailedError(["get_native_explicit"], "boom")
+            raise pacman_plugin.errors.CommandFailedError(["get_native_explicit"], 10, "boom")
 
     monkeypatch.setattr(pacman_plugin, "PacmanInterface", FailingPM)
 

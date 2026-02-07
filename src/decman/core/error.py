@@ -74,13 +74,17 @@ class CommandFailedError(Exception):
 
     Attributes:
         command (list[str]): The command that caused the exception.
+        exit_code (int): The exit code of the command
         output (str|None): Output of the command.
     """
 
-    def __init__(self, command: list[str], output: str | None) -> None:
+    def __init__(self, command: list[str], exit_code: int, output: str | None) -> None:
         self.command = shlex.join(command)
+        self.exit_code = exit_code
         if output:
             self.output: str | None = output.strip()
         else:
             self.output = None
-        super().__init__(f"Command '{self.command}' returned with a non-zero exit code.")
+        super().__init__(
+            f"Command '{self.command}' returned with a non-zero exit code {self.exit_code}."
+        )
