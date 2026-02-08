@@ -160,6 +160,8 @@ Decman has built-in functionality for managing files and directories. Additional
 - [aur](/docs/aur.md)
 - [flatpak](/docs/flatpak.md)
 
+Additionally management of [users, groups and PGP keys](/docs/extras.md) is provided by built-in modules.
+
 Plugins can be disabled if desired and flatpaks are disabled by default.
 
 Please read the documentation to understand the functionality of those plugins in detail. Here are quick examples to show what the default plugins are capable of.
@@ -408,7 +410,7 @@ import decman
 
 if socket.gethostname() == "laptop":
     # add brightness controls to your laptop
-    decman.pacman.packages += ["brightnessctl"]
+    decman.pacman.packages |= {"brightnessctl"}
 ```
 
 ## Alternatives
