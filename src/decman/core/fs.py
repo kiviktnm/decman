@@ -8,6 +8,20 @@ import decman.core.error as errors
 import decman.core.output as output
 
 
+def create_missing_dirs(dirct: str, uid: typing.Optional[int], gid: typing.Optional[int]):
+    if not os.path.isdir(dirct):
+        parent_dir = os.path.dirname(dirct)
+        if not os.path.isdir(parent_dir):
+            create_missing_dirs(parent_dir, uid, gid)
+
+        output.print_debug(f"Creating directory '{dirct}'.")
+        os.mkdir(dirct)
+
+        if uid is not None:
+            assert gid is not None, "If uid is set, then gid is set."
+            os.chown(dirct, uid, gid)
+
+
 class File:
     """
     Declarative file specification describing how a file should be materialized at a target path.
@@ -129,21 +143,6 @@ class File:
 
         target_directory = os.path.dirname(target)
 
-        def create_missing_dirs(dirct: str, uid: typing.Optional[int], gid: typing.Optional[int]):
-            if not os.path.isdir(dirct):
-                parent_dir = os.path.dirname(dirct)
-                if not os.path.isdir(parent_dir):
-                    create_missing_dirs(parent_dir, uid, gid)
-
-                output.print_debug(
-                    f"While installing file '{target}' creating directory '{dirct}'."
-                )
-                os.mkdir(dirct)
-
-                if uid is not None:
-                    assert gid is not None, "If uid is set, then gid is set."
-                    os.chown(dirct, uid, gid)
-
         if not dry_run:
             create_missing_dirs(target_directory, self.uid, self.gid)
 
@@ -217,6 +216,95 @@ class File:
             with open(target, "wt", encoding=self.encoding) as file:
                 file.write(content)
         return True
+
+
+class Symlink:
+    """
+    Declarative specification for linking a source to a destination.
+
+    Parameters:
+        ``target``:
+            Path to an existing file to serve as the target of the symlink.
+
+        ``owner``:
+            User name to own created parent directories.
+
+        ``group``:
+            Group name to own created parent directories.
+
+    Raises:
+        ``UserNotFoundError``
+            If ``owner`` does not exist on the system.
+
+        ``GroupNotFoundError``
+            If ``group`` does not exist on the system.
+    """
+
+    def __init__(
+        self,
+        target: str,
+        owner: typing.Optional[str] = None,
+        group: typing.Optional[str] = None,
+    ):
+        self.target = target
+        self.owner = owner
+        self.group = group
+        self.uid = None
+        self.gid = None
+
+        if owner is not None:
+            self.uid, self.gid = command.get_user_info(owner)
+
+        if group is not None:
+            try:
+                self.gid = grp.getgrnam(group).gr_gid
+            except KeyError as error:
+                raise errors.GroupNotFoundError(group) from error
+
+    def link_to(self, link_name: str, dry_run: bool = False) -> bool:
+        """
+        Creates a symlink ``link_name`` -> ``target``.
+
+        Parameters:
+            ``link_name``:
+                Path to the target file on disk.
+
+        Returns:
+            True if a new link was/would be created or modified.
+            False if the existing link already contained the desired target.
+
+        Raises:
+            FSSymlinkFailedError
+                If creating the symlink failed due to directory creation, file I/O, permission
+                changes, or ownership changes fail (e.g. permission denied, missing parent path
+                components, I/O errors).
+        """
+
+        def _is_symlink_to(path: str, target: str) -> bool:
+            if not os.path.islink(path):
+                return False
+            return os.readlink(path) == target
+
+        output.print_debug(f"Checking symlink {link_name}.")
+        try:
+            if _is_symlink_to(link_name, self.target):
+                return False
+
+            if dry_run:
+                return True
+
+            target_directory = os.path.dirname(link_name)
+            create_missing_dirs(target_directory, self.uid, self.gid)
+
+            if os.path.lexists(link_name):
+                os.unlink(link_name)
+
+            os.symlink(self.target, link_name)
+            return True
+        except OSError as error:
+            raise errors.FSSymlinkFailedError(
+                link_name, self.target, error.strerror or str(error)
+            ) from error
 
 
 class Directory:

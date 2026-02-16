@@ -105,7 +105,7 @@ class Module:
         """
         return {}
 
-    def symlinks(self) -> dict[str, str]:
+    def symlinks(self) -> dict[str, str | fs.Symlink]:
         """
         Override this method to return symlinks that should be created as a part of this
         module.

@@ -3,7 +3,7 @@ import typing
 # Re-exports
 from decman.core.command import prg
 from decman.core.error import SourceError
-from decman.core.fs import Directory, File
+from decman.core.fs import Directory, File, Symlink
 from decman.core.module import Module
 from decman.core.store import Store
 from decman.plugins import Plugin, available_plugins
@@ -51,6 +51,7 @@ __all__ = [
     "SourceError",
     "File",
     "Directory",
+    "Symlink",
     "Module",
     "Store",
     "Plugin",
@@ -63,7 +64,7 @@ __all__ = [
 # -----------------------------------------
 files: dict[str, File] = {}
 directories: dict[str, Directory] = {}
-symlinks: dict[str, str] = {}
+symlinks: dict[str, str | Symlink] = {}
 modules: list[Module] = []
 execution_order: list[str] = [
     "files",
