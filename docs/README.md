@@ -127,7 +127,7 @@ The architecture of the computer's CPU. Currently, this is only used by the AUR 
 decman.config.arch = "x86_64"
 ```
 
-## Files and directories
+## Files, directories and symlink
 
 Decman functions as a dotfile manager. It will install the defined files, directories and symlinks to their destinations. You can set file permissions, owners as well as define variables that will be substituted in the installed files. Decman keeps track of all files it creates and when a file is no longer present in your source, it will be also removed from its destination. This helps with keeping your system clean. However, decman won't remove directories as they might contain files that weren't created by decman.
 
@@ -208,7 +208,7 @@ Ownership, permissions, and parent directories are enforced on creation. Missing
 
 ### Symlink
 
-Declare a link to a target. Missing directories are created.
+Declare a link to a target. Missing directories are created. If you need to configure parent folder permissions, use `Symlink` objects.
 
 ```py
 import decman
@@ -216,6 +216,9 @@ import decman
 # Replaces sudo with doas
 # /usr/bin/sudo -> /usr/bin/doas
 decman.symlinks["/usr/bin/sudo"] = "/usr/bin/doas"
+
+# I don't know why would you ever do this but as an example
+decman.symlinks["/home/me/.bin/mydoas"] = decman.Symlink("/usr/bin/doas", owner="me", group="users")
 ```
 
 ## Modules
@@ -351,9 +354,10 @@ def file_variables(self) -> dict[str, str]:
 Defines symlinks fro the module.
 
 ```py
-def symlinks(self) -> dict[str, str]:
+def symlinks(self) -> dict[str, str | Symlink]:
     return {
         "/etc/resolv.conf": "/run/systemd/resolve/resolv.conf",
+        "/home/me/.config/app/file.conf": Symlink("/home/me/.file.conf", owner="me"),
     }
 ```
 
