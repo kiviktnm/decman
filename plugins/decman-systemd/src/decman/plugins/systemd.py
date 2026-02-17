@@ -248,7 +248,7 @@ class Systemd(plugins.Plugin):
         """
 
         cmd = self.commands.user_daemon_reload(user)
-        command.prg(cmd, pty=config.debug_output)
+        command.prg(cmd, pty=config.debug_output, check=False)
 
     def reload_daemon(self):
         """
