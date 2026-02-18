@@ -300,6 +300,9 @@ class Symlink:
                 os.unlink(link_name)
 
             os.symlink(self.target, link_name)
+            if self.uid is not None:
+                assert self.gid is not None, "If uid is set, then gid is set."
+                os.chown(link_name, self.uid, self.gid, follow_symlinks=False)
             return True
         except OSError as error:
             raise errors.FSSymlinkFailedError(
