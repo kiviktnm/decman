@@ -231,7 +231,7 @@ class ForeignPackageManager:
                     f"Failed to find '{pkg}' from AUR or user provided packages."
                 )
 
-            if self.should_upgrade_package(pkg, ver, info.version, upgrade_devel):
+            if self.should_upgrade_package(ver, info.version):
                 if pkg in all_explicit_foreign_pkgs:
                     as_explicit.append(pkg)
                 else:
@@ -426,18 +426,12 @@ class ForeignPackageManager:
 
     def should_upgrade_package(
         self,
-        package: str,
         installed_version: str,
         fetched_version: str,
-        upgrade_devel=False,
     ) -> bool:
         """
         Returns True if a package should be upgraded.
         """
-
-        if upgrade_devel and is_devel(package):
-            output.print_debug(f"Package {package} is devel package. It should be upgraded.")
-            return True
 
         try:
             cmd = self._commands.compare_versions(installed_version, fetched_version)
