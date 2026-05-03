@@ -183,7 +183,7 @@ from decman import Directory
 import decman
 
 # To declare a directory, add it's target path and create a Directory object
-decman.directories["/home/me/.config/nvim"] = File(
+decman.directories["/home/me/.config/nvim"] = Directory(
     source_directory="./dotfiles/nvim",
     bin_files=False,
     encoding="utf-8",
