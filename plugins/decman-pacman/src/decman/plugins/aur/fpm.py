@@ -454,6 +454,12 @@ class ForeignPackageManager:
             raise ForeignPackageManagerError("Failed to compare versions using vercmp.") from error
 
 
+def _last_non_empty_line(text: str) -> str:
+    return next(
+        (line.strip() for line in reversed(text.splitlines()) if line.strip()), ""
+    )
+
+
 class PackageBuilder:
     """
     Used for building packages in a chroot.
@@ -642,7 +648,7 @@ class PackageBuilder:
                 if p not in self._pkgs_in_chroot:
                     cmd = self._commands.resolve_real_name_chroot(self.chroot_dir, p)
                     _, cmd_output = command.check_run_result(cmd, command.run(cmd))
-                    real_pkgname = cmd_output.strip()
+                    real_pkgname = _last_non_empty_line(cmd_output)
                     to_remove.add(real_pkgname)
 
             if to_remove:
