@@ -297,10 +297,13 @@ class CustomPackage:
                 tmp_path = pathlib.Path(tmpdir)
                 # Allow the user 'nobody' to use this directory
                 os.chmod(tmpdir, 0o777)
+                cwd = os.getcwd()
                 try:
+                    os.chdir(tmpdir)
                     cmd = commands.git_clone(self.git_url, tmpdir)
                     # Use the user nobody, since that will be used later to generate SRCINFO
                     command.prg(cmd, user="nobody", pty=config.debug_output)
+                    os.chdir(cwd)
                 except errors.CommandFailedError as error:
                     raise PKGBUILDParseError(
                         self.git_url,
